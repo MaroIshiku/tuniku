@@ -1,0 +1,42 @@
+import { describe, expect, it } from "vitest";
+import YAML from "yaml";
+import {
+  detectPortCollisions,
+  generateCompose,
+  inspectCompose,
+  manualRoutingFragment,
+  validateCompose
+} from "../../src/server/compose/generator.js";
+
+describe("Compose Assistant", () => {
+  it("generates parseable Compose YAML with five output sections", () => {
+    const result = generateCompose({
+      taskType: "new_gluetun_setup",
+      provider: "protonvpn",
+      vpnType: "wireguard",
+      wireguardPrivateKey: "do-not-persist",
+      includeSecrets: false
+    });
+    expect(validateCompose(result.snippets.compose).valid).toBe(true);
+    expect(YAML.parse(result.snippets.compose).services.gluetun.image).toBe("qmcgaw/gluetun:latest");
+    expect(result.snippets.env).toContain("WIREGUARD_PRIVATE_KEY=[REDACTED]");
+    expect(result.detectedConfiguration).toBeDefined();
+    expect(result.recommendedChange).toBeTruthy();
+    expect(result.manualSteps).toHaveLength(6);
+    expect(result.securityWarnings.length).toBeGreaterThan(0);
+  });
+
+  it("generates the manual network namespace and Gluetun port mapping", () => {
+    const fragment = manualRoutingFragment("example", "example/app:latest", 8080, 8080);
+    const parsed = YAML.parse(fragment);
+    expect(parsed.services.example.network_mode).toBe("service:gluetun");
+    expect(parsed.services.gluetun.ports).toEqual(["8080:8080/tcp"]);
+  });
+
+  it("detects duplicate ports and redacts inspected secrets", () => {
+    expect(detectPortCollisions([8080, 9000], [8080, 8081])).toEqual([8080]);
+    const inspected = inspectCompose("services:\n  gluetun:\n    environment:\n      OPENVPN_PASSWORD: private\n");
+    expect(inspected.valid).toBe(true);
+    expect(inspected.redacted).not.toContain("private");
+  });
+});

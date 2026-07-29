@@ -1,0 +1,27 @@
+{
+  "name": "Tuniku — Gluetun Web Interface",
+  "short_name": "Tuniku",
+  "description": "A secure, self-hosted Gluetun control dashboard and Compose assistant.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFBFF",
+  "theme_color": "#6F55C8",
+  "icons": [
+    {
+      "src": "/assets/icons/tuniku-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/tuniku-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icons/tuniku-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "app_id": "tuniku",
+  "app_name": "Tuniku",
+  "app_subtitle": "Gluetun Web Interface",
+  "app_symbol": "vpn_lock",
+  "app_logo": {
+    "src": "/assets/logos/tuniku.png",
+    "favicon": "/assets/logos/tuniku.png",
+    "alt": "",
+    "use_as_header_symbol": true,
+    "use_as_favicon": true,
+    "use_as_pwa_icon": true,
+    "use_as_about_symbol": true,
+    "use_as_profile_sheet_symbol": true,
+    "use_as_empty_state_symbol": true
+  },
+  "primary_purpose": "Observe and control supported Gluetun functions and generate safe manual Compose guidance.",
+  "main_sections": ["Overview", "VPN Control", "Ports", "Compose Assistant"],
+  "navigation_complexity": "complex",
+  "default_theme": "lavender",
+  "default_mode": "system",
+  "has_account": true,
+  "first_run_setup": {
+    "enabled": true,
+    "route": "/setup",
+    "require_setup_secret": true,
+    "setup_secret_file_env": "TUNIKU_REGISTRATION_SECRET_FILE",
+    "setup_secret_env": "ISHIKU_SETUP_SECRET",
+    "public_registration_after_first_admin": false
+  },
+  "readme_profile": {
+    "repository_name": "tuniku",
+    "github_owner": "MaroIshiku",
+    "public_repository": true,
+    "short_description": "Tuniku is a secure, self-hosted Gluetun web interface.",
+    "docker_image": "ghcr.io/maroishiku/tuniku:latest",
+    "license": "MIT",
+    "codex_notice_enabled": true
+  }
+}

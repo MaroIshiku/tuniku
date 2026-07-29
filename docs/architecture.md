@@ -1,0 +1,61 @@
+# Architecture
+
+Tuniku is one container with a typed React frontend, a Fastify REST API, a
+Gluetun adapter, Compose generation domain logic, and SQLite persistence.
+Gluetun is always a separate service.
+
+## Boundaries
+
+```text
+browser -> Tuniku UI -> Tuniku REST API -> Gluetun adapter -> Control Server
+                         |                 |
+                         |                 +-- documented /v1 routes only
+                         +-- SQLite
+                         +-- generation-only Compose Assistant
+```
+
+Tuniku has no code path for Docker container creation, restart, update, delete,
+network mutation, volume mutation, image mutation, or `exec`. It never mounts a
+host Compose file and never writes one.
+
+## Gluetun adapter
+
+Read routes:
+
+- `GET /v1/vpn/status`
+- `GET /v1/vpn/settings`
+- `GET /v1/publicip/ip`
+- `GET /v1/dns/status`
+- `GET /v1/updater/status`
+- `GET /v1/portforward`
+
+Allow-listed mutations:
+
+- `PUT /v1/vpn/status`
+- `PUT /v1/dns/status`
+- `PUT /v1/updater/status`
+- `PUT /v1/portforward`
+
+The adapter validates schemas, distinguishes authentication, authorization,
+timeout, TLS, unreachable, unsupported, and schema-change failures, and never
+returns optimistic success.
+
+## Persistence
+
+Migration version 1 contains:
+
+- Local administrator accounts.
+- Server-side sessions.
+- Gluetun instance preferences and encrypted optional credentials.
+- Local port labels.
+- Redacted Compose drafts.
+- Redacted audit events.
+
+All instance-related entities use an instance identifier even though version 1
+shows one active instance.
+
+## Polling
+
+The server refreshes the configured Gluetun instance every 10 seconds. The
+browser requests cached state every 10 seconds while visible and every 60
+seconds in the background. Data older than 45 seconds is marked stale.

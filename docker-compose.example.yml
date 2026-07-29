@@ -1,0 +1,53 @@
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      VPN_SERVICE_PROVIDER: ${VPN_SERVICE_PROVIDER}
+      VPN_TYPE: ${VPN_TYPE:-wireguard}
+      HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE: ${HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE}
+    volumes:
+      - gluetun_data:/gluetun
+    restart: unless-stopped
+
+  tuniku:
+    build: .
+    image: ghcr.io/maroishiku/tuniku:latest
+    ports:
+      - "${TUNIKU_BIND_ADDRESS:-0.0.0.0}:${TUNIKU_PORT:-8080}:8080/tcp"
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      TUNIKU_DATA_PATH: /data
+      TUNIKU_REGISTRATION_SECRET_FILE: /run/secrets/tuniku_registration_secret
+      TUNIKU_SESSION_SECRET_FILE: /run/secrets/tuniku_session_secret
+      TUNIKU_ENCRYPTION_KEY_FILE: /run/secrets/tuniku_encryption_key
+      TUNIKU_SECURE_COOKIES: ${TUNIKU_SECURE_COOKIES:-false}
+      TUNIKU_TRUSTED_PROXY_COUNT: ${TUNIKU_TRUSTED_PROXY_COUNT:-0}
+    secrets:
+      - tuniku_registration_secret
+      - tuniku_session_secret
+      - tuniku_encryption_key
+    volumes:
+      - tuniku_data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+
+volumes:
+  tuniku_data:
+  gluetun_data:
+
+secrets:
+  tuniku_registration_secret:
+    file: ./secrets/tuniku_registration_secret.txt
+  tuniku_session_secret:
+    file: ./secrets/tuniku_session_secret.txt
+  tuniku_encryption_key:
+    file: ./secrets/tuniku_encryption_key.txt

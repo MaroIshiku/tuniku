@@ -1,0 +1,21 @@
+name: Tuniku
+subtitle: Gluetun Web Interface
+version: 0.1.0
+build_date: development
+git_sha: development
+capabilities:
+  - gluetun_status
+  - gluetun_allow_listed_control
+  - compose_generation
+  - port_overview
+  - local_admin_authentication
+required_services:
+  - tuniku
+  - gluetun
+optional_integrations:
+  - restricted_read_only_docker_socket_proxy
+data_paths:
+  root: /data
+  database: /data/tuniku.db
+  logs: /data/logs
+healthcheck: /health

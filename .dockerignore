@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.github
+tests
+test-results
+coverage
+data
+secrets
+.env
+*.db*

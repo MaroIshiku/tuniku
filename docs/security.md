@@ -1,0 +1,49 @@
+# Security model
+
+## Protected assets
+
+- Tuniku administrator sessions and password hashes.
+- Gluetun Control Server credentials.
+- VPN provider credentials and WireGuard private keys.
+- Snippets containing secret values.
+- Local network and deployment topology.
+
+## Authentication
+
+First-run registration requires a server-side setup secret. The first
+administrator password must contain at least 12 characters and differ from the
+setup secret, username, app name, and common placeholder passwords.
+
+Passwords use Argon2id. Sessions use random opaque tokens, store only their
+SHA-256 hash in SQLite, and use signed HttpOnly SameSite=Lax cookies. Mutating
+requests require the session-specific CSRF token.
+
+## Credential storage
+
+Gluetun credentials are ephemeral by default. Explicit persistence requires a
+separate encryption key and uses AES-256-GCM with a random nonce. Stored
+credentials are never returned to the browser.
+
+## Upstream validation
+
+Tuniku accepts only HTTP and HTTPS base URLs without embedded credentials,
+queries, or fragments. It resolves the destination and blocks cloud metadata,
+link-local, unspecified, multicast, and loopback addresses by default.
+Private Docker and LAN addresses remain valid because Gluetun is normally
+self-hosted.
+
+Loopback can be allowed only with the explicit
+`TUNIKU_ALLOW_LOOPBACK_UPSTREAM=true` advanced setting.
+
+## Control allow-list
+
+No caller supplies an arbitrary Gluetun method or path. Every operation maps to
+a compile-time allow-list. Provider, VPN type, server location, credential,
+published port, Docker Secret, and foreign-container changes are generation
+tasks rather than live mutations.
+
+## Deployment
+
+The example container runs as the unprivileged `node` user, supports a
+read-only root filesystem, writes only `/data` and `/tmp`, and has no Docker
+socket. Use a trusted HTTPS reverse proxy for access outside a trusted network.
