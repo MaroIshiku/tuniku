@@ -42,7 +42,7 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.56.1",
     "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^24.10.0",
+    "@types/node": "^26.1.2",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^5.1.1",
