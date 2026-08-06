@@ -45,11 +45,11 @@ export function SetupView(props: { missingConfiguration?: string[]; onComplete: 
         <label className="text-field"><span>{t("setupSecret")}</span><input autoFocus required type="password" autoComplete="one-time-code" value={form.setupSecret} onChange={(event) => update("setupSecret", event.target.value)} /><small>{t("setupSecretHint")}</small></label>
         <div className="field-grid">
           <label className="text-field"><span>{t("displayName")}</span><input required autoComplete="name" value={form.displayName} onChange={(event) => update("displayName", event.target.value)} /></label>
-          <label className="text-field"><span>{t("username")}</span><input required autoComplete="username" value={form.username} onChange={(event) => update("username", event.target.value)} /></label>
+          <label className="text-field"><span>{t("adminUsername")}</span><input required autoComplete="username" value={form.username} onChange={(event) => update("username", event.target.value)} /></label>
         </div>
         <label className="text-field"><span>{t("emailOptional")}</span><input type="email" autoComplete="email" value={form.email} onChange={(event) => update("email", event.target.value)} /></label>
         <div className="field-grid">
-          <label className="text-field"><span>{t("password")}</span><input required minLength={12} type="password" autoComplete="new-password" value={form.password} onChange={(event) => update("password", event.target.value)} /></label>
+          <label className="text-field"><span>{t("adminPassword")}</span><input required minLength={12} type="password" autoComplete="new-password" value={form.password} onChange={(event) => update("password", event.target.value)} /></label>
           <label className="text-field"><span>{t("passwordConfirm")}</span><input required minLength={12} type="password" autoComplete="new-password" value={form.passwordConfirm} onChange={(event) => update("passwordConfirm", event.target.value)} /></label>
         </div>
         <button className="button button-filled auth-submit" type="submit" disabled={busy}>{busy ? t("loading") : t("createAdmin")}</button>

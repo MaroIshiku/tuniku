@@ -4,13 +4,13 @@ test.describe.configure({ mode: "serial" });
 
 test("first-run setup, Gluetun connection, control, ports, and Compose generation", async ({ page }, testInfo) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Set up the administrator" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Set up admin" })).toBeVisible();
   await page.getByLabel("Setup secret").fill("tuniku-e2e-setup-secret");
   await page.getByLabel("Display name").fill("Tuniku Admin");
-  await page.getByLabel("Username").fill("admin");
-  await page.getByLabel("Password", { exact: true }).fill("a unique e2e admin password");
+  await page.getByLabel("Admin username").fill("admin");
+  await page.getByLabel("Admin password", { exact: true }).fill("a unique e2e admin password");
   await page.getByLabel("Repeat password").fill("a unique e2e admin password");
-  await page.getByRole("button", { name: "Create administrator" }).click();
+  await page.getByRole("button", { name: "Create admin account" }).click();
 
   await expect(page.getByRole("heading", { name: "Configure Gluetun" })).toBeVisible();
   await page.getByRole("button", { name: "Configure Gluetun" }).click();
