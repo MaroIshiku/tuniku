@@ -9,3 +9,18 @@ data
 secrets
 .env
 *.db*
+
+# ishiku workspace boundary
+.git
+.env
+.env.*
+!.env.example
+private
+planning
+references
+source-assets
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+.ishiku/reports

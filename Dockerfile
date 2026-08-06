@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS build
+FROM node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -7,9 +7,12 @@ COPY vite.config.ts vitest.config.ts ./
 COPY design-system ./design-system
 COPY public ./public
 COPY src ./src
-RUN npm run build
+RUN npm run build \
+    && npm prune --omit=dev \
+    && mkdir -p /runtime-data \
+    && chown -R 1000:1000 /runtime-data
 
-FROM node:22-bookworm-slim AS runtime
+FROM gcr.io/distroless/nodejs22-debian12:nonroot@sha256:13593b7570658e8477de39e2f4a1dd25db2f836d68a0ba771251572d23bb4f8e AS runtime
 ARG VERSION=0.1.0
 ARG BUILD_DATE=development
 ARG GIT_SHA=development
@@ -26,13 +29,14 @@ LABEL org.opencontainers.image.title="Tuniku" \
       org.opencontainers.image.revision="${GIT_SHA}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-COPY --from=build /app/dist ./dist
-RUN mkdir -p /data && chown -R node:node /app /data
-USER node
+COPY --from=build /usr/local/bin/node /nodejs/bin/node
+COPY --from=build --chown=1000:1000 /runtime-data /data
+COPY --from=build --chown=1000:1000 /app/package.json /app/package-lock.json ./
+COPY --from=build --chown=1000:1000 /app/node_modules ./node_modules
+COPY --from=build --chown=1000:1000 /app/dist ./dist
+USER 1000:1000
 EXPOSE 8080
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
-CMD ["node", "dist/server/index.js"]
+  CMD ["/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+CMD ["dist/server/index.js"]

@@ -1,7 +1,7 @@
 export type Theme = "lavender" | "mint" | "sky" | "amber" | "rose" | "graphite";
 export type Mode = "system" | "light" | "dark";
 export type Section = "overview" | "control" | "ports" | "assistant";
-export type Language = "en" | "de";
+export type Language = "en";
 
 export interface User {
   id: string;

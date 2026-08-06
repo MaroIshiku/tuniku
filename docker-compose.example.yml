@@ -1,6 +1,6 @@
 services:
   gluetun:
-    image: qmcgaw/gluetun:latest
+    image: ghcr.io/qdm12/gluetun:v3.41.1
     container_name: gluetun
     cap_add:
       - NET_ADMIN
@@ -16,7 +16,7 @@ services:
 
   tuniku:
     build: .
-    image: ghcr.io/maroishiku/tuniku:latest
+    image: ${TUNIKU_IMAGE:-ghcr.io/maroishiku/tuniku:0.1.0}
     ports:
       - "${TUNIKU_BIND_ADDRESS:-0.0.0.0}:${TUNIKU_PORT:-8080}:8080/tcp"
     environment:

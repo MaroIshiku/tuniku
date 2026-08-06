@@ -132,7 +132,7 @@ export function SettingsSheet(props: {
         </div>
         <label className="field-label">{t("language")}</label>
         <div className="segmented-control">
-          {(["en", "de"] as Language[]).map((language) => <button type="button" className={props.language === language ? "active" : ""} key={language} onClick={() => props.onLanguage(language)}>{t(language)}</button>)}
+          {(["en"] as Language[]).map((language) => <button type="button" className={props.language === language ? "active" : ""} key={language} onClick={() => props.onLanguage(language)}>{t(language)}</button>)}
         </div>
       </section>
 
