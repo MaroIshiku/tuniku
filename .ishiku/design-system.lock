@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "contract": {
+    "id": "ishiku-design-5",
+    "version": "5.0.0",
+    "sha256": "46628d1b69e5c27c3a339a31afbb7c3bed8d148b2fb0916c975407d86e9a1516"
+  },
+  "application": {
+    "id": "tuniku",
+    "authentication": "standard-account",
+    "locale": "en"
+  },
+  "implementation": [
+    {
+      "path": "design-system/components.css",
+      "sha256": "6c244cdbdd38fe3823be372e286e22e2b6edcae36b103a043645d25b1e1ac679",
+      "roles": [
+        "components"
+      ]
+    },
+    {
+      "path": "design-system/theme-controller.js",
+      "sha256": "6e98d9d998b8fb57cc37f8291d7beaadec7790a737b0374388793f58f703f686",
+      "roles": [
+        "theme-controller"
+      ]
+    },
+    {
+      "path": "design-system/tokens.css",
+      "sha256": "3cad920738ec3fb21ba8b0250c0f5a5bd541b795ed750f34eb9fd7eb75e61faf",
+      "roles": [
+        "tokens"
+      ]
+    },
+    {
+      "path": "icons/psu-icons.svg",
+      "sha256": "194bae32660f50af3938a72c1141f138e5c4150ca5634c3c036564a76e92bd94",
+      "roles": [
+        "icons"
+      ]
+    },
+    {
+      "path": "src/client/lib/theme.ts",
+      "sha256": "809423cee0e384570751ca811b4e80a5ab4e73becf7a9cfd3d99505a443619ca",
+      "roles": [
+        "theme-controller"
+      ]
+    }
+  ]
+}
