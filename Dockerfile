@@ -1,5 +1,8 @@
-FROM node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS build
+FROM node:24-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS build
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends g++ make python3 \
+    && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json tsconfig.client.json tsconfig.server.json ./
@@ -12,8 +15,8 @@ RUN npm run build \
     && mkdir -p /runtime-data \
     && chown -R 1000:1000 /runtime-data
 
-FROM gcr.io/distroless/nodejs22-debian12:nonroot@sha256:13593b7570658e8477de39e2f4a1dd25db2f836d68a0ba771251572d23bb4f8e AS runtime
-ARG VERSION=0.1.0
+FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:774b7d020b24214835769e24c3544835526cd0288f0b094eae48e8b2c2429a79 AS runtime
+ARG VERSION=0.2.0
 ARG BUILD_DATE=development
 ARG GIT_SHA=development
 ENV NODE_ENV=production \
@@ -29,7 +32,6 @@ LABEL org.opencontainers.image.title="Tuniku" \
       org.opencontainers.image.revision="${GIT_SHA}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 WORKDIR /app
-COPY --from=build /usr/local/bin/node /nodejs/bin/node
 COPY --from=build --chown=1000:1000 /runtime-data /data
 COPY --from=build --chown=1000:1000 /app/package.json /app/package-lock.json ./
 COPY --from=build --chown=1000:1000 /app/node_modules ./node_modules

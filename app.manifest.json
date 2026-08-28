@@ -4,8 +4,8 @@
   "app_subtitle": "Gluetun Web Interface",
   "app_symbol": "vpn_lock",
   "app_logo": {
-    "src": "/assets/logos/tuniku.png",
-    "favicon": "/assets/logos/tuniku.png",
+    "src": "/assets/icons/icon-512.png",
+    "favicon": "/assets/icons/favicon-32.png",
     "alt": "",
     "use_as_header_symbol": true,
     "use_as_favicon": true,

@@ -51,7 +51,7 @@ export const config = {
     "/run/secrets/tuniku_encryption_key"
   ),
   build: {
-    version: process.env.TUNIKU_VERSION || "0.1.0",
+    version: process.env.TUNIKU_VERSION || "0.2.0",
     date: process.env.TUNIKU_BUILD_DATE || "development",
     gitSha: process.env.TUNIKU_GIT_SHA || "development"
   }

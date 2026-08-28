@@ -1,1 +1,37 @@
-{"schema_version":1,"timestamp":"2026-08-05T21:34:00Z","application":"tuniku","requirement_id":"OPS-001","status":"verified","fresh_clone":{"build_test_run":true,"structural_and_compliance":true},"lifecycle":{"upgrade_applicable":true,"baseline_health":true,"upgrade_health":true,"restore_manifest_match":true,"restore_health":true,"marker_restored":true,"secret_in_logs":false},"runtime":{"read_only_root":true,"no_new_privileges":true,"least_privilege_user":"1000:1000"}}
+{
+  "schema_version": 1,
+  "timestamp": "2026-08-29T00:00:00+02:00",
+  "application": "tuniku",
+  "requirement_id": "OPS-001",
+  "status": "verified",
+  "fresh_clone": {
+    "npm_ci": true,
+    "application_check": true,
+    "e2e": true,
+    "structural_and_compliance": true
+  },
+  "delivery": {
+    "host_port": 65001,
+    "container_port": 8080,
+    "compose_config": true,
+    "image_build": true,
+    "local_image_id": "sha256:820881cc57d8de5cdc56a7b8e783da0b70c22a4f95ce139fd6af3ad270a97dd2",
+    "sbom_format": "SPDX-2.3",
+    "sbom_packages": 116,
+    "high_critical_fixed_vulnerabilities": 0,
+    "repository_secret_or_high_misconfiguration_findings": 0
+  },
+  "lifecycle": {
+    "baseline_health": true,
+    "restart_readiness": true,
+    "secret_in_logs": false
+  },
+  "runtime": {
+    "read_only_root": true,
+    "no_new_privileges": true,
+    "all_capabilities_dropped": true,
+    "pids_limit": 128,
+    "least_privilege_user": "1000:1000",
+    "base": "gcr.io/distroless/nodejs24-debian13:nonroot@sha256:774b7d020b24214835769e24c3544835526cd0288f0b094eae48e8b2c2429a79"
+  }
+}

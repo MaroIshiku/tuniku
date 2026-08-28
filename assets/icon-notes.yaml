@@ -1,0 +1,26 @@
+schema_version: 1
+application: tuniku
+purpose: "Secure dashboard for Gluetun control and Compose generation."
+category: "Networking & Security"
+tile_color: "#A9CFFF"
+accent_color: "#3169C6"
+symbol_rationale: "Secure tunnel containing a globe and lock."
+generation_path: built-in-imagegen-approved-source
+native_source_dimensions: 1254x1254
+source_mode: RGBA
+export_method: direct-lanczos-downsample-no-crop-no-mask-change
+alpha_margin_left_px: 17
+alpha_margin_top_px: 23
+alpha_margin_right_px: 18
+alpha_margin_bottom_px: 23
+alpha_margin_max_ratio: 0.018341
+repository_integrated: true
+github_uploaded: false
+consumer_paths:
+  - assets/icon-source.png
+  - public/assets/icons
+  - public/assets/logos/tuniku.png
+  - app.manifest.json
+  - public/manifest.webmanifest
+  - public/sw.js
+  - src/client/index.html

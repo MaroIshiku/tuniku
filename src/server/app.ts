@@ -11,6 +11,9 @@ import { GluetunStateService } from "./gluetun/state.js";
 import { registerApiRoutes } from "./routes/api.js";
 
 export async function buildApp(appConfig: AppConfig): Promise<FastifyInstance> {
+  const trustProxy = appConfig.trustedProxyCount > 0
+    ? (_address: string, hop: number) => hop < appConfig.trustedProxyCount
+    : false;
   const app = Fastify({
     logger: {
       level: appConfig.logLevel,
@@ -28,7 +31,7 @@ export async function buildApp(appConfig: AppConfig): Promise<FastifyInstance> {
         censor: "[REDACTED]"
       }
     },
-    trustProxy: appConfig.trustedProxyCount > 0 ? appConfig.trustedProxyCount : false,
+    trustProxy,
     bodyLimit: 1_100_000
   });
   const db = new TunikuDatabase(appConfig.databasePath);

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "kit_version": "1.1.1",
+  "kit_version": "1.2.1",
   "managed": [
     {
       "path": ".agents/skills/ishiku-design-review/agents/openai.yaml",
@@ -8,7 +8,7 @@
     },
     {
       "path": ".agents/skills/ishiku-design-review/SKILL.md",
-      "sha256": "4ee109173f3c5d1409b7a7a3025ab07051313cb3383a54e0f02b233ea40c62a6"
+      "sha256": "5d9053049cf8c68bd49e20565162333a3a1a7978f74cc33b043be8b908f29800"
     },
     {
       "path": ".agents/skills/ishiku-docker-review/agents/openai.yaml",
@@ -16,7 +16,7 @@
     },
     {
       "path": ".agents/skills/ishiku-docker-review/SKILL.md",
-      "sha256": "c3be3260a0573d1bd2c0c73c2e7a5e1637d9da9edb482bb11de6192115ed2eae"
+      "sha256": "5735fe8a0690c9bb26888e41b265deb03b1dbf8fb2a5507a5b4a4ccc5a2d280a"
     },
     {
       "path": ".agents/skills/ishiku-github-release/agents/openai.yaml",
@@ -25,6 +25,34 @@
     {
       "path": ".agents/skills/ishiku-github-release/SKILL.md",
       "sha256": "c6968687a480d859c4bf67ad5a09e5f502d9074da2dc3d51925b36858ed8f16b"
+    },
+    {
+      "path": ".agents/skills/ishiku-icon-generator/agents/openai.yaml",
+      "sha256": "d92779e9e70e56fe4888a0b5e149b149d400201b45538047ddb1aa2ea12cdadc"
+    },
+    {
+      "path": ".agents/skills/ishiku-icon-generator/references/raster-source.md",
+      "sha256": "80d2153a01827c9f32d8e09d7af79fe7151481401c9beb6f122029f5e0a8d476"
+    },
+    {
+      "path": ".agents/skills/ishiku-icon-generator/references/webapp-import.md",
+      "sha256": "b2f7f9a3350f84e9d529cc141405008a45b287dd781f4fc890b2e5d5e62ab994"
+    },
+    {
+      "path": ".agents/skills/ishiku-icon-generator/scripts/export_pngs.py",
+      "sha256": "c9a5ed96c591d9ec0fdc2f8480f00b4c40060c86e57c831234b3fca810e9e6d0"
+    },
+    {
+      "path": ".agents/skills/ishiku-icon-generator/scripts/prepare_webapp_icons.py",
+      "sha256": "9f43b9e417c1599f01b2537656fe693235a4e645da8d9d1d1d445a999cfdb5a6"
+    },
+    {
+      "path": ".agents/skills/ishiku-icon-generator/scripts/validate_icon.py",
+      "sha256": "4080b412f768804201ba5254bd91e5ee28c160aee1baae30c0d26d3c3acf2b9c"
+    },
+    {
+      "path": ".agents/skills/ishiku-icon-generator/SKILL.md",
+      "sha256": "efb124aabb11e88f976fd53526b050e3683adfb6a3aa16ad9808355bc9e8af1c"
     },
     {
       "path": ".agents/skills/ishiku-modernize-app/agents/openai.yaml",
@@ -40,7 +68,7 @@
     },
     {
       "path": ".agents/skills/ishiku-new-app/SKILL.md",
-      "sha256": "4de1782c4e31028b822daa3c01730943763bb068dc46a633b2e657afdd80e4e2"
+      "sha256": "0a6303230ec65ad8129a94b2c98af77c8ac6c601d05798dfff053c7b63d03ff2"
     },
     {
       "path": ".agents/skills/ishiku-orchestrator/agents/openai.yaml",
@@ -48,7 +76,7 @@
     },
     {
       "path": ".agents/skills/ishiku-orchestrator/SKILL.md",
-      "sha256": "a62ac8ffb958dc413514fa5796f485abe39f79eedb70d9f317665d5cd5f13eed"
+      "sha256": "1db6f5a297989de17000bba6508bcf004c9ae89996b6246b9c62538544f0c252"
     },
     {
       "path": ".agents/skills/ishiku-project-analysis/agents/openai.yaml",
@@ -111,6 +139,10 @@
       "sha256": "ff462294b11e5565a7a5ba624d4f6ee8966057c977b3cb721aa405e0a93b63fb"
     },
     {
+      "path": ".ishiku/kit/policies/design-system.md",
+      "sha256": "d494ceb5ad445ec7a96ef56e784dfd1fbff4ce2cc9a10638f1cef5ba32bd990f"
+    },
+    {
       "path": ".ishiku/kit/policies/releases.md",
       "sha256": "a8c2c34c27c367dd4b7e1aaccd55b1056d1d89c8d0ba0e7da5c93c1e8a15acd2"
     },
@@ -123,6 +155,10 @@
       "sha256": "1d34694dfbdbe51201c5a345760318124d72b0c3baa79fc80873c1c0defde1ac"
     },
     {
+      "path": ".ishiku/kit/policies/zimaos.yaml",
+      "sha256": "ee77e600fecb0224f9bfc9345db0c5bf1d4390bdc70a4791e578cdfc1e1e9140"
+    },
+    {
       "path": ".ishiku/kit/schemas/appspec.schema.json",
       "sha256": "700a25eb02ce8648dce9dfe0fcb837f593b90363de629d141ed8330e03178bfd"
     },
@@ -132,7 +168,7 @@
     },
     {
       "path": ".ishiku/kit/schemas/design-system.schema.json",
-      "sha256": "8166f10fd040aa95bac9a64ab5ced3d9e82701dd66508aada72b86e78afeb770"
+      "sha256": "63affb949087e2cd801841efb225448a4c3a4d304fd2b9961ad151b9edfde42a"
     },
     {
       "path": ".ishiku/kit/schemas/kit-manifest.schema.json",
@@ -148,7 +184,7 @@
     },
     {
       "path": ".ishiku/kit/schemas/project.schema.json",
-      "sha256": "fe945b2a0fb58327f4a0e78cbd79196eeb21cda0cfd8bc92fd3d1740c43cc9fd"
+      "sha256": "a6b52892091922c839679effca66333c247f99497fad48a3802417d39efbff1f"
     },
     {
       "path": ".ishiku/kit/schemas/traceability.schema.json",
@@ -208,7 +244,7 @@
     },
     {
       "path": ".ishiku/kit/version.yaml",
-      "sha256": "b9057fff1b9b92a5666b855d6adf0d395902e4911d0aa5c09124a2f6ba3f2594"
+      "sha256": "17bccb16f95f08585e310dac30e61f694630563dffca4bac4d5d8ee88895cb25"
     }
   ],
   "application_owned": [
@@ -219,7 +255,6 @@
     ".ishiku/decisions/"
   ],
   "generated": [
-    ".ishiku/design-system.lock",
     ".ishiku/reports/"
   ],
   "allowed_overrides": [

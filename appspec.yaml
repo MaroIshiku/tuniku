@@ -34,7 +34,8 @@
       "priority": "high",
       "acceptance": [
         "All user-facing interface text is English.",
-        "The app uses ishiku semantic tokens, shared layout contracts, responsive behavior, and WCAG 2.2 AA interaction."
+        "The app uses ishiku semantic tokens, shared layout contracts, responsive behavior, and WCAG 2.2 AA interaction.",
+        "Browser, PWA, launcher, catalog, and in-app consumers use the approved Tuniku icon family."
       ],
       "security_critical": false
     },
@@ -44,7 +45,8 @@
       "priority": "high",
       "acceptance": [
         "A fresh clone can build, test, and run without the outer workspace.",
-        "Health checks, persistent data, runtime secrets, backup, restore, and upgrade procedures are verifiable."
+        "Health checks, persistent data, runtime secrets, backup, restore, and upgrade procedures are verifiable.",
+        "The primary Compose delivery publishes assigned host port 65001 while retaining container port 8080."
       ],
       "security_critical": true
     },
@@ -54,7 +56,8 @@
       "priority": "high",
       "acceptance": [
         "Pull requests and releases use clone-local verification scripts.",
-        "Released images are immutable, scanned, SBOM-equipped, provenance-attested, and rollback-documented."
+        "Released images are immutable, scanned, SBOM-equipped, provenance-attested, and rollback-documented.",
+        "GHCR latest promotion is gated on full verification of the same commit."
       ],
       "security_critical": true
     }

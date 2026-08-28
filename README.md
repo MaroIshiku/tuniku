@@ -40,7 +40,7 @@ theme supports System, Light, and Dark mode.
 - Compose Assistant with defensive YAML inspection, validation, secret
   redaction, port-collision checks, downloads, and manual deployment steps.
 - Local port labels that never imply an integration with a foreign application.
-- English and German interface copy.
+- English interface copy throughout the application.
 - Lavender, Mint, Sky, Amber, Rose, and Graphite themes.
 - Health and readiness endpoints for container platforms.
 
@@ -69,7 +69,7 @@ containers.
 - SQLite through `better-sqlite3`.
 - Argon2id for administrator password hashing.
 - YAML parsing and rendering through `yaml`.
-- Docker-first production deployment on Node.js 22.
+- Docker-first production deployment on Node.js 24 LTS.
 - Vitest integration and unit tests, plus Playwright-ready end-to-end setup.
 
 ## Architecture
@@ -122,7 +122,7 @@ More detail is available in [docs/architecture.md](docs/architecture.md).
    docker compose up -d --build
    ```
 
-5. Open `http://<docker-host>:8080` or route Tuniku through your own reverse
+5. Open `http://<docker-host>:65001` or route Tuniku through your own reverse
    proxy.
 
 The example does not publish Gluetun's port `8000` to the host. Tuniku reaches
@@ -351,7 +351,8 @@ does not own or maintain the project.
 
 ## Status and license
 
-Tuniku is an initial `0.1.0` implementation. Gluetun API availability remains
+Tuniku `0.2.0` preserves the initial behavior while updating the platform,
+assigned host port, and app identity. Gluetun API availability remains
 version- and role-dependent.
 
 Licensed under the [MIT License](LICENSE).
