@@ -26,10 +26,10 @@ Thumbs.db
 .env
 .env.*
 !.env.example
-private/
-planning/
-references/
-source-assets/
+/private/
+/planning/
+/references/
+/source-assets/
 *.sqlite
 *.sqlite3
 *.db
