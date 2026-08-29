@@ -15,7 +15,7 @@ alpha_margin_right_px: 18
 alpha_margin_bottom_px: 23
 alpha_margin_max_ratio: 0.018341
 repository_integrated: true
-github_uploaded: false
+github_uploaded: true
 consumer_paths:
   - assets/icon-source.png
   - public/assets/icons

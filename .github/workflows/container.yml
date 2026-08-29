@@ -48,6 +48,10 @@ jobs:
             type=raw,value=${{ steps.build-info.outputs.version }},enable={{is_default_branch}}
             type=ref,event=tag
             type=sha
+          labels: |
+            org.opencontainers.image.version=${{ steps.build-info.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.build-info.outputs.created }}
       - id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:

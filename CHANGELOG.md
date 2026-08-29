@@ -8,6 +8,7 @@ All notable changes to Tuniku will be documented here.
 
 - Added a ZimaOS-native primary Compose with direct values, app metadata,
   assigned port `65001`, and standard `/DATA/AppData/i_tuniku/` host paths.
+- Pinned the published Tuniku `0.3.0` multi-architecture image by OCI digest.
 - Reduced first-run configuration to one operator-provided
   `ISHIKU_SETUP_SECRET`; hardened file-backed setup remains available.
 - Updated generated Compose Assistant setup fragments to the same single-secret
