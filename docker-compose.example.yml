@@ -16,7 +16,7 @@ services:
 
   tuniku:
     build: .
-    image: ${TUNIKU_IMAGE:-ghcr.io/maroishiku/tuniku:0.3.1}
+    image: ${TUNIKU_IMAGE:-ghcr.io/maroishiku/tuniku:0.3.1@sha256:ce0cabaad15676e845d4a2884934631fced056ba9644b950db8eb9138a0b35ba}
     ports:
       - "65001:8080/tcp"
     environment:

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "timestamp": "2026-08-29T23:39:00+02:00",
+  "timestamp": "2026-08-29T23:47:00+02:00",
   "application": "tuniku",
   "requirement_id": "OPS-001",
   "status": "verified",
@@ -22,11 +22,11 @@
     "repository_secret_or_high_misconfiguration_findings": 0
   },
   "published_image": {
-    "reference": "ghcr.io/maroishiku/tuniku:0.3.0@sha256:41465fe12b1d5bf8b4d6a841bbe2c9a52f00937e3c46f32609a63616a163caf0",
+    "reference": "ghcr.io/maroishiku/tuniku:0.3.1@sha256:ce0cabaad15676e845d4a2884934631fced056ba9644b950db8eb9138a0b35ba",
     "platforms": ["linux/amd64", "linux/arm64"],
     "sbom": true,
     "provenance": true,
-    "workflow_run": "https://github.com/MaroIshiku/tuniku/actions/runs/33257901979"
+    "workflow_run": "https://github.com/MaroIshiku/tuniku/actions/runs/33271476311"
   },
   "lifecycle": {
     "baseline_health": true,
