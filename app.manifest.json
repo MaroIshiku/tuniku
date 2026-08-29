@@ -24,8 +24,10 @@
     "enabled": true,
     "route": "/setup",
     "require_setup_secret": true,
-    "setup_secret_file_env": "TUNIKU_REGISTRATION_SECRET_FILE",
+    "setup_secret_file_env": "ISHIKU_SETUP_SECRET_FILE",
     "setup_secret_env": "ISHIKU_SETUP_SECRET",
+    "setup_secret_file_default": "/run/secrets/ishiku_setup_secret",
+    "minimum_setup_secret_length": 32,
     "public_registration_after_first_admin": false
   },
   "readme_profile": {
@@ -33,7 +35,7 @@
     "github_owner": "MaroIshiku",
     "public_repository": true,
     "short_description": "Tuniku is a secure, self-hosted Gluetun web interface.",
-    "docker_image": "ghcr.io/maroishiku/tuniku:latest",
+    "docker_image": "ghcr.io/maroishiku/tuniku:0.3.0",
     "license": "MIT",
     "codex_notice_enabled": true
   }

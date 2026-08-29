@@ -10,7 +10,8 @@
 
 ## Authentication
 
-First-run registration requires a server-side setup secret. The first
+First-run registration requires a server-side setup secret of at least 32
+characters. The first
 administrator password must contain at least 12 characters and differ from the
 setup secret, username, app name, and common placeholder passwords.
 
@@ -18,11 +19,18 @@ Passwords use Argon2id. Sessions use random opaque tokens, store only their
 SHA-256 hash in SQLite, and use signed HttpOnly SameSite=Lax cookies. Mutating
 requests require the session-specific CSRF token.
 
+New installations provide only `ISHIKU_SETUP_SECRET`. Tuniku atomically
+creates its cookie-signing secret with mode `0600` under
+`/data/.secrets/session-secret` and reuses it across restarts. Existing
+file-backed and environment-based session overrides remain compatible.
+
 ## Credential storage
 
-Gluetun credentials are ephemeral by default. Explicit persistence requires a
-separate encryption key and uses AES-256-GCM with a random nonce. Stored
-credentials are never returned to the browser.
+Gluetun credentials are ephemeral by default. Tuniku creates a persistent
+32-byte encryption key under `/data/.secrets/credential-encryption-key` and
+uses AES-256-GCM with a random nonce when an administrator explicitly enables
+credential persistence. Legacy external encryption-key overrides remain
+supported. Stored credentials are never returned to the browser.
 
 ## Upstream validation
 

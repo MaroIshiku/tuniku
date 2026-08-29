@@ -146,8 +146,7 @@ export function registerApiRoutes(
   app.get("/api/v1/bootstrap", async (request) => {
     const adminExists = db.adminCount() > 0;
     const missingConfiguration = [
-      ...(!appConfig.registrationSecret && !adminExists ? ["TUNIKU_REGISTRATION_SECRET_FILE"] : []),
-      ...(!appConfig.sessionSecret ? ["TUNIKU_SESSION_SECRET_FILE"] : [])
+      ...(!appConfig.registrationSecret && !adminExists ? ["ISHIKU_SETUP_SECRET"] : [])
     ];
     const session = sessionFromRequest(request, db);
     return {
@@ -168,8 +167,8 @@ export function registerApiRoutes(
     try {
       if (!setupLimiter.consume(clientKey(request, "setup"))) return reply.code(429).send({ error: { code: "rate_limited", message: "Too many setup attempts. Try again later." } });
       if (db.adminCount() > 0) return reply.code(409).send({ error: { code: "setup_complete", message: "First-run registration is closed." } });
-      if (!appConfig.registrationSecret || !appConfig.sessionSecret) {
-        return reply.code(503).send({ error: { code: "setup_unconfigured", message: "Required setup secrets are not configured." } });
+      if (!appConfig.registrationSecret) {
+        return reply.code(503).send({ error: { code: "setup_unconfigured", message: "The setup secret is not configured." } });
       }
       const body = z.object({
         setupSecret: z.string(),
@@ -204,9 +203,6 @@ export function registerApiRoutes(
 
   app.post("/api/v1/auth/login", async (request, reply) => {
     try {
-      if (!appConfig.sessionSecret) {
-        return reply.code(503).send({ error: { code: "session_unconfigured", message: "TUNIKU_SESSION_SECRET_FILE is not configured." } });
-      }
       if (!loginLimiter.consume(clientKey(request, "login"))) return reply.code(429).send({ error: { code: "rate_limited", message: "Too many sign-in attempts. Try again later." } });
       const body = z.object({ username: z.string().min(1).max(64), password: z.string().max(4096) }).parse(request.body);
       const user = db.findUserByUsername(body.username);
@@ -269,7 +265,6 @@ export function registerApiRoutes(
           throw new Error("Enter the selected Gluetun credential before saving it.");
         }
         if (credential) {
-          if (!appConfig.encryptionKey) throw new Error("Credential storage requires TUNIKU_ENCRYPTION_KEY_FILE.");
           encryptedCredential = encryptCredential(credential, appConfig.encryptionKey);
         }
       }

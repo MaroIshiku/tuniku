@@ -95,35 +95,42 @@ More detail is available in [docs/architecture.md](docs/architecture.md).
 
 ### Docker Compose
 
-1. Copy the example files:
+The primary `docker-compose.yml` is ready for ZimaOS and follows the same
+first-run pattern as the other ishiku account apps. Before deployment, edit
+the Compose file and:
 
-   ```sh
-   cp docker-compose.example.yml docker-compose.yml
-   cp .env.example .env
-   mkdir -p secrets
-   ```
+- set `ISHIKU_SETUP_SECRET` to at least 32 random characters;
+- set the Gluetun provider, VPN type, and Control Server role values;
+- confirm the host paths under `/DATA/AppData/i_tuniku/`.
 
-2. Create the three Tuniku secret files:
+Tuniku runs as UID/GID `1000`. If the host creates the data directory with
+different ownership, run
+`chown -R 1000:1000 /DATA/AppData/i_tuniku/Data` before deployment.
 
-   ```sh
-   openssl rand -base64 48 > secrets/tuniku_registration_secret.txt
-   openssl rand -base64 48 > secrets/tuniku_session_secret.txt
-   openssl rand -hex 32 > secrets/tuniku_encryption_key.txt
-   chmod 600 secrets/*.txt
-   ```
+Generate a suitable one-time setup value with:
 
-3. Configure Gluetun using placeholders in `.env` and the current
-   [official Gluetun setup documentation](https://github.com/qdm12/gluetun-wiki/tree/main/setup).
-   Do not commit `.env` or the secret files.
+```sh
+openssl rand -base64 48
+```
 
-4. Start the stack:
+Tuniku creates its internal session and credential-encryption keys
+automatically under `/data/.secrets`; they do not need separate Compose
+fields. Do not commit a populated Compose file.
 
-   ```sh
-   docker compose up -d --build
-   ```
+Configure Gluetun using the current
+[official Gluetun setup documentation](https://github.com/qdm12/gluetun-wiki/tree/main/setup),
+then start the stack:
 
-5. Open `http://<docker-host>:65001` or route Tuniku through your own reverse
-   proxy.
+```sh
+docker compose up -d
+```
+
+Open `http://<docker-host>:65001` or route Tuniku through your own reverse
+proxy.
+
+For a file-backed setup secret, use `docker-compose.example.yml`. That
+hardened alternative mounts only `secrets/setup_secret.txt`; the two internal
+keys remain managed by Tuniku.
 
 The example does not publish Gluetun's port `8000` to the host. Tuniku reaches
 it through the Compose network at `http://gluetun:8000`.
@@ -131,15 +138,15 @@ it through the Compose network at `http://gluetun:8000`.
 ### First start
 
 When the database contains no administrator, Tuniku blocks normal application
-access and opens the first-run registration window. If a registration or
-session secret is missing, it fails closed and identifies the missing
-configuration key without revealing any secret value.
+access and opens the first-run registration window. If `ISHIKU_SETUP_SECRET`
+is missing or shorter than 32 characters, setup fails closed and identifies
+the missing configuration key without revealing the value.
 
 ### Create the administrator account
 
-Enter the value from `tuniku_registration_secret.txt`, then choose a display
-name, username, and a password of at least 12 characters. The administrator
-password must differ from the registration secret. Public registration closes
+Enter the `ISHIKU_SETUP_SECRET` value, then choose a display name, username,
+and a password of at least 12 characters. The administrator password must
+differ from the setup secret. Public registration closes
 immediately after the first administrator is created.
 
 ## Configuration
@@ -153,22 +160,24 @@ immediately after the first administrator is created.
 | `TUNIKU_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error` |
 | `TUNIKU_TRUSTED_PROXY_COUNT` | `0` | Trusted reverse-proxy hop count |
 | `TUNIKU_SECURE_COOKIES` | `false` | Set `true` when served through HTTPS |
-| `TUNIKU_REGISTRATION_SECRET_FILE` | `/run/secrets/tuniku_registration_secret` | First-run secret file |
-| `TUNIKU_SESSION_SECRET_FILE` | `/run/secrets/tuniku_session_secret` | Cookie-signing secret file |
-| `TUNIKU_ENCRYPTION_KEY_FILE` | `/run/secrets/tuniku_encryption_key` | Optional stored-credential encryption |
+| `ISHIKU_SETUP_SECRET` | unset | Required one-time first-admin setup value; minimum 32 characters |
+| `ISHIKU_SETUP_SECRET_FILE` | `/run/secrets/ishiku_setup_secret` | Optional file-backed setup value |
 | `TUNIKU_ALLOW_LOOPBACK_UPSTREAM` | `false` | Advanced explicit loopback Control Server access |
 | `TUNIKU_DOCKER_PROXY_URL` | unset | Optional restricted HTTP Docker Socket Proxy for read-only Gluetun observation |
 
-Simple local runs can use `ISHIKU_SETUP_SECRET`, `TUNIKU_SESSION_SECRET`, and
-`TUNIKU_ENCRYPTION_KEY` as less-preferred environment fallbacks.
+Legacy `TUNIKU_REGISTRATION_SECRET(_FILE)`, `TUNIKU_SESSION_SECRET(_FILE)`,
+and `TUNIKU_ENCRYPTION_KEY(_FILE)` settings remain supported for existing
+deployments. New deployments should not configure separate session or
+encryption secrets.
 
 ### Docker Secrets
 
-The setup secret is only for first-run registration. Tuniku reads file-backed
-secrets before environment fallbacks and never logs their values or lengths.
-The session secret signs cookies. The encryption key protects Gluetun
-credentials only when an administrator explicitly enables encrypted
-persistence.
+The setup secret is only for first-run registration. Tuniku reads a file-backed
+setup value before its environment fallback and never logs secret values or
+lengths. On first start it atomically creates a cookie-signing secret and a
+credential-encryption key with mode `0600` under `/data/.secrets`. The latter
+protects Gluetun credentials only when an administrator explicitly enables
+encrypted persistence.
 
 Sensitive values may be entered locally for snippet generation. By default
 they exist only for that request and are neither written to drafts nor browser
@@ -179,11 +188,12 @@ Secrets must not be committed to public repositories.
 
 ### Persistent data
 
-The `/data` volume contains:
+The `/data` mount contains:
 
 - `tuniku.db` — administrators, sessions, instance preferences, local port
   labels, redacted drafts, and redacted audit metadata.
 - SQLite WAL files while the service is running.
+- `.secrets/` — automatically generated internal session and credential keys.
 
 No VPN credentials are stored unless encrypted persistence is explicitly
 enabled and an encryption key is configured.
@@ -243,7 +253,7 @@ services:
       - "8080:8080/tcp" # Local descriptive label only
 
   app:
-    image: example/app:latest
+    image: example/app:version
     network_mode: "service:gluetun"
 ```
 
@@ -259,9 +269,10 @@ from Docker port publishing. Tuniku presents them separately.
 
 ### ZimaOS
 
-Import or edit the Compose stack in the ZimaOS interface, create the secret
-files on the host, save the stack, and redeploy it manually. UI terminology can
-vary by ZimaOS version. Tuniku never presses deploy or recreates containers.
+Import `docker-compose.yml` in the ZimaOS interface, fill the single
+`ISHIKU_SETUP_SECRET` field and the required Gluetun values, save the stack,
+and deploy it. UI terminology can vary by ZimaOS version. Tuniku never presses
+deploy or recreates containers.
 
 See [docs/zimaos.md](docs/zimaos.md).
 
@@ -286,8 +297,9 @@ set `TUNIKU_SECURE_COOKIES=true`. Read [docs/security.md](docs/security.md) and
 
 ## Updates and backup
 
-Stop Tuniku or create a consistent SQLite backup, then copy the persistent
-`tuniku_data` volume. The Gluetun volume and deployment files are separate.
+Stop Tuniku or create a consistent SQLite backup, then copy
+`/DATA/AppData/i_tuniku/Data`. This preserves the database and both internal
+keys. Back up `/DATA/AppData/i_tuniku/Gluetun` separately.
 
 Update with:
 
@@ -300,17 +312,18 @@ For a local build:
 
 ```sh
 git pull --ff-only
-docker compose up -d --build
+docker compose -f docker-compose.example.yml up -d --build
 ```
 
-Restore by stopping Tuniku, restoring the `/data` contents, and starting the
-service again. Keep the encryption key with the backup if encrypted Gluetun
-credentials must remain usable.
+Restore by stopping Tuniku, restoring the complete `/data` contents, and
+starting the service again. Existing installations that provide an external
+encryption key must keep that key with the backup while encrypted Gluetun
+credentials remain stored.
 
 ## Troubleshooting
 
-- **Tuniku needs configuration:** mount the registration and session secret
-  files at the configured paths.
+- **Tuniku needs configuration:** set `ISHIKU_SETUP_SECRET` to at least 32
+  characters or mount `ISHIKU_SETUP_SECRET_FILE`.
 - **Control Server unreachable:** confirm the URL from inside Tuniku's Docker
   network. `localhost` means the Tuniku container itself.
 - **Unauthorized:** verify the Gluetun role, authentication mode, and route
@@ -324,7 +337,7 @@ credentials must remain usable.
 
 ## Development
 
-Requirements: Node.js 22 and npm.
+Requirements: Node.js 24 and npm.
 
 ```sh
 npm install
@@ -351,8 +364,9 @@ does not own or maintain the project.
 
 ## Status and license
 
-Tuniku `0.2.0` preserves the initial behavior while updating the platform,
-assigned host port, and app identity. Gluetun API availability remains
+Tuniku `0.3.0` preserves the product behavior while aligning first-run setup,
+ZimaOS delivery, and runtime secret management with the ishiku platform.
+Gluetun API availability remains
 version- and role-dependent.
 
 Licensed under the [MIT License](LICENSE).

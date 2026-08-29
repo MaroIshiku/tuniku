@@ -2,6 +2,26 @@
 
 All notable changes to Tuniku will be documented here.
 
+## [0.3.0] - 2026-08-29
+
+### Changed
+
+- Added a ZimaOS-native primary Compose with direct values, app metadata,
+  assigned port `65001`, and standard `/DATA/AppData/i_tuniku/` host paths.
+- Reduced first-run configuration to one operator-provided
+  `ISHIKU_SETUP_SECRET`; hardened file-backed setup remains available.
+- Updated generated Compose Assistant setup fragments to the same single-secret
+  model and immutable Gluetun reference.
+- Preserved legacy Tuniku secret variables and files as compatibility
+  overrides for existing deployments.
+
+### Security
+
+- Generate persistent cookie-signing and credential-encryption keys atomically
+  under `/data/.secrets` with restrictive file permissions.
+- Reject missing or shorter-than-32-character setup secrets before first-admin
+  registration.
+
 ## [0.2.0] - 2026-08-29
 
 ### Changed

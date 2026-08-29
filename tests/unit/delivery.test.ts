@@ -7,10 +7,31 @@ import { parse } from "yaml";
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 describe("standalone delivery", () => {
-  it("publishes the centrally assigned host port and pins Gluetun", () => {
+  it("uses a ZimaOS-native primary Compose with one visible setup secret", () => {
+    const source = fs.readFileSync(path.join(repositoryRoot, "docker-compose.yml"), "utf8");
+    const compose = parse(source);
+
+    expect(source).not.toContain("${");
+    expect(compose.services.tuniku.image).toBe("ghcr.io/maroishiku/tuniku:0.3.0");
+    expect(compose.services.tuniku.ports).toEqual([{ target: 8080, published: "65001", protocol: "tcp" }]);
+    expect(compose.services.tuniku.environment.ISHIKU_SETUP_SECRET).toBe("");
+    expect(compose.services.tuniku.environment.TUNIKU_SESSION_SECRET).toBeUndefined();
+    expect(compose.services.tuniku.environment.TUNIKU_ENCRYPTION_KEY).toBeUndefined();
+    expect(compose.services.tuniku.secrets).toBeUndefined();
+    expect(compose.services.tuniku.volumes).toContainEqual({
+      type: "bind",
+      source: "/DATA/AppData/i_tuniku/Data",
+      target: "/data"
+    });
+    expect(compose["x-casaos"].port_map).toBe("65001");
+  });
+
+  it("keeps one file-backed setup secret in the hardened alternative", () => {
     const compose = parse(fs.readFileSync(path.join(repositoryRoot, "docker-compose.example.yml"), "utf8"));
 
     expect(compose.services.tuniku.ports).toEqual(["65001:8080/tcp"]);
+    expect(compose.services.tuniku.secrets).toEqual(["ishiku_setup_secret"]);
+    expect(Object.keys(compose.secrets)).toEqual(["ishiku_setup_secret"]);
     expect(compose.services.gluetun.image).toMatch(
       /^ghcr\.io\/qdm12\/gluetun:v3\.41\.3@sha256:[a-f0-9]{64}$/
     );

@@ -18,7 +18,15 @@ describe("Compose Assistant", () => {
       includeSecrets: false
     });
     expect(validateCompose(result.snippets.compose).valid).toBe(true);
-    expect(YAML.parse(result.snippets.compose).services.gluetun.image).toBe("qmcgaw/gluetun:latest");
+    const compose = YAML.parse(result.snippets.compose);
+    expect(compose.services.gluetun.image).toMatch(/^ghcr\.io\/qdm12\/gluetun:v3\.41\.3@sha256:/);
+    expect(compose.services.tuniku.environment).toEqual({
+      TUNIKU_DATA_PATH: "/data",
+      ISHIKU_SETUP_SECRET: "replace-with-at-least-32-random-characters"
+    });
+    expect(compose.services.tuniku.secrets).toBeUndefined();
+    expect(compose.secrets).toBeUndefined();
+    expect(result.snippets.secrets).toContain("only ISHIKU_SETUP_SECRET");
     expect(result.snippets.env).toContain("WIREGUARD_PRIVATE_KEY=[REDACTED]");
     expect(result.detectedConfiguration).toBeDefined();
     expect(result.recommendedChange).toBeTruthy();
@@ -27,7 +35,7 @@ describe("Compose Assistant", () => {
   });
 
   it("generates the manual network namespace and Gluetun port mapping", () => {
-    const fragment = manualRoutingFragment("example", "example/app:latest", 8080, 8080);
+    const fragment = manualRoutingFragment("example", "example/app:version", 8080, 8080);
     const parsed = YAML.parse(fragment);
     expect(parsed.services.example.network_mode).toBe("service:gluetun");
     expect(parsed.services.gluetun.ports).toEqual(["8080:8080/tcp"]);

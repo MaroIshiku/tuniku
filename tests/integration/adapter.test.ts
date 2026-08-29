@@ -69,11 +69,11 @@ describe("Gluetun capability failures", () => {
 describe("read-only Docker observation", () => {
   it("returns safe metadata without environment values", async () => {
     const url = await listen((server) => {
-      server.get("/containers/json", async () => [{ Id: "abcdef1234567890", Names: ["/gluetun"], Image: "qmcgaw/gluetun:latest", State: "running" }]);
+      server.get("/containers/json", async () => [{ Id: "abcdef1234567890", Names: ["/gluetun"], Image: "ghcr.io/qdm12/gluetun:v3.41.3", State: "running" }]);
       server.get("/containers/abcdef1234567890/json", async () => ({
         Id: "abcdef1234567890",
         Name: "/gluetun",
-        Config: { Image: "qmcgaw/gluetun:latest", Env: ["VPN_TYPE=wireguard", "WIREGUARD_PRIVATE_KEY=never-return"] },
+        Config: { Image: "ghcr.io/qdm12/gluetun:v3.41.3", Env: ["VPN_TYPE=wireguard", "WIREGUARD_PRIVATE_KEY=never-return"] },
         State: { Status: "running", Health: { Status: "healthy" } },
         NetworkSettings: {
           Ports: { "8000/tcp": [{ HostIp: "127.0.0.1", HostPort: "8000" }] },

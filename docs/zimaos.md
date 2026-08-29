@@ -1,15 +1,29 @@
 # ZimaOS deployment notes
 
-ZimaOS wording and controls can differ between versions. The workflow remains
-manual:
+ZimaOS wording and controls can differ between versions. The primary
+`docker-compose.yml` follows the ishiku ZimaOS installation profile:
 
-1. Create a custom Compose stack from `docker-compose.example.yml`.
-2. Create the three Tuniku secret files in a persistent host directory.
-3. Adjust the secret file paths in the stack.
-4. Configure Gluetun using the current official documentation.
+1. Import `docker-compose.yml` as a custom stack.
+2. Set `ISHIKU_SETUP_SECRET` to at least 32 random characters.
+3. Configure the Gluetun provider, VPN type, credentials, and Control Server
+   role using the current official documentation.
+4. Confirm the `/DATA/AppData/i_tuniku/Data` and
+   `/DATA/AppData/i_tuniku/Gluetun` host paths.
+   Tuniku runs as UID/GID `1000`; if needed, set ownership with
+   `chown -R 1000:1000 /DATA/AppData/i_tuniku/Data`.
 5. Save and deploy the stack in ZimaOS.
-6. Complete Tuniku first-run registration.
+6. Complete Tuniku first-run registration with the same setup value.
 7. Configure `http://gluetun:8000` as the Control Server URL.
+
+Tuniku automatically persists its internal session and credential-encryption
+keys below `/data/.secrets`. No second or third Tuniku secret is needed in the
+ZimaOS editor. Use `docker-compose.example.yml` only when a file-backed setup
+secret is preferred.
+
+Older installations using the `tuniku_data` named volume remain supported.
+Before switching them to the primary host-path Compose, stop Tuniku, back up
+the volume, copy the complete `/data` contents to the new path, and retain any
+legacy external encryption key while stored Gluetun credentials depend on it.
 
 To place another application behind Gluetun:
 

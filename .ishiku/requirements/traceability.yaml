@@ -14,6 +14,17 @@
       "status": "verified"
     },
     {
+      "id": "SETUP-001",
+      "implementation": ["src/server/config.ts", "docker-compose.yml", "docker-compose.example.yml", ".env.example", "docs/zimaos.md"],
+      "tests": {
+        "unit": ["tests/unit/config.test.ts", "tests/unit/delivery.test.ts", "tests/unit/compose.test.ts"],
+        "integration": ["docker compose -f docker-compose.yml config --quiet", "docker compose -f docker-compose.example.yml config --quiet"],
+        "e2e": ["tests/e2e/app.spec.ts"],
+        "security": ["tests/unit/config.test.ts", ".ishiku/kit/scripts/check-security"]
+      },
+      "status": "verified"
+    },
+    {
       "id": "AUTH-001",
       "implementation": ["src/server/security.ts", "src/server/db.ts", "src/server/routes/api.ts"],
       "tests": {
@@ -37,10 +48,10 @@
     },
     {
       "id": "OPS-001",
-      "implementation": ["Dockerfile", "docker-compose.example.yml", ".env.example", "README.md"],
+      "implementation": ["Dockerfile", "docker-compose.yml", "docker-compose.example.yml", ".env.example", "README.md"],
       "tests": {
         "unit": ["tests/unit/delivery.test.ts"],
-        "integration": ["docker compose -f docker-compose.example.yml config --quiet", ".ishiku/reports/ops-001-verification.json"],
+        "integration": ["docker compose -f docker-compose.yml config --quiet", "docker compose -f docker-compose.example.yml config --quiet", ".ishiku/reports/ops-001-verification.json"],
         "e2e": ["tests/e2e/app.spec.ts"],
         "security": [".ishiku/kit/scripts/check-security"]
       },

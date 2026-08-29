@@ -16,7 +16,7 @@ RUN npm run build \
     && chown -R 1000:1000 /runtime-data
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:774b7d020b24214835769e24c3544835526cd0288f0b094eae48e8b2c2429a79 AS runtime
-ARG VERSION=0.2.0
+ARG VERSION=0.3.0
 ARG BUILD_DATE=development
 ARG GIT_SHA=development
 ENV NODE_ENV=production \

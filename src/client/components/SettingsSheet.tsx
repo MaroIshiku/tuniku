@@ -167,7 +167,7 @@ export function SettingsSheet(props: {
         <div className="about-identity"><div className="psu-app-symbol"><img src="/assets/logos/tuniku.png" alt="Tuniku" /></div><div><h3>{t("about")}</h3><p>{t("footerBoundary")}</p></div></div>
         <div className="technical-card">
           <dl>
-            <div><dt>{t("version")}</dt><dd>{debugDetails?.app?.version || "0.2.0"}</dd></div>
+            <div><dt>{t("version")}</dt><dd>{debugDetails?.app?.version || "0.3.0"}</dd></div>
             <div><dt>{t("buildDate")}</dt><dd>{debugDetails?.app?.buildDate || "development"}</dd></div>
             <div><dt>{t("gitSha")}</dt><dd>{debugDetails?.app?.gitSha || "development"}</dd></div>
           </dl>

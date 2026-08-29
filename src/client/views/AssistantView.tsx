@@ -34,7 +34,7 @@ const initial = {
   openvpnUser: "",
   openvpnPassword: "",
   appName: "app",
-  appImage: "example/app:latest",
+  appImage: "example/app:version",
   hostAddress: "",
   hostPort: "8080",
   containerPort: "8080",

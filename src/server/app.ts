@@ -5,7 +5,6 @@ import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import fastifyStatic from "@fastify/static";
 import type { AppConfig } from "./config.js";
-import { randomToken } from "./security.js";
 import { TunikuDatabase } from "./db.js";
 import { GluetunStateService } from "./gluetun/state.js";
 import { registerApiRoutes } from "./routes/api.js";
@@ -38,7 +37,7 @@ export async function buildApp(appConfig: AppConfig): Promise<FastifyInstance> {
   const state = new GluetunStateService(db, appConfig);
   const startedAt = new Date().toISOString();
 
-  await app.register(cookie, { secret: appConfig.sessionSecret || randomToken(48), hook: "onRequest" });
+  await app.register(cookie, { secret: appConfig.sessionSecret, hook: "onRequest" });
   await app.register(helmet, {
     global: true,
     contentSecurityPolicy: {

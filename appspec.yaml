@@ -29,6 +29,17 @@
       "security_critical": true
     },
     {
+      "id": "SETUP-001",
+      "title": "Consistent first-run deployment",
+      "priority": "critical",
+      "acceptance": [
+        "The primary ZimaOS Compose exposes exactly one operator-provided ISHIKU_SETUP_SECRET with a minimum length of 32 characters.",
+        "Tuniku generates and persists internal session and credential-encryption keys under /data without exposing them as additional new-install Compose fields.",
+        "Legacy file-backed and environment secret overrides remain compatible, and existing encrypted credentials have an explicit migration warning."
+      ],
+      "security_critical": true
+    },
+    {
       "id": "UI-001",
       "title": "Consistent English interface",
       "priority": "high",
@@ -46,7 +57,7 @@
       "acceptance": [
         "A fresh clone can build, test, and run without the outer workspace.",
         "Health checks, persistent data, runtime secrets, backup, restore, and upgrade procedures are verifiable.",
-        "The primary Compose delivery publishes assigned host port 65001 while retaining container port 8080."
+        "The primary ZimaOS Compose uses direct scalar values, the standard application metadata, and persistent host paths while publishing assigned host port 65001 to container port 8080."
       ],
       "security_critical": true
     },

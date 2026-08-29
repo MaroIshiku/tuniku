@@ -1,13 +1,18 @@
 # Local secret files
 
-Create these files locally before starting the example Compose stack:
+The hardened example Compose stack needs one local file:
 
-- `tuniku_registration_secret.txt` — a long random one-time setup secret.
-- `tuniku_session_secret.txt` — at least 32 random bytes for signed session cookies.
-- `tuniku_encryption_key.txt` — 32 random bytes encoded as Base64, or 64 hexadecimal characters.
+- `setup_secret.txt` — at least 32 random characters for one-time administrator setup.
 
-Use restrictive file permissions such as `0600` where the host supports them.
-Real secret files are ignored by Git. Never commit them.
+Generate it with `openssl rand -base64 48 > secrets/setup_secret.txt` and use
+restrictive file permissions such as `0600`. Tuniku creates its session and
+credential-encryption keys under `/data/.secrets` on first start, so they
+follow the normal data backup.
+
+Existing installations may keep their legacy session and encryption secret
+files as runtime overrides. Keep the previous encryption key while any stored
+Gluetun credential still depends on it. Real secret files are ignored by Git.
+Never commit them.
 
 Gluetun VPN credentials are intentionally not prescribed here. Their supported
 binding depends on the Gluetun version and provider. Follow the current

@@ -42,7 +42,7 @@
       },
       {
         "name": "compose",
-        "command": "docker compose -f docker-compose.example.yml config --quiet",
+        "command": "docker compose -f docker-compose.yml config --quiet && docker compose -f docker-compose.example.yml config --quiet",
         "required_for_verified": true
       },
       {

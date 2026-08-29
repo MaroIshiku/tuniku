@@ -189,7 +189,7 @@ function providerEnvironment(input: ComposeGenerationInput): Record<string, stri
 
 function buildCompose(input: ComposeGenerationInput): Record<string, unknown> {
   const gluetun: Record<string, unknown> = {
-    image: "qmcgaw/gluetun:latest",
+    image: "ghcr.io/qdm12/gluetun:v3.41.3@sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027",
     container_name: "gluetun",
     cap_add: ["NET_ADMIN"],
     environment: providerEnvironment(input),
@@ -199,14 +199,12 @@ function buildCompose(input: ComposeGenerationInput): Record<string, unknown> {
   const services: Record<string, unknown> = { gluetun };
   if (input.taskType === "new_gluetun_setup") {
     services.tuniku = {
-      image: "ghcr.io/maroishiku/tuniku:latest",
-      ports: ["8080:8080/tcp"],
+      image: "ghcr.io/maroishiku/tuniku:0.3.0",
+      ports: ["65001:8080/tcp"],
       environment: {
         TUNIKU_DATA_PATH: "/data",
-        TUNIKU_REGISTRATION_SECRET_FILE: "/run/secrets/tuniku_registration_secret",
-        TUNIKU_SESSION_SECRET_FILE: "/run/secrets/tuniku_session_secret"
+        ISHIKU_SETUP_SECRET: "replace-with-at-least-32-random-characters"
       },
-      secrets: ["tuniku_registration_secret", "tuniku_session_secret"],
       volumes: ["tuniku_data:/data"],
       depends_on: ["gluetun"],
       restart: "unless-stopped"
@@ -220,7 +218,7 @@ function buildCompose(input: ComposeGenerationInput): Record<string, unknown> {
   if (input.taskType === "route_app_manually") {
     const serviceName = safeServiceName(input.appName);
     services[serviceName] = {
-      image: input.appImage || "example/app:latest",
+      image: input.appImage || "example/app:version",
       network_mode: "service:gluetun",
       depends_on: ["gluetun"]
     };
@@ -228,10 +226,6 @@ function buildCompose(input: ComposeGenerationInput): Record<string, unknown> {
   const document: Record<string, unknown> = { services };
   if (input.taskType === "new_gluetun_setup") {
     document.volumes = { tuniku_data: {} };
-    document.secrets = {
-      tuniku_registration_secret: { file: "./secrets/tuniku_registration_secret.txt" },
-      tuniku_session_secret: { file: "./secrets/tuniku_session_secret.txt" }
-    };
   }
   return document;
 }
@@ -294,7 +288,7 @@ export function generateCompose(input: ComposeGenerationInput): ComposeGeneratio
 
   const manualSteps = [
     "Review the generated fragment and compare it with the Gluetun documentation for your installed version.",
-    "Create any referenced secret files locally and set restrictive file permissions.",
+    "Set ISHIKU_SETUP_SECRET to at least 32 random characters before the first Tuniku start.",
     "Edit your Compose stack manually. Tuniku does not write the host file.",
     "Validate the resulting Compose stack with `docker compose config`.",
     "Redeploy or recreate the affected services manually.",
@@ -308,9 +302,9 @@ export function generateCompose(input: ComposeGenerationInput): ComposeGeneratio
   ];
   const env = buildEnv(input);
   const secrets = [
-    "Create real secret files outside the repository.",
-    "Use file mode 0600 where supported.",
-    "The Tuniku setup and session secrets are mounted through Docker Compose secrets.",
+    "New Tuniku installations need only ISHIKU_SETUP_SECRET in Compose.",
+    "Tuniku generates persistent internal session and credential-encryption keys under /data/.secrets.",
+    "Use ISHIKU_SETUP_SECRET_FILE and file mode 0600 only when a file-backed setup value is preferred.",
     "Gluetun credential file support depends on the installed Gluetun version; do not invent *_FILE variables."
   ].join("\n");
   const steps = manualSteps.map((step, index) => `${index + 1}. ${step}`).join("\n");
@@ -341,7 +335,7 @@ export function redactedDraftInput(input: ComposeGenerationInput): Record<string
   return redactValue({ ...input, pastedCompose: input.pastedCompose ? redactText(input.pastedCompose) : undefined }) as Record<string, unknown>;
 }
 
-export function manualRoutingFragment(appName = "app", appImage = "example/app:latest", hostPort = 8080, containerPort = 8080): string {
+export function manualRoutingFragment(appName = "app", appImage = "example/app:version", hostPort = 8080, containerPort = 8080): string {
   return YAML.stringify(buildCompose({
     taskType: "route_app_manually",
     appName,

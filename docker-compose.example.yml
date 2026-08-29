@@ -16,21 +16,17 @@ services:
 
   tuniku:
     build: .
-    image: ${TUNIKU_IMAGE:-ghcr.io/maroishiku/tuniku:0.2.0}
+    image: ${TUNIKU_IMAGE:-ghcr.io/maroishiku/tuniku:0.3.0}
     ports:
       - "65001:8080/tcp"
     environment:
       TZ: ${TZ:-Europe/Berlin}
       TUNIKU_DATA_PATH: /data
-      TUNIKU_REGISTRATION_SECRET_FILE: /run/secrets/tuniku_registration_secret
-      TUNIKU_SESSION_SECRET_FILE: /run/secrets/tuniku_session_secret
-      TUNIKU_ENCRYPTION_KEY_FILE: /run/secrets/tuniku_encryption_key
+      ISHIKU_SETUP_SECRET_FILE: /run/secrets/ishiku_setup_secret
       TUNIKU_SECURE_COOKIES: ${TUNIKU_SECURE_COOKIES:-false}
       TUNIKU_TRUSTED_PROXY_COUNT: ${TUNIKU_TRUSTED_PROXY_COUNT:-0}
     secrets:
-      - tuniku_registration_secret
-      - tuniku_session_secret
-      - tuniku_encryption_key
+      - ishiku_setup_secret
     volumes:
       - tuniku_data:/data
     read_only: true
@@ -56,9 +52,5 @@ volumes:
   gluetun_data:
 
 secrets:
-  tuniku_registration_secret:
-    file: ./secrets/tuniku_registration_secret.txt
-  tuniku_session_secret:
-    file: ./secrets/tuniku_session_secret.txt
-  tuniku_encryption_key:
-    file: ./secrets/tuniku_encryption_key.txt
+  ishiku_setup_secret:
+    file: ./secrets/setup_secret.txt

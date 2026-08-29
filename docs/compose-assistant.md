@@ -17,6 +17,11 @@ does not write host files, call Docker, or redeploy a stack.
 Every generation result contains detected configuration, a recommended change,
 copy-paste snippets, ordered manual steps, and security warnings.
 
+New Tuniku setup fragments expose one `ISHIKU_SETUP_SECRET` placeholder.
+Tuniku persists its internal session and credential-encryption keys under
+`/data/.secrets`; generated fragments do not ask users to create two unrelated
+additional Tuniku secrets.
+
 Available downloads:
 
 - `docker-compose.example.yml`

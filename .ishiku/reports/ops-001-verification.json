@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "timestamp": "2026-08-29T00:00:00+02:00",
+  "timestamp": "2026-08-29T16:14:00+02:00",
   "application": "tuniku",
   "requirement_id": "OPS-001",
   "status": "verified",
@@ -15,16 +15,20 @@
     "container_port": 8080,
     "compose_config": true,
     "image_build": true,
-    "local_image_id": "sha256:820881cc57d8de5cdc56a7b8e783da0b70c22a4f95ce139fd6af3ad270a97dd2",
+    "local_image_id": "sha256:d25a2659d83f9a81cad025db1d7df0f26b7e6be71f006cda837cef76845cf138",
     "sbom_format": "SPDX-2.3",
-    "sbom_packages": 116,
+    "sbom_packages": 120,
     "high_critical_fixed_vulnerabilities": 0,
     "repository_secret_or_high_misconfiguration_findings": 0
   },
   "lifecycle": {
     "baseline_health": true,
     "restart_readiness": true,
-    "secret_in_logs": false
+    "secret_in_logs": false,
+    "single_operator_setup_secret": true,
+    "missing_or_short_setup_secret_fails_closed": true,
+    "generated_internal_secrets_persist_across_restart": true,
+    "generated_internal_secret_file_mode": "0600"
   },
   "runtime": {
     "read_only_root": true,

@@ -54,6 +54,12 @@ Migration version 1 contains:
 All instance-related entities use an instance identifier even though version 1
 shows one active instance.
 
+Runtime cookie-signing and credential-encryption keys live under
+`/data/.secrets` by default. They are created atomically with restrictive file
+permissions, persist across container replacement, and are covered by the same
+backup and restore boundary as the database. Legacy runtime overrides are read
+before these managed files for deployment compatibility.
+
 ## Polling
 
 The server refreshes the configured Gluetun instance every 10 seconds. The

@@ -1,0 +1,121 @@
+name: tuniku
+
+services:
+  gluetun:
+    image: ghcr.io/qdm12/gluetun:v3.41.3@sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027
+    container_name: tuniku-gluetun
+    hostname: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      VPN_SERVICE_PROVIDER: ""
+      VPN_TYPE: "wireguard"
+      HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE: ""
+      TZ: "Europe/Berlin"
+    volumes:
+      - type: bind
+        source: /DATA/AppData/i_tuniku/Gluetun
+        target: /gluetun
+    networks:
+      - tuniku
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  tuniku:
+    image: ghcr.io/maroishiku/tuniku:0.3.0
+    pull_policy: always
+    container_name: tuniku
+    hostname: tuniku
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    environment:
+      ISHIKU_SETUP_SECRET: ""
+      ISHIKU_DATA_DIR: "/data"
+      ISHIKU_LOG_LEVEL: "info"
+      TUNIKU_DATA_PATH: "/data"
+      TUNIKU_LOG_LEVEL: "info"
+      TUNIKU_SECURE_COOKIES: "false"
+      TUNIKU_TRUSTED_PROXY_COUNT: "0"
+      TZ: "Europe/Berlin"
+    ports:
+      - target: 8080
+        published: "65001"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /DATA/AppData/i_tuniku/Data
+        target: /data
+    networks:
+      - tuniku
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: "536870912"
+    cpus: 1.0
+    init: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:8080/readyz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    labels:
+      icon: https://raw.githubusercontent.com/MaroIshiku/tuniku/main/public/assets/icons/icon-512.png
+      org.opencontainers.image.description: Secure self-hosted Gluetun dashboard and Compose assistant.
+      org.opencontainers.image.source: https://github.com/MaroIshiku/tuniku
+      org.opencontainers.image.title: Tuniku - Gluetun Web Interface
+      org.opencontainers.image.url: https://github.com/MaroIshiku/tuniku
+    logging:
+      driver: json-file
+      options:
+        max-file: "3"
+        max-size: 5m
+    restart: unless-stopped
+
+networks:
+  tuniku:
+    name: tuniku
+    driver: bridge
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  author: MaroIshiku
+  category: Network
+  developer: MaroIshiku
+  hostname: ""
+  icon: https://raw.githubusercontent.com/MaroIshiku/tuniku/main/public/assets/icons/icon-512.png
+  index: /
+  is_uncontrolled: false
+  main: tuniku
+  port_map: "65001"
+  scheme: http
+  store_app_id: tuniku
+  title:
+    custom: Tuniku - Gluetun Web Interface
+    en_us: Tuniku
+  tagline:
+    en_us: Secure Gluetun dashboard and Compose assistant.
+  description:
+    en_us: Observe and control supported Gluetun functions and generate safe manual Compose guidance.
+  thumbnail: https://raw.githubusercontent.com/MaroIshiku/tuniku/main/public/assets/icons/icon-512.png
+  tips:
+    before_install:
+      en_us: |
+        Required: set ISHIKU_SETUP_SECRET to at least 32 random characters before starting. Tuniku creates and persists its internal session and credential-encryption keys automatically under /data.
+
+        Configure VPN_SERVICE_PROVIDER, VPN_TYPE and the Gluetun Control Server role for your provider before deployment.
+
+        Persistent Tuniku data is stored at /DATA/AppData/i_tuniku/Data and Gluetun data at /DATA/AppData/i_tuniku/Gluetun. Back up existing data before switching an older named-volume installation to these host paths.
+
+        Tuniku runs as UID/GID 1000. If the host creates the Tuniku data directory with different ownership, run `chown -R 1000:1000 /DATA/AppData/i_tuniku/Data` before deployment.

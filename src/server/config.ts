@@ -1,60 +1,116 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-function readSecret(fileEnv: string, fallbackEnvs: string[], defaultFile?: string): string | null {
-  const explicitPath = process.env[fileEnv]?.trim();
-  const candidate = explicitPath || defaultFile;
-  if (candidate && fs.existsSync(candidate)) {
+type Environment = NodeJS.ProcessEnv;
+
+function readSecret(
+  environment: Environment,
+  fileEnvs: string[],
+  fallbackEnvs: string[],
+  defaultFiles: string[] = []
+): string | null {
+  const explicitPath = fileEnvs.map((name) => environment[name]?.trim()).find(Boolean);
+  const candidates = explicitPath ? [explicitPath] : defaultFiles;
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) continue;
     const value = fs.readFileSync(candidate, "utf8").trim();
     return value || null;
   }
-  if (explicitPath) {
-    return null;
-  }
+  if (explicitPath) return null;
   for (const name of fallbackEnvs) {
-    const value = process.env[name]?.trim();
+    const value = environment[name]?.trim();
     if (value) return value;
   }
   return null;
 }
 
-function integerEnv(name: string, fallback: number): number {
-  const parsed = Number.parseInt(process.env[name] ?? "", 10);
+function requireMinimumSecret(value: string, name: string, minimum = 32): string {
+  if (value.length < minimum) throw new Error(`${name} must contain at least ${minimum} characters.`);
+  return value;
+}
+
+function readOrCreatePersistentSecret(input: {
+  environment: Environment;
+  fileEnvs: string[];
+  fallbackEnvs: string[];
+  defaultFiles: string[];
+  persistentFile: string;
+  label: string;
+  generate: () => string;
+}): string {
+  const configured = readSecret(input.environment, input.fileEnvs, input.fallbackEnvs, input.defaultFiles);
+  const explicitFile = input.fileEnvs.some((name) => Boolean(input.environment[name]?.trim()));
+  if (explicitFile && !configured) throw new Error(`${input.label} file is missing or empty.`);
+  if (configured) return requireMinimumSecret(configured, input.label);
+
+  if (fs.existsSync(input.persistentFile)) {
+    return requireMinimumSecret(fs.readFileSync(input.persistentFile, "utf8").trim(), `Persistent ${input.label}`);
+  }
+
+  fs.mkdirSync(path.dirname(input.persistentFile), { recursive: true, mode: 0o700 });
+  const generated = requireMinimumSecret(input.generate(), input.label);
+  try {
+    fs.writeFileSync(input.persistentFile, `${generated}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    return generated;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    return requireMinimumSecret(fs.readFileSync(input.persistentFile, "utf8").trim(), `Persistent ${input.label}`);
+  }
+}
+
+function integerEnv(environment: Environment, name: string, fallback: number): number {
+  const parsed = Number.parseInt(environment[name] ?? "", 10);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-const dataPath = path.resolve(process.env.TUNIKU_DATA_PATH || process.env.ISHIKU_DATA_DIR || "./data");
+export function loadConfig(environment: Environment = process.env) {
+  const dataPath = path.resolve(environment.TUNIKU_DATA_PATH || environment.ISHIKU_DATA_DIR || "./data");
+  const runtimeSecretPath = path.join(dataPath, ".secrets");
+  const registrationSecret = readSecret(
+    environment,
+    ["ISHIKU_SETUP_SECRET_FILE", "TUNIKU_REGISTRATION_SECRET_FILE"],
+    ["ISHIKU_SETUP_SECRET", "TUNIKU_REGISTRATION_SECRET"],
+    ["/run/secrets/ishiku_setup_secret", "/run/secrets/tuniku_registration_secret"]
+  );
 
-export const config = {
-  host: process.env.TUNIKU_HOST || "0.0.0.0",
-  port: integerEnv("TUNIKU_PORT", 8080),
-  dataPath,
-  databasePath: process.env.TUNIKU_DATABASE_PATH || path.join(dataPath, "tuniku.db"),
-  logLevel: process.env.TUNIKU_LOG_LEVEL || process.env.ISHIKU_LOG_LEVEL || "info",
-  trustedProxyCount: integerEnv("TUNIKU_TRUSTED_PROXY_COUNT", 0),
-  secureCookies: process.env.TUNIKU_SECURE_COOKIES === "true",
-  allowLoopbackUpstream: process.env.TUNIKU_ALLOW_LOOPBACK_UPSTREAM === "true",
-  dockerProxyUrl: process.env.TUNIKU_DOCKER_PROXY_URL?.trim() || null,
-  registrationSecret: readSecret(
-    "TUNIKU_REGISTRATION_SECRET_FILE",
-    ["TUNIKU_REGISTRATION_SECRET", "ISHIKU_SETUP_SECRET"],
-    "/run/secrets/tuniku_registration_secret"
-  ),
-  sessionSecret: readSecret(
-    "TUNIKU_SESSION_SECRET_FILE",
-    ["TUNIKU_SESSION_SECRET"],
-    "/run/secrets/tuniku_session_secret"
-  ),
-  encryptionKey: readSecret(
-    "TUNIKU_ENCRYPTION_KEY_FILE",
-    ["TUNIKU_ENCRYPTION_KEY"],
-    "/run/secrets/tuniku_encryption_key"
-  ),
-  build: {
-    version: process.env.TUNIKU_VERSION || "0.2.0",
-    date: process.env.TUNIKU_BUILD_DATE || "development",
-    gitSha: process.env.TUNIKU_GIT_SHA || "development"
-  }
-} as const;
+  return {
+    host: environment.TUNIKU_HOST || "0.0.0.0",
+    port: integerEnv(environment, "TUNIKU_PORT", 8080),
+    dataPath,
+    databasePath: environment.TUNIKU_DATABASE_PATH || path.join(dataPath, "tuniku.db"),
+    logLevel: environment.TUNIKU_LOG_LEVEL || environment.ISHIKU_LOG_LEVEL || "info",
+    trustedProxyCount: integerEnv(environment, "TUNIKU_TRUSTED_PROXY_COUNT", 0),
+    secureCookies: environment.TUNIKU_SECURE_COOKIES === "true",
+    allowLoopbackUpstream: environment.TUNIKU_ALLOW_LOOPBACK_UPSTREAM === "true",
+    dockerProxyUrl: environment.TUNIKU_DOCKER_PROXY_URL?.trim() || null,
+    registrationSecret: registrationSecret && registrationSecret.length >= 32 ? registrationSecret : null,
+    sessionSecret: readOrCreatePersistentSecret({
+      environment,
+      fileEnvs: ["TUNIKU_SESSION_SECRET_FILE"],
+      fallbackEnvs: ["TUNIKU_SESSION_SECRET"],
+      defaultFiles: ["/run/secrets/tuniku_session_secret"],
+      persistentFile: path.join(runtimeSecretPath, "session-secret"),
+      label: "session secret",
+      generate: () => crypto.randomBytes(48).toString("base64url")
+    }),
+    encryptionKey: readOrCreatePersistentSecret({
+      environment,
+      fileEnvs: ["TUNIKU_ENCRYPTION_KEY_FILE"],
+      fallbackEnvs: ["TUNIKU_ENCRYPTION_KEY"],
+      defaultFiles: ["/run/secrets/tuniku_encryption_key"],
+      persistentFile: path.join(runtimeSecretPath, "credential-encryption-key"),
+      label: "credential encryption key",
+      generate: () => crypto.randomBytes(32).toString("base64")
+    }),
+    build: {
+      version: environment.TUNIKU_VERSION || "0.3.0",
+      date: environment.TUNIKU_BUILD_DATE || "development",
+      gitSha: environment.TUNIKU_GIT_SHA || "development"
+    }
+  } as const;
+}
 
-export type AppConfig = typeof config;
+export const config = loadConfig();
+
+export type AppConfig = ReturnType<typeof loadConfig>;
