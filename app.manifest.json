@@ -35,7 +35,7 @@
     "github_owner": "MaroIshiku",
     "public_repository": true,
     "short_description": "Tuniku is a secure, self-hosted Gluetun web interface.",
-    "docker_image": "ghcr.io/maroishiku/tuniku:0.3.0@sha256:46915b990f37bbdae11f7edd1d9933a674ec55fc5a4e16aae92e3f226cc74da7",
+    "docker_image": "ghcr.io/maroishiku/tuniku:0.3.0@sha256:41465fe12b1d5bf8b4d6a841bbe2c9a52f00937e3c46f32609a63616a163caf0",
     "license": "MIT",
     "codex_notice_enabled": true
   }

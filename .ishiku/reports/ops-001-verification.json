@@ -22,11 +22,11 @@
     "repository_secret_or_high_misconfiguration_findings": 0
   },
   "published_image": {
-    "reference": "ghcr.io/maroishiku/tuniku:0.3.0@sha256:46915b990f37bbdae11f7edd1d9933a674ec55fc5a4e16aae92e3f226cc74da7",
+    "reference": "ghcr.io/maroishiku/tuniku:0.3.0@sha256:41465fe12b1d5bf8b4d6a841bbe2c9a52f00937e3c46f32609a63616a163caf0",
     "platforms": ["linux/amd64", "linux/arm64"],
     "sbom": true,
     "provenance": true,
-    "workflow_run": "https://github.com/MaroIshiku/tuniku/actions/runs/33257546728"
+    "workflow_run": "https://github.com/MaroIshiku/tuniku/actions/runs/33257901979"
   },
   "lifecycle": {
     "baseline_health": true,

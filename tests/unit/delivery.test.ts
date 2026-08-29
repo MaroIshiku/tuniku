@@ -12,7 +12,7 @@ describe("standalone delivery", () => {
     const compose = parse(source);
 
     expect(source).not.toContain("${");
-    expect(compose.services.tuniku.image).toBe("ghcr.io/maroishiku/tuniku:0.3.0@sha256:46915b990f37bbdae11f7edd1d9933a674ec55fc5a4e16aae92e3f226cc74da7");
+    expect(compose.services.tuniku.image).toBe("ghcr.io/maroishiku/tuniku:0.3.0@sha256:41465fe12b1d5bf8b4d6a841bbe2c9a52f00937e3c46f32609a63616a163caf0");
     expect(compose.services.tuniku.ports).toEqual([{ target: 8080, published: "65001", protocol: "tcp" }]);
     expect(compose.services.tuniku.environment.ISHIKU_SETUP_SECRET).toBe("");
     expect(compose.services.tuniku.environment.TUNIKU_SESSION_SECRET).toBeUndefined();

@@ -199,7 +199,7 @@ function buildCompose(input: ComposeGenerationInput): Record<string, unknown> {
   const services: Record<string, unknown> = { gluetun };
   if (input.taskType === "new_gluetun_setup") {
     services.tuniku = {
-      image: "ghcr.io/maroishiku/tuniku:0.3.0@sha256:46915b990f37bbdae11f7edd1d9933a674ec55fc5a4e16aae92e3f226cc74da7",
+      image: "ghcr.io/maroishiku/tuniku:0.3.0@sha256:41465fe12b1d5bf8b4d6a841bbe2c9a52f00937e3c46f32609a63616a163caf0",
       ports: ["65001:8080/tcp"],
       environment: {
         TUNIKU_DATA_PATH: "/data",

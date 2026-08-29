@@ -45,7 +45,6 @@ jobs:
           images: ghcr.io/maroishiku/tuniku
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ steps.build-info.outputs.version }},enable={{is_default_branch}}
             type=ref,event=tag
             type=sha
           labels: |
