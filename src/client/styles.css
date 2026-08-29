@@ -323,6 +323,8 @@ p { margin-block-end: 0; }
 .empty-state h2,
 .empty-state p { margin: 0; }
 .empty-state p { max-width: 460px; color: var(--color-on-surface-muted); }
+.empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); }
+.empty-note { max-width: 520px; color: var(--color-on-surface-muted); font-size: var(--type-label-medium-size); line-height: var(--type-label-medium-line); }
 .empty-logo { width: 96px; height: 96px; border-radius: var(--radius-xl); overflow: hidden; }
 .empty-logo img { width: 100%; height: 100%; object-fit: cover; }
 .compact-empty { min-height: 300px; }

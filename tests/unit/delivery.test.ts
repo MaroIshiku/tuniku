@@ -12,12 +12,15 @@ describe("standalone delivery", () => {
     const compose = parse(source);
 
     expect(source).not.toContain("${");
-    expect(compose.services.tuniku.image).toBe("ghcr.io/maroishiku/tuniku:0.3.0@sha256:41465fe12b1d5bf8b4d6a841bbe2c9a52f00937e3c46f32609a63616a163caf0");
+    expect(compose.services.tuniku.image).toBe("ghcr.io/maroishiku/tuniku:0.3.1");
     expect(compose.services.tuniku.ports).toEqual([{ target: 8080, published: "65001", protocol: "tcp" }]);
     expect(compose.services.tuniku.environment.ISHIKU_SETUP_SECRET).toBe("");
     expect(compose.services.tuniku.environment.TUNIKU_SESSION_SECRET).toBeUndefined();
     expect(compose.services.tuniku.environment.TUNIKU_ENCRYPTION_KEY).toBeUndefined();
     expect(compose.services.tuniku.secrets).toBeUndefined();
+    expect(compose.services.tuniku.depends_on).toBeUndefined();
+    expect(JSON.stringify(compose.services.tuniku.volumes)).not.toContain("docker.sock");
+    expect(Object.keys(compose.services)).toEqual(["tuniku"]);
     expect(compose.services.tuniku.volumes).toContainEqual({
       type: "bind",
       source: "/DATA/AppData/i_tuniku/Data",
@@ -31,6 +34,8 @@ describe("standalone delivery", () => {
 
     expect(compose.services.tuniku.ports).toEqual(["65001:8080/tcp"]);
     expect(compose.services.tuniku.secrets).toEqual(["ishiku_setup_secret"]);
+    expect(compose.services.tuniku.depends_on).toBeUndefined();
+    expect(JSON.stringify(compose.services.tuniku.volumes)).not.toContain("docker.sock");
     expect(Object.keys(compose.secrets)).toEqual(["ishiku_setup_secret"]);
     expect(compose.services.gluetun.image).toMatch(
       /^ghcr\.io\/qdm12\/gluetun:v3\.41\.3@sha256:[a-f0-9]{64}$/

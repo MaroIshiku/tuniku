@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "timestamp": "2026-08-29T16:14:00+02:00",
+  "timestamp": "2026-08-29T23:39:00+02:00",
   "application": "tuniku",
   "requirement_id": "OPS-001",
   "status": "verified",
@@ -15,7 +15,7 @@
     "container_port": 8080,
     "compose_config": true,
     "image_build": true,
-    "local_image_id": "sha256:d25a2659d83f9a81cad025db1d7df0f26b7e6be71f006cda837cef76845cf138",
+    "local_image_id": "sha256:0155f5376150f6abdb6313cf67ffd0f95af6d1dee72cc35c01efe998ceb87d77",
     "sbom_format": "SPDX-2.3",
     "sbom_packages": 120,
     "high_critical_fixed_vulnerabilities": 0,
@@ -35,7 +35,11 @@
     "single_operator_setup_secret": true,
     "missing_or_short_setup_secret_fails_closed": true,
     "generated_internal_secrets_persist_across_restart": true,
-    "generated_internal_secret_file_mode": "0600"
+    "generated_internal_secret_file_mode": "0600",
+    "primary_compose_services": ["tuniku"],
+    "generated_compose_services": ["gluetun", "tuniku"],
+    "tuniku_starts_without_gluetun": true,
+    "tuniku_has_no_docker_socket_mount": true
   },
   "runtime": {
     "read_only_root": true,

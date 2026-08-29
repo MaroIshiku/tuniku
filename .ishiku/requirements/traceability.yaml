@@ -36,6 +36,17 @@
       "status": "verified"
     },
     {
+      "id": "BOOTSTRAP-001",
+      "implementation": ["docker-compose.yml", "docker-compose.example.yml", "src/client/views/OverviewView.tsx", "src/server/compose/generator.ts", "docs/architecture.md", "docs/zimaos.md", ".ishiku/decisions/first-run-without-gluetun.json"],
+      "tests": {
+        "unit": ["tests/unit/delivery.test.ts", "tests/unit/compose.test.ts"],
+        "integration": ["docker compose -f docker-compose.yml config --services", "docker compose -f docker-compose.example.yml config --services"],
+        "e2e": ["tests/e2e/app.spec.ts"],
+        "security": ["tests/unit/delivery.test.ts", ".ishiku/kit/scripts/check-security"]
+      },
+      "status": "verified"
+    },
+    {
       "id": "UI-001",
       "implementation": ["src/client/", "design-system/", "assets/icon-source.png", "public/assets/icons/"],
       "tests": {

@@ -18,6 +18,20 @@ Tuniku has no code path for Docker container creation, restart, update, delete,
 network mutation, volume mutation, image mutation, or `exec`. It never mounts a
 host Compose file and never writes one.
 
+## First-run boundary
+
+The primary ZimaOS deployment contains and starts only Tuniku, so missing
+Gluetun provider credentials cannot block it or create a Gluetun restart loop.
+After the administrator account is created, the empty state offers
+two explicit paths: generate a new Gluetun Compose proposal or connect an already
+running Control Server.
+
+Provider selection and VPN credentials are Gluetun startup configuration, not
+Control Server runtime settings. Tuniku therefore collects them in the
+authenticated Compose Assistant and produces reviewable Compose and environment
+text. Applying that proposal remains a manual ZimaOS operation; Tuniku does not
+gain Docker-socket or host-file access.
+
 ## Gluetun adapter
 
 Read routes:

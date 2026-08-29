@@ -100,8 +100,12 @@ first-run pattern as the other ishiku account apps. Before deployment, edit
 the Compose file and:
 
 - set `ISHIKU_SETUP_SECRET` to at least 32 random characters;
-- set the Gluetun provider, VPN type, and Control Server role values;
-- confirm the host paths under `/DATA/AppData/i_tuniku/`.
+- confirm the Tuniku host path under `/DATA/AppData/i_tuniku/Data`.
+
+No Gluetun provider or VPN credential is required before this first start.
+The primary stack contains only Tuniku. This prevents an invalid VPN
+configuration from blocking the setup interface or creating a Gluetun restart
+loop.
 
 Tuniku runs as UID/GID `1000`. If the host creates the data directory with
 different ownership, run
@@ -117,9 +121,7 @@ Tuniku creates its internal session and credential-encryption keys
 automatically under `/data/.secrets`; they do not need separate Compose
 fields. Do not commit a populated Compose file.
 
-Configure Gluetun using the current
-[official Gluetun setup documentation](https://github.com/qdm12/gluetun-wiki/tree/main/setup),
-then start the stack:
+Start Tuniku:
 
 ```sh
 docker compose up -d
@@ -128,9 +130,21 @@ docker compose up -d
 Open `http://<docker-host>:65001` or route Tuniku through your own reverse
 proxy.
 
-For a file-backed setup secret, use `docker-compose.example.yml`. That
-hardened alternative mounts only `secrets/setup_secret.txt`; the two internal
-keys remain managed by Tuniku.
+Create the administrator, then choose **Create Gluetun configuration**. Enter
+the provider, VPN type, credentials, server selection, and Control Server
+authentication in Tuniku. Review and download the generated Compose and
+environment proposal, then replace or merge the ZimaOS stack manually and
+redeploy it. The generated stack starts both services, while Tuniku remains
+available even if Gluetun needs another correction.
+
+This manual deployment step is intentional. Provider settings are Gluetun
+container startup settings; Tuniku does not mount the Docker socket, write host
+Compose files, or recreate containers.
+
+For a file-backed setup secret and a Gluetun configuration prepared before
+startup, use `docker-compose.example.yml`. That hardened alternative mounts
+only `secrets/setup_secret.txt`; the two internal keys remain managed by
+Tuniku. Tuniku still has no startup dependency on Gluetun.
 
 The example does not publish Gluetun's port `8000` to the host. Tuniku reaches
 it through the Compose network at `http://gluetun:8000`.
@@ -141,6 +155,10 @@ When the database contains no administrator, Tuniku blocks normal application
 access and opens the first-run registration window. If `ISHIKU_SETUP_SECRET`
 is missing or shorter than 32 characters, setup fails closed and identifies
 the missing configuration key without revealing the value.
+
+After registration, a deployment without an existing Gluetun connection opens
+a choice between generating a new Gluetun configuration and connecting an
+already running Control Server.
 
 ### Create the administrator account
 
@@ -270,9 +288,9 @@ from Docker port publishing. Tuniku presents them separately.
 ### ZimaOS
 
 Import `docker-compose.yml` in the ZimaOS interface, fill the single
-`ISHIKU_SETUP_SECRET` field and the required Gluetun values, save the stack,
-and deploy it. UI terminology can vary by ZimaOS version. Tuniku never presses
-deploy or recreates containers.
+`ISHIKU_SETUP_SECRET` field, save the Tuniku-only stack, and deploy it. Add
+Gluetun later with the complete proposal generated inside Tuniku. UI terminology
+can vary by ZimaOS version. Tuniku never presses deploy or recreates containers.
 
 See [docs/zimaos.md](docs/zimaos.md).
 
@@ -364,8 +382,10 @@ does not own or maintain the project.
 
 ## Status and license
 
-Tuniku `0.3.0` preserves the product behavior while aligning first-run setup,
-ZimaOS delivery, and runtime secret management with the ishiku platform.
+Tuniku `0.3.1` starts independently of Gluetun and guides a new administrator
+to either generate a complete Gluetun Compose proposal or connect an existing
+Control Server. ZimaOS delivery and runtime secret management remain aligned
+with the ishiku platform.
 Gluetun API availability remains
 version- and role-dependent.
 

@@ -40,6 +40,18 @@
       "security_critical": true
     },
     {
+      "id": "BOOTSTRAP-001",
+      "title": "First start without Gluetun configuration",
+      "priority": "critical",
+      "acceptance": [
+        "The primary ZimaOS deployment contains only Tuniku and starts without any Gluetun provider or credential fields.",
+        "After administrator creation, the empty state offers both generation of a new Gluetun Compose proposal and connection to an existing Gluetun Control Server.",
+        "Compose generation is authenticated and generation-only; Tuniku does not mount the Docker socket, modify host Compose files, or claim that runtime Control Server routes can apply startup provider settings.",
+        "Preconfigured deployments and existing Gluetun connections remain compatible, and Tuniku health never depends on Gluetun health."
+      ],
+      "security_critical": true
+    },
+    {
       "id": "UI-001",
       "title": "Consistent English interface",
       "priority": "high",

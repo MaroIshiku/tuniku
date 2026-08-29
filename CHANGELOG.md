@@ -2,6 +2,23 @@
 
 All notable changes to Tuniku will be documented here.
 
+## [0.3.1] - 2026-08-29
+
+### Fixed
+
+- The primary ZimaOS stack now contains only Tuniku, so an unconfigured Gluetun
+  service cannot block first start or enter a restart loop.
+- The first empty state now leads to the Compose Assistant for a new Gluetun
+  setup and separately offers connection to an existing Control Server.
+- Generated and hardened Compose setups no longer make Tuniku startup depend
+  on Gluetun startup success.
+
+### Security
+
+- Preserved the generation-only boundary: Tuniku does not mount the Docker
+  socket, write host Compose files, or accept Gluetun credentials before the
+  authenticated administrator flow.
+
 ## [0.3.0] - 2026-08-29
 
 ### Changed

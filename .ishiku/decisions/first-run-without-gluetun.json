@@ -1,0 +1,13 @@
+{
+  "id": "DEC-003",
+  "date": "2026-08-29",
+  "decision": "Ship a Tuniku-only primary ZimaOS Compose. Collect Gluetun startup settings in the authenticated Compose Assistant and require the operator to review and apply its generated complete proposal manually.",
+  "rationale": "Gluetun provider selection and VPN credentials are startup environment settings and are not writable through its documented runtime Control Server. Requiring them in ZimaOS before Tuniku can start prevents the in-app setup flow, while granting Tuniku Docker or host-file write access would violate its least-privilege boundary.",
+  "compatibility": [
+    "Existing configured Gluetun deployments and saved Control Server connections remain supported.",
+    "The hardened Compose example still starts a preconfigured Gluetun stack, but Tuniku health and startup no longer depend on Gluetun health.",
+    "Generated Compose remains valid for manual deployment and routed application services may still depend on Gluetun where their network namespace requires it."
+  ],
+  "rollback": "Restore the Gluetun service and Tuniku service dependency in the primary Compose to return to the former coupled startup behavior. No database schema or persisted data is changed by this decision.",
+  "risk_class": "C"
+}

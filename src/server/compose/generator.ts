@@ -192,21 +192,21 @@ function buildCompose(input: ComposeGenerationInput): Record<string, unknown> {
     image: "ghcr.io/qdm12/gluetun:v3.41.3@sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027",
     container_name: "gluetun",
     cap_add: ["NET_ADMIN"],
+    devices: ["/dev/net/tun:/dev/net/tun"],
     environment: providerEnvironment(input),
-    volumes: ["./gluetun:/gluetun"],
+    volumes: ["/DATA/AppData/i_tuniku/Gluetun:/gluetun"],
     restart: "unless-stopped"
   };
   const services: Record<string, unknown> = { gluetun };
   if (input.taskType === "new_gluetun_setup") {
     services.tuniku = {
-      image: "ghcr.io/maroishiku/tuniku:0.3.0@sha256:41465fe12b1d5bf8b4d6a841bbe2c9a52f00937e3c46f32609a63616a163caf0",
+      image: "ghcr.io/maroishiku/tuniku:0.3.1",
       ports: ["65001:8080/tcp"],
       environment: {
         TUNIKU_DATA_PATH: "/data",
         ISHIKU_SETUP_SECRET: "replace-with-at-least-32-random-characters"
       },
-      volumes: ["tuniku_data:/data"],
-      depends_on: ["gluetun"],
+      volumes: ["/DATA/AppData/i_tuniku/Data:/data"],
       restart: "unless-stopped"
     };
   }
@@ -224,9 +224,6 @@ function buildCompose(input: ComposeGenerationInput): Record<string, unknown> {
     };
   }
   const document: Record<string, unknown> = { services };
-  if (input.taskType === "new_gluetun_setup") {
-    document.volumes = { tuniku_data: {} };
-  }
   return document;
 }
 
@@ -288,8 +285,8 @@ export function generateCompose(input: ComposeGenerationInput): ComposeGeneratio
 
   const manualSteps = [
     "Review the generated fragment and compare it with the Gluetun documentation for your installed version.",
-    "Set ISHIKU_SETUP_SECRET to at least 32 random characters before the first Tuniku start.",
-    "Edit your Compose stack manually. Tuniku does not write the host file.",
+    "Start Tuniku first with ISHIKU_SETUP_SECRET set to at least 32 random characters; Gluetun is not required for this step.",
+    "Edit your Compose stack manually with this proposal. Tuniku does not write the host file or require Docker access.",
     "Validate the resulting Compose stack with `docker compose config`.",
     "Redeploy or recreate the affected services manually.",
     "Test the Gluetun Control Server and verify the application public IP after deployment."

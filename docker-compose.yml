@@ -1,37 +1,11 @@
 name: tuniku
 
 services:
-  gluetun:
-    image: ghcr.io/qdm12/gluetun:v3.41.3@sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027
-    container_name: tuniku-gluetun
-    hostname: gluetun
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    environment:
-      VPN_SERVICE_PROVIDER: ""
-      VPN_TYPE: "wireguard"
-      HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE: ""
-      TZ: "Europe/Berlin"
-    volumes:
-      - type: bind
-        source: /DATA/AppData/i_tuniku/Gluetun
-        target: /gluetun
-    networks:
-      - tuniku
-    security_opt:
-      - no-new-privileges:true
-    restart: unless-stopped
-
   tuniku:
-    image: ghcr.io/maroishiku/tuniku:0.3.0@sha256:41465fe12b1d5bf8b4d6a841bbe2c9a52f00937e3c46f32609a63616a163caf0
+    image: ghcr.io/maroishiku/tuniku:0.3.1
     pull_policy: always
     container_name: tuniku
     hostname: tuniku
-    depends_on:
-      gluetun:
-        condition: service_healthy
     environment:
       ISHIKU_SETUP_SECRET: ""
       ISHIKU_DATA_DIR: "/data"
@@ -114,7 +88,7 @@ x-casaos:
       en_us: |
         Required: set ISHIKU_SETUP_SECRET to at least 32 random characters before starting. Tuniku creates and persists its internal session and credential-encryption keys automatically under /data.
 
-        Configure VPN_SERVICE_PROVIDER, VPN_TYPE and the Gluetun Control Server role for your provider before deployment.
+        The initial stack contains only Tuniku, so an unconfigured Gluetun service cannot block first start or enter a restart loop. After creating the first admin, choose Create Gluetun configuration in Tuniku, enter the VPN settings there, and manually replace or merge the generated complete Compose proposal.
 
         Persistent Tuniku data is stored at /DATA/AppData/i_tuniku/Data and Gluetun data at /DATA/AppData/i_tuniku/Gluetun. Back up existing data before switching an older named-volume installation to these host paths.
 

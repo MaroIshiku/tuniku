@@ -12,8 +12,23 @@ test("first-run setup, Gluetun connection, control, ports, and Compose generatio
   await page.getByLabel("Repeat password").fill("a unique e2e admin password");
   await page.getByRole("button", { name: "Create admin account" }).click();
 
-  await expect(page.getByRole("heading", { name: "Configure Gluetun" })).toBeVisible();
-  await page.getByRole("button", { name: "Configure Gluetun" }).click();
+  await expect(page.getByRole("heading", { name: "Set up Gluetun" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("first-run-gluetun-choice.png"), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("button", { name: "Create Gluetun configuration" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect existing Gluetun" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("first-run-gluetun-choice-mobile.png"), fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.getByRole("button", { name: "Create Gluetun configuration" }).click();
+  await expect(page.getByRole("heading", { name: "Compose Assistant" })).toBeVisible();
+  await page.getByLabel("VPN service provider").fill("protonvpn");
+  await page.getByRole("button", { name: "Generate guidance" }).click();
+  await expect(page.locator(".validation-chip", { hasText: "Generated YAML is valid" })).toBeVisible();
+  await expect(page.locator(".code-block", { hasText: "gluetun:" }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Overview", exact: true }).first().click();
+  await page.getByRole("button", { name: "Connect existing Gluetun" }).click();
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   await page.getByLabel("Control Server base URL").fill("http://127.0.0.1:8199");
   await page.getByLabel("Authentication mode").selectOption("none");

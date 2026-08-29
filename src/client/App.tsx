@@ -188,7 +188,7 @@ export function App() {
     <>
       <AppShell section={section} user={user} onSection={setSection} onSettings={() => setSettingsOpen(true)}>
         <div className="page-enter" key={section}>
-          {section === "overview" && <OverviewView instance={instance} overview={overview} activity={activity} loading={loading} onSection={setSection} onSettings={() => setSettingsOpen(true)} onRefresh={() => void refreshOverview(instance)} />}
+          {section === "overview" && <OverviewView instance={instance} overview={overview} activity={activity} loading={loading} onSection={setSection} onConnectExisting={() => setSettingsOpen(true)} onRefresh={() => void refreshOverview(instance)} />}
           {section === "control" && <ControlView instance={instance} overview={overview} busy={actionBusy} onAction={handleControl} onRefresh={() => void refreshOverview(instance)} onSettings={() => setSettingsOpen(true)} />}
           {section === "ports" && <PortsView instance={instance} overview={overview} ports={ports} onSave={savePort} onDelete={deletePort} onSettings={() => setSettingsOpen(true)} notify={notify} />}
           {section === "assistant" && <AssistantView instance={instance} notify={notify} />}

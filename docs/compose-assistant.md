@@ -3,6 +3,11 @@
 The Compose Assistant produces proposals and downloadable text artifacts. It
 does not write host files, call Docker, or redeploy a stack.
 
+Tuniku itself can start before Gluetun is configured. On a new installation,
+the Overview empty state opens this assistant directly. The generated new-setup
+stack contains both Tuniku and Gluetun but does not make Tuniku startup depend
+on Gluetun startup success.
+
 ## Input handling
 
 - Input is limited to 1 MiB.

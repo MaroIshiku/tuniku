@@ -5,20 +5,29 @@ ZimaOS wording and controls can differ between versions. The primary
 
 1. Import `docker-compose.yml` as a custom stack.
 2. Set `ISHIKU_SETUP_SECRET` to at least 32 random characters.
-3. Configure the Gluetun provider, VPN type, credentials, and Control Server
-   role using the current official documentation.
-4. Confirm the `/DATA/AppData/i_tuniku/Data` and
-   `/DATA/AppData/i_tuniku/Gluetun` host paths.
+3. Confirm the `/DATA/AppData/i_tuniku/Data` host path.
    Tuniku runs as UID/GID `1000`; if needed, set ownership with
    `chown -R 1000:1000 /DATA/AppData/i_tuniku/Data`.
-5. Save and deploy the stack in ZimaOS.
-6. Complete Tuniku first-run registration with the same setup value.
-7. Configure `http://gluetun:8000` as the Control Server URL.
+4. Save and deploy the Tuniku-only stack in ZimaOS. It contains no
+   unconfigured Gluetun service.
+5. Complete Tuniku first-run registration with the same setup value.
+6. Choose **Create Gluetun configuration**, enter the VPN and Control Server
+   settings, and generate the proposal.
+7. Review and manually replace or merge the generated Compose in ZimaOS, then
+   redeploy it.
+8. Configure `http://gluetun:8000` as the Control Server URL when prompted, or
+   choose **Connect existing Gluetun** for an already running instance.
+
+Gluetun provider and credential values are container startup configuration.
+The current documented Control Server interface can read VPN settings and
+change supported runtime state, but it is not a safe substitute for creating
+the initial container configuration. Tuniku therefore generates the complete
+proposal without receiving Docker or host-file write access.
 
 Tuniku automatically persists its internal session and credential-encryption
 keys below `/data/.secrets`. No second or third Tuniku secret is needed in the
 ZimaOS editor. Use `docker-compose.example.yml` only when a file-backed setup
-secret is preferred.
+secret and a preconfigured Gluetun service are preferred.
 
 Older installations using the `tuniku_data` named volume remain supported.
 Before switching them to the primary host-path Compose, stop Tuniku, back up

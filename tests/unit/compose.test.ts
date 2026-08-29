@@ -20,11 +20,16 @@ describe("Compose Assistant", () => {
     expect(validateCompose(result.snippets.compose).valid).toBe(true);
     const compose = YAML.parse(result.snippets.compose);
     expect(compose.services.gluetun.image).toMatch(/^ghcr\.io\/qdm12\/gluetun:v3\.41\.3@sha256:/);
-    expect(compose.services.tuniku.image).toBe("ghcr.io/maroishiku/tuniku:0.3.0@sha256:41465fe12b1d5bf8b4d6a841bbe2c9a52f00937e3c46f32609a63616a163caf0");
+    expect(compose.services.tuniku.image).toBe("ghcr.io/maroishiku/tuniku:0.3.1");
+    expect(compose.services.tuniku.depends_on).toBeUndefined();
     expect(compose.services.tuniku.environment).toEqual({
       TUNIKU_DATA_PATH: "/data",
       ISHIKU_SETUP_SECRET: "replace-with-at-least-32-random-characters"
     });
+    expect(compose.services.gluetun.devices).toEqual(["/dev/net/tun:/dev/net/tun"]);
+    expect(compose.services.gluetun.volumes).toEqual(["/DATA/AppData/i_tuniku/Gluetun:/gluetun"]);
+    expect(compose.services.tuniku.volumes).toEqual(["/DATA/AppData/i_tuniku/Data:/data"]);
+    expect(compose.volumes).toBeUndefined();
     expect(compose.services.tuniku.secrets).toBeUndefined();
     expect(compose.secrets).toBeUndefined();
     expect(result.snippets.secrets).toContain("only ISHIKU_SETUP_SECRET");
@@ -32,6 +37,7 @@ describe("Compose Assistant", () => {
     expect(result.detectedConfiguration).toBeDefined();
     expect(result.recommendedChange).toBeTruthy();
     expect(result.manualSteps).toHaveLength(6);
+    expect(result.manualSteps.join(" ")).toContain("Gluetun is not required");
     expect(result.securityWarnings.length).toBeGreaterThan(0);
   });
 

@@ -14,7 +14,7 @@ export function OverviewView(props: {
   activity: any[];
   loading: boolean;
   onSection: (section: Section) => void;
-  onSettings: () => void;
+  onConnectExisting: () => void;
   onRefresh: () => void;
 }) {
   const { t, language } = useI18n();
@@ -23,9 +23,13 @@ export function OverviewView(props: {
     return (
       <section className="empty-state hero-empty">
         <div className="empty-logo"><img src="/assets/logos/tuniku.png" alt="Tuniku" /></div>
-        <h1>{t("configureGluetun")}</h1>
-        <p>{t("configureHint")}</p>
-        <button className="button button-filled" type="button" onClick={props.onSettings}>{t("configureGluetun")}</button>
+        <h1>{t("prepareGluetun")}</h1>
+        <p>{t("prepareGluetunHint")}</p>
+        <div className="empty-actions">
+          <button className="button button-filled" type="button" onClick={() => props.onSection("assistant")}><Icon name="code" />{t("createGluetunConfig")}</button>
+          <button className="button button-outlined" type="button" onClick={props.onConnectExisting}><Icon name="settings" />{t("connectExistingGluetun")}</button>
+        </div>
+        <small className="empty-note">{t("manualDeploymentNote")}</small>
       </section>
     );
   }
