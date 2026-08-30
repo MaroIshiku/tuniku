@@ -2,6 +2,24 @@
 
 All notable changes to Tuniku will be documented here.
 
+## [0.3.3] - 2026-08-30
+
+### Changed
+
+- Added 30-minute idle and 24-hour absolute session expiry.
+- Added password-confirmed revocation of other active sessions in Settings.
+- Added request IDs to API error envelopes and security audit events.
+- Changed the guided new setup to generate a separate Gluetun-only add-on for
+  the already-running Tuniku stack and its external `tuniku` network.
+- Added `HTTPS_ONLY=false` as the trusted-LAN HTTP default, with opt-in Secure
+  cookies behind an HTTPS reverse proxy.
+- Preserved redacted generated credentials by default with an explicit,
+  short-lived full-secret output option.
+- Added blocking high/critical container scans, multi-architecture release
+  promotion, attached SBOM evidence, immutable tags, and GitHub Releases.
+- Verified the Gluetun v3.41.3 provider catalog against the migrated upstream
+  repository and refreshed locked dependency patch levels.
+
 ## [0.3.2] - 2026-08-30
 
 ### Changed

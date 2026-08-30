@@ -3,6 +3,7 @@ import type { ComposeResult, GluetunProviderProfile, Instance } from "../lib/mod
 import { api, ApiError } from "../lib/api.js";
 import { useI18n, type TranslationKey } from "../lib/i18n.js";
 import { Icon } from "../components/Icon.js";
+import { copyText } from "../lib/clipboard.js";
 
 const tasks: Array<{ id: string; label: TranslationKey; icon: string }> = [
   { id: "new_gluetun_setup", label: "newSetup", icon: "vpn" },
@@ -95,7 +96,7 @@ export function AssistantView(props: { instance: Instance | null; notify: (text:
     } finally { setBusy(false); }
   }
 
-  async function copy(content: string): Promise<void> { await navigator.clipboard.writeText(content); props.notify(t("copied")); }
+  async function copy(content: string): Promise<void> { await copyText(content); props.notify(t("copied")); }
   function download(filename: string, content: string, mediaType: string): void {
     const url = URL.createObjectURL(new Blob([content], { type: mediaType }));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url);

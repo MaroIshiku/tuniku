@@ -20,6 +20,16 @@ export interface Bootstrap {
   app: { name: string; subtitle: string; version: string };
 }
 
+export interface SessionSummary {
+  current: {
+    createdAt: string;
+    lastSeenAt: string;
+    expiresAt: string;
+    reauthenticatedAt: string;
+  };
+  otherCount: number;
+}
+
 export interface Instance {
   id: string;
   displayName: string;

@@ -23,7 +23,7 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       TUNIKU_DATA_PATH: /data
       ISHIKU_SETUP_SECRET_FILE: /run/secrets/ishiku_setup_secret
-      TUNIKU_SECURE_COOKIES: ${TUNIKU_SECURE_COOKIES:-false}
+      HTTPS_ONLY: ${HTTPS_ONLY:-false}
       TUNIKU_TRUSTED_PROXY_COUNT: ${TUNIKU_TRUSTED_PROXY_COUNT:-0}
     secrets:
       - ishiku_setup_secret

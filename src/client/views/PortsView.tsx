@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import type { Instance, Overview, PortLabel } from "../lib/models.js";
 import { useI18n } from "../lib/i18n.js";
 import { Icon } from "../components/Icon.js";
+import { copyText } from "../lib/clipboard.js";
 import { Sheet } from "../components/Sheet.js";
 
 const emptyForm = { label: "", hostAddress: "", hostPort: "", containerPort: "8080", protocol: "tcp" as "tcp" | "udp", notes: "" };
@@ -65,7 +66,7 @@ export function PortsView(props: {
               <div data-label={t("containerPort")}><strong>{port.containerPort}</strong></div>
               <div data-label={t("protocol")}><span className="status-pill">{port.protocol.toUpperCase()}</span></div>
               <div className="port-actions">
-                <button className="icon-button" type="button" aria-label={`${t("copy")} ${port.label}`} onClick={() => { void navigator.clipboard.writeText(`"${port.hostAddress ? `${port.hostAddress}:` : ""}${port.hostPort || port.containerPort}:${port.containerPort}/${port.protocol}"`); props.notify(t("copied")); }}><Icon name="copy" /></button>
+                <button className="icon-button" type="button" aria-label={`${t("copy")} ${port.label}`} onClick={() => { void copyText(`"${port.hostAddress ? `${port.hostAddress}:` : ""}${port.hostPort || port.containerPort}:${port.containerPort}/${port.protocol}"`); props.notify(t("copied")); }}><Icon name="copy" /></button>
                 <button className="icon-button" type="button" aria-label={`${t("edit")} ${port.label}`} onClick={() => begin(port)}><Icon name="edit" /></button>
                 <button className="icon-button danger-icon" type="button" aria-label={`${t("delete")} ${port.label}`} onClick={() => void props.onDelete(port.id)}><Icon name="delete" /></button>
               </div>

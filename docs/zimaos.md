@@ -13,8 +13,9 @@ ZimaOS wording and controls can differ between versions. The primary
 5. Complete Tuniku first-run registration with the same setup value.
 6. Choose **Create Gluetun configuration**, enter the VPN and Control Server
    settings in the provider-guided flow, and generate the proposal.
-7. Review and manually replace or merge the generated Compose in ZimaOS, then
-   redeploy it.
+7. Keep the existing Tuniku stack running and import the generated
+   `docker-compose.gluetun-addon.yml` as a separate stack. The add-on joins the
+   external network `tuniku`; do not add a second Tuniku service or port 65001.
 8. Configure `http://gluetun:8000` as the Control Server URL when prompted, or
    choose **Connect existing Gluetun** for an already running instance.
 
@@ -23,8 +24,17 @@ The current documented Control Server interface can read VPN settings and
 change supported runtime state, but it is not a safe substitute for creating
 the initial container configuration. Tuniku therefore generates the complete
 proposal without receiving Docker or host-file write access.
-The generated Compose uses direct scalar values. It does not require an env
-file; the optional env download is only a convenience copy of those settings.
+The generated Compose uses direct scalar values and does not require an env
+file; the optional env download is only a convenience copy. Secret-bearing
+fields are `[REDACTED]` by default. Enable **Include secret values** for one
+generation response or replace every marker before deployment. Tuniku does not
+store the full-secret result in drafts, logs, or audits and removes it from the
+browser after 15 minutes.
+
+The primary Tuniku Compose sets `HTTPS_ONLY=false`, so
+`http://<docker-host>:65001` works on the trusted local network. Set
+`HTTPS_ONLY=true` only when an HTTPS reverse proxy fronts Tuniku; this makes the
+session cookie Secure. The alias `HTTPSONLY=true` is accepted for compatibility.
 
 Tuniku automatically persists its internal session and credential-encryption
 keys below `/data/.secrets`. No second or third Tuniku secret is needed in the

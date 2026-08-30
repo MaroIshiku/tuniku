@@ -1,6 +1,6 @@
 {
   "name": "tuniku",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "description": "A secure, self-hosted Gluetun control dashboard and Compose assistant.",
   "type": "module",
@@ -36,7 +36,7 @@
     "react-dom": "^19.2.8",
     "undici": "^8.10.0",
     "yaml": "^2.9.0",
-    "zod": "^4.5.1"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
@@ -49,7 +49,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^10.0.5",
     "eslint": "^10.9.1",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.68.0",
     "vite": "^8.2.2",

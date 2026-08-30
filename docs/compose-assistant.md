@@ -3,10 +3,11 @@
 The Compose Assistant produces proposals and downloadable text artifacts. It
 does not write host files, call Docker, or redeploy a stack.
 
-Tuniku itself can start before Gluetun is configured. On a new installation,
-the Overview empty state opens this assistant directly. The generated new-setup
-stack contains both Tuniku and Gluetun but does not make Tuniku startup depend
-on Gluetun startup success.
+Tuniku itself starts before Gluetun is configured. On a new installation, the
+Overview empty state opens this assistant directly. The generated primary
+artifact is a separate Gluetun-only add-on stack. It attaches to the existing
+external Docker network named `tuniku`; it does not duplicate the running
+Tuniku service or bind host port 65001 a second time.
 
 ## Input handling
 
@@ -29,7 +30,7 @@ additional Tuniku secrets.
 
 Available downloads:
 
-- `docker-compose.generated.yml`
+- `docker-compose.gluetun-addon.yml` for the guided new setup
 - `gluetun.optional.env`
 - `secrets.README.txt`
 - `tuniku-manual-steps.md`
@@ -38,11 +39,11 @@ The Compose download is the default deployment artifact. All Gluetun settings
 are direct YAML scalar values; it contains no `${...}` references and does not
 need the env download. The env artifact is an optional alternate representation.
 
-Secret-bearing fields are replaced with `[REDACTED]` in both artifacts by
-default. A redacted result is structurally valid YAML but is clearly marked as
-not deployment-ready. The operator must either replace every marker or opt in
-to include sensitive values for one response. Full-secret results expire from
-the browser view after 15 minutes.
+Secret-bearing fields are `[REDACTED]` by default. Before deployment, either
+enable **Include secret values** for one generation response or replace every
+marker manually. A full-secret result remains only in the current request and
+browser result and is removed after 15 minutes. Saved drafts, logs, audit
+events, diagnostics, and Compose inspection always redact sensitive values.
 
 The YAML output is parsed again before the result is marked valid. Host ports
 found in pasted Compose content are compared with planned mappings.

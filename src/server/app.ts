@@ -56,6 +56,25 @@ export async function buildApp(appConfig: AppConfig): Promise<FastifyInstance> {
     crossOriginEmbedderPolicy: false
   });
 
+  app.addHook("onRequest", async (request, reply) => {
+    reply.header("x-request-id", request.id);
+  });
+  app.addHook("preSerialization", async (request, reply, payload) => {
+    if (
+      !request.url.startsWith("/api/") ||
+      reply.statusCode < 400 ||
+      !payload ||
+      typeof payload !== "object" ||
+      !("error" in payload)
+    ) return payload;
+    const error = (payload as { error?: unknown }).error;
+    if (!error || typeof error !== "object") return payload;
+    return {
+      ...(payload as Record<string, unknown>),
+      error: { ...(error as Record<string, unknown>), requestId: request.id }
+    };
+  });
+
   app.get("/health", async () => ({
     status: db.isReady() ? "ok" : "degraded",
     database: db.isReady() ? "ready" : "unavailable"
@@ -82,7 +101,7 @@ export async function buildApp(appConfig: AppConfig): Promise<FastifyInstance> {
     return reply.code(404).send({ error: { code: "client_not_built", message: "Build the frontend before serving this route." } });
   });
 
-  app.setErrorHandler(async (error, _request, reply) => {
+  app.setErrorHandler(async (error, request, reply) => {
     app.log.error({ err: error }, "Request failed");
     const known = error instanceof Error ? error : new Error("Unknown request failure.");
     const possibleStatus = "statusCode" in known ? Number((known as Error & { statusCode?: number }).statusCode) : 0;
@@ -90,7 +109,8 @@ export async function buildApp(appConfig: AppConfig): Promise<FastifyInstance> {
     return reply.code(status).send({
       error: {
         code: status >= 500 ? "internal_error" : "request_error",
-        message: status >= 500 ? "The request could not be completed." : known.message
+        message: status >= 500 ? "The request could not be completed." : known.message,
+        requestId: request.id
       }
     });
   });

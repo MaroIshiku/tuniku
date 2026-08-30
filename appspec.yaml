@@ -24,7 +24,8 @@
       "priority": "critical",
       "acceptance": [
         "Account authentication uses generic errors, rate limits, and a supported password hash.",
-        "Sessions are server-side revocable, rotated, time-bounded, cookie-protected, and CSRF-protected."
+        "Sessions are server-side revocable, rotated, idle- and absolute-time-bounded, cookie-protected, and CSRF-protected.",
+        "Administrators can inspect their current session, confirm their password, and revoke other sessions; authentication and audit errors carry a request ID."
       ],
       "security_critical": true
     },
@@ -34,6 +35,7 @@
       "priority": "critical",
       "acceptance": [
         "The primary ZimaOS Compose exposes exactly one operator-provided ISHIKU_SETUP_SECRET with a minimum length of 32 characters.",
+        "The primary Compose sets HTTPS_ONLY=false so trusted-LAN HTTP works by default; HTTPS_ONLY=true enables Secure session cookies for reverse-proxy HTTPS.",
         "Tuniku generates and persists internal session and credential-encryption keys under /data without exposing them as additional new-install Compose fields.",
         "Legacy file-backed and environment secret overrides remain compatible, and existing encrypted credentials have an explicit migration warning."
       ],
@@ -46,6 +48,7 @@
       "acceptance": [
         "The primary ZimaOS deployment contains only Tuniku and starts without any Gluetun provider or credential fields.",
         "After administrator creation, the empty state offers both generation of a new Gluetun Compose proposal and connection to an existing Gluetun Control Server.",
+        "The new-configuration proposal is a separate Gluetun-only add-on that joins the existing external tuniku network and cannot duplicate Tuniku or host port 65001.",
         "Compose generation is authenticated and generation-only; Tuniku does not mount the Docker socket, modify host Compose files, or claim that runtime Control Server routes can apply startup provider settings.",
         "Preconfigured deployments and existing Gluetun connections remain compatible, and Tuniku health never depends on Gluetun health."
       ],
@@ -59,7 +62,8 @@
         "The authenticated assistant offers the Gluetun v3.41.3 provider catalog as a dropdown and only offers protocols supported natively by the selected provider.",
         "The assistant guides operators through provider- and protocol-specific required connection fields, optional server filters, and Control Server authentication, with server-side validation of the same constraints.",
         "Generated Compose uses direct scalar values and has no dependency on an env file; an env artifact remains an optional convenience export.",
-        "Sensitive values are redacted by default and appear in generated output only after an explicit per-generation opt-in.",
+        "Sensitive values are redacted by default and appear in generated output only after an explicit per-generation opt-in; drafts, logs, audits, and inspected input remain redacted, and the browser removes a secret-bearing result after 15 minutes.",
+        "For an already running Tuniku installation, the primary generated artifact contains only Gluetun and joins the existing external Docker network named tuniku instead of duplicating Tuniku or host port 65001.",
         "The assistant and generated result do not create page-level horizontal overflow at supported compact, medium, expanded, wide, or 200 percent zoom layouts; code can scroll inside its own region."
       ],
       "security_critical": true

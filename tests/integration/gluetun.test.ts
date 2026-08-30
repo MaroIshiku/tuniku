@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Fastify from "fastify";
+import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "../../src/server/app.js";
 import { config } from "../../src/server/config.js";
@@ -109,5 +110,77 @@ describe("authenticated Gluetun flow", () => {
       payload: { confirmed: true }
     });
     expect(rejectedWithoutCsrf.statusCode).toBe(403);
+    expect(rejectedWithoutCsrf.json().error).toMatchObject({
+      code: "csrf_invalid",
+      requestId: expect.any(String)
+    });
+
+    const secondLogin = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: { username: "integration", password: "a unique integration password" }
+    });
+    expect(secondLogin.statusCode).toBe(200);
+    const secondCookie = secondLogin.headers["set-cookie"] as string;
+
+    const sessions = await app.inject({
+      method: "GET",
+      url: "/api/v1/auth/sessions",
+      headers: { cookie }
+    });
+    expect(sessions.statusCode).toBe(200);
+    expect(sessions.json().sessions).toMatchObject({
+      current: {
+        createdAt: expect.any(String),
+        expiresAt: expect.any(String),
+        reauthenticatedAt: expect.any(String)
+      },
+      otherCount: 1
+    });
+
+    const raw = new Database(path.join(dataPath, "tuniku.db"));
+    raw.prepare("UPDATE sessions SET reauthenticated_at=?").run("2000-01-01T00:00:00.000Z");
+    raw.close();
+    const rejectedWithoutRecentAuth = await app.inject({
+      method: "DELETE",
+      url: "/api/v1/auth/sessions/others",
+      headers: { cookie, "x-csrf-token": csrf }
+    });
+    expect(rejectedWithoutRecentAuth.statusCode).toBe(403);
+    expect(rejectedWithoutRecentAuth.json().error.code).toBe("recent_authentication_required");
+
+    const reauthenticated = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/reauthenticate",
+      headers: { cookie, "x-csrf-token": csrf },
+      payload: { password: "a unique integration password" }
+    });
+    expect(reauthenticated.statusCode).toBe(200);
+
+    const revoked = await app.inject({
+      method: "DELETE",
+      url: "/api/v1/auth/sessions/others",
+      headers: { cookie, "x-csrf-token": csrf }
+    });
+    expect(revoked.statusCode).toBe(200);
+    expect(revoked.json()).toEqual({ revoked: 1 });
+
+    const revokedSession = await app.inject({
+      method: "GET",
+      url: "/api/v1/auth/session",
+      headers: { cookie: secondCookie }
+    });
+    expect(revokedSession.statusCode).toBe(401);
+
+    const activity = await app.inject({
+      method: "GET",
+      url: "/api/v1/activity",
+      headers: { cookie }
+    });
+    expect(activity.statusCode).toBe(200);
+    expect(activity.json().events[0]).toMatchObject({
+      eventType: "session_revocation",
+      requestId: expect.any(String)
+    });
   });
 });

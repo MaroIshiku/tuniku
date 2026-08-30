@@ -18,7 +18,7 @@ describe("Compose Assistant", () => {
     expect(gluetunProviderProfiles.every((provider) => provider.protocols.includes("openvpn"))).toBe(true);
   });
 
-  it("generates parseable Compose YAML with five output sections", () => {
+  it("generates a deployable Gluetun-only add-on for the running Tuniku stack", () => {
     const result = generateCompose({
       taskType: "new_gluetun_setup",
       provider: "protonvpn",
@@ -32,12 +32,11 @@ describe("Compose Assistant", () => {
     expect(validateCompose(result.snippets.compose).valid).toBe(true);
     const compose = YAML.parse(result.snippets.compose);
     expect(compose.services.gluetun.image).toMatch(/^ghcr\.io\/qdm12\/gluetun:v3\.41\.3@sha256:/);
-    expect(compose.services.tuniku.image).toBe("ghcr.io/maroishiku/tuniku:0.3.2");
-    expect(compose.services.tuniku.depends_on).toBeUndefined();
-    expect(compose.services.tuniku.environment).toEqual({
-      TUNIKU_DATA_PATH: "/data",
-      ISHIKU_SETUP_SECRET: "replace-with-at-least-32-random-characters"
-    });
+    expect(compose.name).toBe("tuniku-gluetun");
+    expect(Object.keys(compose.services)).toEqual(["gluetun"]);
+    expect(compose.services.tuniku).toBeUndefined();
+    expect(compose.networks.tuniku).toEqual({ external: true, name: "tuniku" });
+    expect(compose.services.gluetun.networks).toEqual(["tuniku"]);
     expect(compose.services.gluetun.devices).toEqual(["/dev/net/tun:/dev/net/tun"]);
     expect(compose.services.gluetun.volumes).toEqual(["/DATA/AppData/i_tuniku/Gluetun:/gluetun"]);
     expect(compose.services.gluetun.environment).toMatchObject({
@@ -45,23 +44,23 @@ describe("Compose Assistant", () => {
       VPN_TYPE: "wireguard",
       WIREGUARD_PRIVATE_KEY: "[REDACTED]",
       WIREGUARD_ADDRESSES: "10.2.0.2/32",
-      HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE: "[REDACTED]"
+      HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE: '{"auth":"apikey","apikey":"[REDACTED]"}'
     });
     expect(compose.services.gluetun.environment.OPENVPN_CUSTOM_CONFIG).toBeUndefined();
     expect(compose.services.gluetun.volumes).not.toContain("/DATA/AppData/i_tuniku/custom.conf:/gluetun/custom.conf:ro");
     expect(result.snippets.compose).not.toContain("${");
-    expect(compose.services.tuniku.volumes).toEqual(["/DATA/AppData/i_tuniku/Data:/data"]);
     expect(compose.volumes).toBeUndefined();
-    expect(compose.services.tuniku.secrets).toBeUndefined();
     expect(compose.secrets).toBeUndefined();
     expect(result.snippets.secrets).toContain("only ISHIKU_SETUP_SECRET");
     expect(result.snippets.env).toContain("WIREGUARD_PRIVATE_KEY=[REDACTED]");
     expect(result.detectedConfiguration).toBeDefined();
     expect(result.recommendedChange).toBeTruthy();
     expect(result.manualSteps).toHaveLength(7);
-    expect(result.manualSteps.join(" ")).toContain("Gluetun is not required");
+    expect(result.manualSteps.join(" ")).toContain("Keep the current Tuniku stack running");
     expect(result.securityWarnings.length).toBeGreaterThan(0);
     expect(result.artifacts.some((artifact) => artifact.filename === "gluetun.optional.env")).toBe(true);
+    expect(result.artifacts.some((artifact) => artifact.filename === "docker-compose.gluetun-addon.yml")).toBe(true);
+    expect(result.redacted).toBe(true);
   });
 
   it("includes direct secret values only after explicit opt-in", () => {

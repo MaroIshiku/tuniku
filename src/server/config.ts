@@ -74,6 +74,8 @@ export function loadConfig(environment: Environment = process.env) {
     ["/run/secrets/ishiku_setup_secret", "/run/secrets/tuniku_registration_secret"]
   );
 
+  const httpsOnly = (environment.HTTPS_ONLY || environment.HTTPSONLY || environment.TUNIKU_SECURE_COOKIES) === "true";
+
   return {
     host: environment.TUNIKU_HOST || "0.0.0.0",
     port: integerEnv(environment, "TUNIKU_PORT", 8080),
@@ -81,7 +83,7 @@ export function loadConfig(environment: Environment = process.env) {
     databasePath: environment.TUNIKU_DATABASE_PATH || path.join(dataPath, "tuniku.db"),
     logLevel: environment.TUNIKU_LOG_LEVEL || environment.ISHIKU_LOG_LEVEL || "info",
     trustedProxyCount: integerEnv(environment, "TUNIKU_TRUSTED_PROXY_COUNT", 0),
-    secureCookies: environment.TUNIKU_SECURE_COOKIES === "true",
+    secureCookies: httpsOnly,
     allowLoopbackUpstream: environment.TUNIKU_ALLOW_LOOPBACK_UPSTREAM === "true",
     dockerProxyUrl: environment.TUNIKU_DOCKER_PROXY_URL?.trim() || null,
     registrationSecret: registrationSecret && registrationSecret.length >= 32 ? registrationSecret : null,
@@ -104,7 +106,7 @@ export function loadConfig(environment: Environment = process.env) {
       generate: () => crypto.randomBytes(32).toString("base64")
     }),
     build: {
-      version: environment.TUNIKU_VERSION || "0.3.2",
+      version: environment.TUNIKU_VERSION || "0.3.3",
       date: environment.TUNIKU_BUILD_DATE || "development",
       gitSha: environment.TUNIKU_GIT_SHA || "development"
     }

@@ -130,6 +130,23 @@ export class TunikuDatabase {
         PRAGMA user_version = 1;
       `);
     }
+    if (version < 2) {
+      this.raw.exec(`
+        ALTER TABLE sessions ADD COLUMN last_seen_at TEXT;
+        ALTER TABLE sessions ADD COLUMN reauthenticated_at TEXT;
+        UPDATE sessions
+        SET last_seen_at = created_at,
+            reauthenticated_at = created_at;
+        PRAGMA user_version = 2;
+      `);
+    }
+    if (version < 3) {
+      this.raw.exec(`
+        ALTER TABLE audit_events ADD COLUMN request_id TEXT;
+        UPDATE audit_events SET request_id = 'legacy' WHERE request_id IS NULL;
+        PRAGMA user_version = 3;
+      `);
+    }
   }
 
   close(): void {
@@ -181,31 +198,77 @@ export class TunikuDatabase {
   }
 
   createSession(idHash: string, userId: string, csrfToken: string, expiresAt: string): void {
+    const timestamp = now();
     this.raw.prepare(
-      "INSERT INTO sessions (id_hash,user_id,csrf_token,expires_at,created_at) VALUES (?,?,?,?,?)"
-    ).run(idHash, userId, csrfToken, expiresAt, now());
+      `INSERT INTO sessions
+       (id_hash,user_id,csrf_token,expires_at,created_at,last_seen_at,reauthenticated_at)
+       VALUES (?,?,?,?,?,?,?)`
+    ).run(idHash, userId, csrfToken, expiresAt, timestamp, timestamp, timestamp);
   }
 
-  getSession(idHash: string): { user: SessionUser; csrfToken: string; expiresAt: string } | null {
+  getSession(idHash: string, idleCutoff: string): {
+    user: SessionUser;
+    csrfToken: string;
+    expiresAt: string;
+    createdAt: string;
+    lastSeenAt: string;
+    reauthenticatedAt: string;
+  } | null {
     const row = this.raw.prepare(`
-      SELECT s.csrf_token,s.expires_at,u.id,u.username,u.display_name,u.email,u.role
+      SELECT s.csrf_token,s.expires_at,s.created_at,s.last_seen_at,s.reauthenticated_at,
+             u.id,u.username,u.display_name,u.email,u.role
       FROM sessions s JOIN users u ON u.id=s.user_id
-      WHERE s.id_hash=? AND s.expires_at>?
-    `).get(idHash, now()) as any;
+      WHERE s.id_hash=? AND s.expires_at>? AND s.last_seen_at>?
+    `).get(idHash, now(), idleCutoff) as any;
     if (!row) return null;
     return {
       user: { id: row.id, username: row.username, displayName: row.display_name, email: row.email, role: "admin" },
       csrfToken: row.csrf_token,
-      expiresAt: row.expires_at
+      expiresAt: row.expires_at,
+      createdAt: row.created_at,
+      lastSeenAt: row.last_seen_at,
+      reauthenticatedAt: row.reauthenticated_at
     };
+  }
+
+  touchSession(idHash: string): void {
+    this.raw.prepare("UPDATE sessions SET last_seen_at=? WHERE id_hash=?").run(now(), idHash);
+  }
+
+  markSessionReauthenticated(idHash: string): string {
+    const timestamp = now();
+    this.raw.prepare("UPDATE sessions SET reauthenticated_at=?,last_seen_at=? WHERE id_hash=?")
+      .run(timestamp, timestamp, idHash);
+    return timestamp;
+  }
+
+  sessionSummary(userId: string, currentIdHash: string): {
+    current: { createdAt: string; lastSeenAt: string; expiresAt: string; reauthenticatedAt: string };
+    otherCount: number;
+  } | null {
+    const current = this.raw.prepare(`
+      SELECT created_at AS createdAt,last_seen_at AS lastSeenAt,expires_at AS expiresAt,
+             reauthenticated_at AS reauthenticatedAt
+      FROM sessions WHERE id_hash=? AND user_id=?
+    `).get(currentIdHash, userId) as any;
+    if (!current) return null;
+    const otherCount = (this.raw.prepare(
+      "SELECT COUNT(*) AS count FROM sessions WHERE user_id=? AND id_hash<>?"
+    ).get(userId, currentIdHash) as { count: number }).count;
+    return { current, otherCount };
+  }
+
+  deleteOtherSessions(userId: string, currentIdHash: string): number {
+    return this.raw.prepare("DELETE FROM sessions WHERE user_id=? AND id_hash<>?")
+      .run(userId, currentIdHash).changes;
   }
 
   deleteSession(idHash: string): void {
     this.raw.prepare("DELETE FROM sessions WHERE id_hash=?").run(idHash);
   }
 
-  pruneSessions(): void {
-    this.raw.prepare("DELETE FROM sessions WHERE expires_at<=?").run(now());
+  pruneSessions(idleCutoff = new Date(Date.now() - 30 * 60_000).toISOString()): void {
+    this.raw.prepare("DELETE FROM sessions WHERE expires_at<=? OR last_seen_at<=?").run(now(), idleCutoff);
   }
 
   listInstances(): InstanceRecord[] {
@@ -357,16 +420,18 @@ export class TunikuDatabase {
     return this.raw.prepare("DELETE FROM compose_drafts").run().changes;
   }
 
-  audit(input: { id: string; userId: string | null; instanceId: string | null; type: string; result: string; metadata: unknown }): void {
+  audit(input: { id: string; requestId: string; userId: string | null; instanceId: string | null; type: string; result: string; metadata: unknown }): void {
     this.raw.prepare(`
-      INSERT INTO audit_events (id,user_id,instance_id,event_type,result,redacted_metadata_json,created_at)
-      VALUES (?,?,?,?,?,?,?)
-    `).run(input.id, input.userId, input.instanceId, input.type, input.result, JSON.stringify(input.metadata), now());
+      INSERT INTO audit_events
+      (id,request_id,user_id,instance_id,event_type,result,redacted_metadata_json,created_at)
+      VALUES (?,?,?,?,?,?,?,?)
+    `).run(input.id, input.requestId, input.userId, input.instanceId, input.type, input.result, JSON.stringify(input.metadata), now());
   }
 
   recentAudit(limit = 20): unknown[] {
     return this.raw.prepare(`
-      SELECT event_type AS eventType,result,redacted_metadata_json AS metadata,created_at AS createdAt
+      SELECT request_id AS requestId,event_type AS eventType,result,
+             redacted_metadata_json AS metadata,created_at AS createdAt
       FROM audit_events ORDER BY created_at DESC LIMIT ?
     `).all(limit).map((row: any) => ({ ...row, metadata: JSON.parse(row.metadata) }));
   }

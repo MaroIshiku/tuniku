@@ -30,13 +30,25 @@ import { DockerObserver } from "../docker/observer.js";
 import { gluetunProviderProfiles } from "../compose/providers.js";
 
 const setupLimiter = new SlidingWindowRateLimiter(8, 15 * 60_000);
-const loginLimiter = new SlidingWindowRateLimiter(8, 15 * 60_000);
+const loginNetworkLimiter = new SlidingWindowRateLimiter(20, 15 * 60_000);
+const loginAccountLimiter = new SlidingWindowRateLimiter(8, 15 * 60_000);
 const connectionLimiter = new SlidingWindowRateLimiter(20, 60_000);
 const controlLimiter = new SlidingWindowRateLimiter(20, 60_000);
 const generateLimiter = new SlidingWindowRateLimiter(30, 60_000);
 const SESSION_COOKIE = "tuniku_session";
+const SESSION_ABSOLUTE_MS = 24 * 60 * 60_000;
+const SESSION_IDLE_MS = 30 * 60_000;
+const RECENT_AUTH_MS = 10 * 60_000;
 
-type Session = { user: SessionUser; csrfToken: string; expiresAt: string; idHash: string };
+type Session = {
+  user: SessionUser;
+  csrfToken: string;
+  expiresAt: string;
+  createdAt: string;
+  lastSeenAt: string;
+  reauthenticatedAt: string;
+  idHash: string;
+};
 
 function clientKey(request: FastifyRequest, suffix: string): string {
   return `${request.ip}:${suffix}`;
@@ -48,8 +60,14 @@ function sessionFromRequest(request: FastifyRequest, db: TunikuDatabase): Sessio
   const unsigned = request.unsignCookie(raw);
   if (!unsigned.valid || !unsigned.value) return null;
   const idHash = sha256(unsigned.value);
-  const result = db.getSession(idHash);
-  return result ? { ...result, idHash } : null;
+  const idleCutoff = new Date(Date.now() - SESSION_IDLE_MS).toISOString();
+  const result = db.getSession(idHash, idleCutoff);
+  if (!result) {
+    db.deleteSession(idHash);
+    return null;
+  }
+  db.touchSession(idHash);
+  return { ...result, lastSeenAt: new Date().toISOString(), idHash };
 }
 
 function setSessionCookie(reply: FastifyReply, token: string, appConfig: AppConfig): void {
@@ -66,7 +84,7 @@ function setSessionCookie(reply: FastifyReply, token: string, appConfig: AppConf
 function createSession(db: TunikuDatabase, user: SessionUser): { token: string; csrfToken: string } {
   const token = randomToken();
   const csrfToken = randomToken(24);
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+  const expiresAt = new Date(Date.now() + SESSION_ABSOLUTE_MS).toISOString();
   db.createSession(sha256(token), user.id, csrfToken, expiresAt);
   return { token, csrfToken };
 }
@@ -84,6 +102,19 @@ function requireCsrf(request: FastifyRequest, reply: FastifyReply, session: Sess
   const header = request.headers["x-csrf-token"];
   if (typeof header !== "string" || header !== session.csrfToken) {
     void reply.code(403).send({ error: { code: "csrf_invalid", message: "The request security token is invalid." } });
+    return false;
+  }
+  return true;
+}
+
+function requireRecentAuthentication(request: FastifyRequest, reply: FastifyReply, session: Session): boolean {
+  if (Date.parse(session.reauthenticatedAt) <= Date.now() - RECENT_AUTH_MS) {
+    void reply.code(403).send({
+      error: {
+        code: "recent_authentication_required",
+        message: "Confirm your password before changing active sessions."
+      }
+    });
     return false;
   }
   return true;
@@ -177,6 +208,10 @@ export function registerApiRoutes(
   }
 ): void {
   const { db, appConfig, state, startedAt } = dependencies;
+  const audit = (
+    request: FastifyRequest,
+    input: Omit<Parameters<TunikuDatabase["audit"]>[0], "id" | "requestId">
+  ): void => db.audit({ id: crypto.randomUUID(), requestId: request.id, ...input });
 
   app.get("/api/v1/bootstrap", async (request) => {
     const adminExists = db.adminCount() > 0;
@@ -215,7 +250,7 @@ export function registerApiRoutes(
       }).parse(request.body);
       const errors = validateAdminInput({ ...body, configuredSecret: appConfig.registrationSecret });
       if (errors.length) {
-        db.audit({ id: crypto.randomUUID(), userId: null, instanceId: null, type: "setup_attempt", result: "rejected", metadata: { reason: errors[0] } });
+        audit(request, { userId: null, instanceId: null, type: "setup_attempt", result: "rejected", metadata: { reason: errors[0] } });
         return reply.code(400).send({ error: { code: "setup_validation", message: errors[0], details: errors } });
       }
       const user = db.createFirstAdmin({
@@ -228,7 +263,7 @@ export function registerApiRoutes(
       const session = createSession(db, user);
       setSessionCookie(reply, session.token, appConfig);
       setupLimiter.clear(clientKey(request, "setup"));
-      db.audit({ id: crypto.randomUUID(), userId: user.id, instanceId: null, type: "first_admin_created", result: "success", metadata: {} });
+      audit(request, { userId: user.id, instanceId: null, type: "first_admin_created", result: "success", metadata: {} });
       return { user, csrfToken: session.csrfToken };
     } catch (error) {
       const response = errorResponse(error);
@@ -238,18 +273,25 @@ export function registerApiRoutes(
 
   app.post("/api/v1/auth/login", async (request, reply) => {
     try {
-      if (!loginLimiter.consume(clientKey(request, "login"))) return reply.code(429).send({ error: { code: "rate_limited", message: "Too many sign-in attempts. Try again later." } });
       const body = z.object({ username: z.string().min(1).max(64), password: z.string().max(4096) }).parse(request.body);
+      const accountKey = body.username.trim().toLowerCase();
+      if (
+        !loginNetworkLimiter.consume(clientKey(request, "login")) ||
+        !loginAccountLimiter.consume(accountKey)
+      ) {
+        return reply.code(429).send({ error: { code: "rate_limited", message: "Too many sign-in attempts. Try again later." } });
+      }
       const user = db.findUserByUsername(body.username);
       if (!user || !(await verifyPassword(user.passwordHash, body.password))) {
-        db.audit({ id: crypto.randomUUID(), userId: user?.id ?? null, instanceId: null, type: "login", result: "rejected", metadata: {} });
+        audit(request, { userId: user?.id ?? null, instanceId: null, type: "login", result: "rejected", metadata: {} });
         return reply.code(401).send({ error: { code: "invalid_credentials", message: "Username or password is incorrect." } });
       }
       const session = createSession(db, user);
       setSessionCookie(reply, session.token, appConfig);
       db.touchLogin(user.id);
-      loginLimiter.clear(clientKey(request, "login"));
-      db.audit({ id: crypto.randomUUID(), userId: user.id, instanceId: null, type: "login", result: "success", metadata: {} });
+      loginNetworkLimiter.clear(clientKey(request, "login"));
+      loginAccountLimiter.clear(accountKey);
+      audit(request, { userId: user.id, instanceId: null, type: "login", result: "success", metadata: {} });
       const { passwordHash: _passwordHash, ...publicUser } = user;
       return { user: publicUser, csrfToken: session.csrfToken };
     } catch (error) {
@@ -263,7 +305,7 @@ export function registerApiRoutes(
     if (!session || !requireCsrf(request, reply, session)) return;
     db.deleteSession(session.idHash);
     reply.clearCookie(SESSION_COOKIE, { path: "/" });
-    db.audit({ id: crypto.randomUUID(), userId: session.user.id, instanceId: null, type: "logout", result: "success", metadata: {} });
+    audit(request, { userId: session.user.id, instanceId: null, type: "logout", result: "success", metadata: {} });
     return { ok: true };
   });
 
@@ -271,6 +313,49 @@ export function registerApiRoutes(
     const session = requireSession(request, reply, db);
     if (!session) return;
     return { user: session.user, csrfToken: session.csrfToken };
+  });
+
+  app.get("/api/v1/auth/sessions", async (request, reply) => {
+    const session = requireSession(request, reply, db);
+    if (!session) return;
+    return { sessions: db.sessionSummary(session.user.id, session.idHash) };
+  });
+
+  app.post("/api/v1/auth/reauthenticate", async (request, reply) => {
+    const session = requireSession(request, reply, db);
+    if (!session || !requireCsrf(request, reply, session)) return;
+    const body = z.object({ password: z.string().max(4096) }).parse(request.body);
+    const accountKey = `reauth:${session.user.username.toLowerCase()}`;
+    if (!loginAccountLimiter.consume(accountKey)) {
+      return reply.code(429).send({ error: { code: "rate_limited", message: "Too many password confirmation attempts. Try again later." } });
+    }
+    const user = db.findUserByUsername(session.user.username);
+    if (!user || !(await verifyPassword(user.passwordHash, body.password))) {
+      audit(request, { userId: session.user.id, instanceId: null, type: "reauthentication", result: "rejected", metadata: {} });
+      return reply.code(401).send({ error: { code: "invalid_credentials", message: "Username or password is incorrect." } });
+    }
+    loginAccountLimiter.clear(accountKey);
+    const reauthenticatedAt = db.markSessionReauthenticated(session.idHash);
+    audit(request, { userId: session.user.id, instanceId: null, type: "reauthentication", result: "success", metadata: {} });
+    return { ok: true, reauthenticatedAt };
+  });
+
+  app.delete("/api/v1/auth/sessions/others", async (request, reply) => {
+    const session = requireSession(request, reply, db);
+    if (
+      !session ||
+      !requireCsrf(request, reply, session) ||
+      !requireRecentAuthentication(request, reply, session)
+    ) return;
+    const revoked = db.deleteOtherSessions(session.user.id, session.idHash);
+    audit(request, {
+      userId: session.user.id,
+      instanceId: null,
+      type: "session_revocation",
+      result: "success",
+      metadata: { revoked }
+    });
+    return { revoked };
   });
 
   app.get("/api/v1/instances", async (request, reply) => {
@@ -313,8 +398,7 @@ export function registerApiRoutes(
         ...(encryptedCredential === undefined ? {} : { encryptedCredential })
       });
       state.setEphemeralCredential(id, body.saveCredential ? null : credential);
-      db.audit({
-        id: crypto.randomUUID(),
+      audit(request, {
         userId: session.user.id,
         instanceId: id,
         type: "instance_saved",
@@ -349,7 +433,7 @@ export function registerApiRoutes(
         const reachable = states.some((capability) => capability.state !== "unreachable");
         const authenticationAccepted = reachable && !states.some((capability) => capability.state === "unauthorized");
         if (authenticationAccepted) db.updateCapabilities(id, capabilities);
-        db.audit({ id: crypto.randomUUID(), userId: session.user.id, instanceId: id, type: "connection_test", result: authenticationAccepted ? "success" : "failed", metadata: { capabilities, reachable, authenticationAccepted } });
+        audit(request, { userId: session.user.id, instanceId: id, type: "connection_test", result: authenticationAccepted ? "success" : "failed", metadata: { capabilities, reachable, authenticationAccepted } });
         return { reachable, authenticationAccepted, capabilities, version: null };
       } finally {
         adapter.close();
@@ -366,7 +450,7 @@ export function registerApiRoutes(
     const id = (request.params as any).instanceId as string;
     db.clearCredential(id);
     state.setEphemeralCredential(id, null);
-    db.audit({ id: crypto.randomUUID(), userId: session.user.id, instanceId: id, type: "credential_deleted", result: "success", metadata: {} });
+    audit(request, { userId: session.user.id, instanceId: id, type: "credential_deleted", result: "success", metadata: {} });
     return { ok: true };
   });
 
@@ -434,14 +518,14 @@ export function registerApiRoutes(
           const capabilities = instance.capabilityCache ?? await adapter.probe();
           if (capabilities[capabilityName].state !== "available") throw new GluetunError("unsupported", "The connected Gluetun instance does not expose this capability.", 409);
           const result = await adapter.mutate(endpoint.operation, { status: endpoint.status });
-          db.audit({ id: crypto.randomUUID(), userId: session.user.id, instanceId: instance.id, type: endpoint.path.replace("/", "_"), result: "success", metadata: { requestedStatus: endpoint.status } });
+          audit(request, { userId: session.user.id, instanceId: instance.id, type: endpoint.path.replace("/", "_"), result: "success", metadata: { requestedStatus: endpoint.status } });
           const overview = await state.refresh(instance);
           return { result, overview };
         } finally {
           adapter.close();
         }
       } catch (error) {
-        db.audit({ id: crypto.randomUUID(), userId: session.user.id, instanceId: (request.params as any).instanceId, type: endpoint.path.replace("/", "_"), result: "failed", metadata: { error: error instanceof Error ? error.message : "unknown" } });
+        audit(request, { userId: session.user.id, instanceId: (request.params as any).instanceId, type: endpoint.path.replace("/", "_"), result: "failed", metadata: { error: error instanceof Error ? error.message : "unknown" } });
         const response = errorResponse(error);
         return reply.code(response.status).send(response.body);
       }
@@ -460,7 +544,7 @@ export function registerApiRoutes(
         const capabilities = instance.capabilityCache ?? await adapter.probe();
         if (capabilities.portForwarding.state !== "available") throw new GluetunError("unsupported", "Runtime port forwarding is unavailable.", 409);
         const result = await adapter.mutate("portForwarding", { ports: body.ports });
-        db.audit({ id: crypto.randomUUID(), userId: session.user.id, instanceId: instance.id, type: "port_forwarding_change", result: "success", metadata: { ports: body.ports } });
+        audit(request, { userId: session.user.id, instanceId: instance.id, type: "port_forwarding_change", result: "success", metadata: { ports: body.ports } });
         return { result, overview: await state.refresh(instance) };
       } finally {
         adapter.close();
@@ -495,7 +579,7 @@ export function registerApiRoutes(
       const collisions = body.hostPort ? db.listPorts(instanceId).filter((port) => port.hostPort === body.hostPort && port.protocol === body.protocol) : [];
       if (collisions.length) throw new Error("A local port label already uses this host port and protocol.");
       const port = db.savePort({ id: crypto.randomUUID(), instanceId, ...body });
-      db.audit({ id: crypto.randomUUID(), userId: session.user.id, instanceId, type: "port_label_created", result: "success", metadata: { label: port.label, hostPort: port.hostPort, containerPort: port.containerPort, protocol: port.protocol } });
+      audit(request, { userId: session.user.id, instanceId, type: "port_label_created", result: "success", metadata: { label: port.label, hostPort: port.hostPort, containerPort: port.containerPort, protocol: port.protocol } });
       return reply.code(201).send({ port });
     } catch (error) {
       const response = errorResponse(error);
@@ -515,7 +599,7 @@ export function registerApiRoutes(
         : [];
       if (collisions.length) throw new Error("A local port label already uses this host port and protocol.");
       const port = db.savePort({ id, instanceId, ...body });
-      db.audit({ id: crypto.randomUUID(), userId: session.user.id, instanceId, type: "port_label_updated", result: "success", metadata: { label: port.label } });
+      audit(request, { userId: session.user.id, instanceId, type: "port_label_updated", result: "success", metadata: { label: port.label } });
       return { port };
     } catch (error) {
       const response = errorResponse(error);
@@ -529,7 +613,7 @@ export function registerApiRoutes(
     const instanceId = (request.params as any).instanceId as string;
     const deleted = db.deletePort((request.params as any).labelId as string, instanceId);
     if (!deleted) return reply.code(404).send({ error: { code: "not_found", message: "Port label not found." } });
-    db.audit({ id: crypto.randomUUID(), userId: session.user.id, instanceId, type: "port_label_deleted", result: "success", metadata: {} });
+    audit(request, { userId: session.user.id, instanceId, type: "port_label_deleted", result: "success", metadata: {} });
     return { ok: true };
   });
 
@@ -587,7 +671,7 @@ export function registerApiRoutes(
           containsSecretValues: result.containsSecretValues
         });
       }
-      db.audit({ id: crypto.randomUUID(), userId: session.user.id, instanceId: body.instanceId ?? null, type: "compose_generated", result: result.validation.valid ? "success" : "warning", metadata: { taskType, containsSecretValues: result.containsSecretValues } });
+      audit(request, { userId: session.user.id, instanceId: body.instanceId ?? null, type: "compose_generated", result: result.validation.valid ? "success" : "warning", metadata: { taskType, containsSecretValues: result.containsSecretValues } });
       return { result };
     } catch (error) {
       const response = errorResponse(error);

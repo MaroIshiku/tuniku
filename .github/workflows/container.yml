@@ -44,9 +44,7 @@ jobs:
         with:
           images: ghcr.io/maroishiku/tuniku
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=tag
-            type=sha
+            type=raw,value=sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.version=${{ steps.build-info.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -72,3 +70,18 @@ jobs:
           subject-name: ghcr.io/maroishiku/tuniku
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
+      - name: Block known high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/maroishiku/tuniku@${{ steps.build.outputs.digest }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: 1
+          timeout: 10m
+      - name: Promote the verified digest to latest
+        run: |
+          docker buildx imagetools create \
+            --tag ghcr.io/maroishiku/tuniku:latest \
+            ghcr.io/maroishiku/tuniku@${{ steps.build.outputs.digest }}

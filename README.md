@@ -33,7 +33,8 @@ theme supports System, Light, and Dark mode.
 - Allow-listed VPN start/stop, DNS start/stop, updater start, and supported
   port-forwarding changes.
 - Local administrator account with first-run registration, Argon2id password
-  hashing, server-side sessions, CSRF protection, and rate limits.
+  hashing, idle and absolute session expiry, password-confirmed revocation,
+  CSRF protection, and network/account rate limits.
 - Gluetun API key, Basic Auth, or deliberately unauthenticated local operation.
 - Optional encrypted credential persistence; credentials otherwise remain
   ephemeral in server memory.
@@ -132,10 +133,12 @@ proxy.
 
 Create the administrator, then choose **Create Gluetun configuration**. Enter
 the provider from the Gluetun dropdown, then follow the protocol-specific
-credential, server selection, and Control Server authentication steps. Review
-and download the generated standalone Compose, then replace or merge the ZimaOS stack manually and
-redeploy it. The generated stack starts both services, while Tuniku remains
-available even if Gluetun needs another correction.
+credential, server selection, and Control Server authentication steps. The
+download is a separate Gluetun-only add-on stack. Keep the current Tuniku stack
+running and import the add-on in ZimaOS. It joins the existing external Docker
+network named `tuniku`, so it neither duplicates Tuniku nor collides with host
+port `65001`. After Gluetun is healthy, connect Tuniku to
+`http://gluetun:8000` with the same Control Server authentication values.
 
 The Compose includes direct values and does not require an env file. An
 optional env download is available for operators who prefer that format.
@@ -180,7 +183,7 @@ immediately after the first administrator is created.
 | `TUNIKU_DATA_PATH` | `/data` | Persistent data directory |
 | `TUNIKU_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error` |
 | `TUNIKU_TRUSTED_PROXY_COUNT` | `0` | Trusted reverse-proxy hop count |
-| `TUNIKU_SECURE_COOKIES` | `false` | Set `true` when served through HTTPS |
+| `HTTPS_ONLY` | `false` | Set `true` only behind an HTTPS reverse proxy; makes the session cookie Secure. `HTTPSONLY` and legacy `TUNIKU_SECURE_COOKIES` remain accepted aliases. |
 | `ISHIKU_SETUP_SECRET` | unset | Required one-time first-admin setup value; minimum 32 characters |
 | `ISHIKU_SETUP_SECRET_FILE` | `/run/secrets/ishiku_setup_secret` | Optional file-backed setup value |
 | `TUNIKU_ALLOW_LOOPBACK_UPSTREAM` | `false` | Advanced explicit loopback Control Server access |
@@ -251,8 +254,11 @@ application routing, secret migration, and review tasks.
 
 Provider choices and compatible protocols are pinned to Gluetun `v3.41.3`.
 The form changes interactively to request the credentials, keys, certificates,
-or custom configuration path required by the selected combination. Secret
-values remain redacted unless they are explicitly included for that response.
+or custom configuration path required by the selected combination. Generated
+output contains `[REDACTED]` markers by default. Enable **Include secret values**
+for one generation response, or replace every marker before deployment. Saved
+drafts, audit events, logs, diagnostics, and Compose inspection always remain
+redacted. Secret-bearing results are removed from the browser after 15 minutes.
 
 Every result contains:
 
@@ -317,8 +323,11 @@ See [docs/zimaos.md](docs/zimaos.md).
   stored drafts.
 - No shell execution, writable Docker socket, or host Compose write path.
 
-Use HTTPS through a trusted reverse proxy outside a trusted local network and
-set `TUNIKU_SECURE_COOKIES=true`. Read [docs/security.md](docs/security.md) and
+Direct access through `http://<docker-host>:65001` is supported on the trusted
+local network with `HTTPS_ONLY=false`, including copy actions. Set
+`HTTPS_ONLY=true` only when a trusted reverse proxy terminates HTTPS; remote
+plain HTTP is not recommended. PWA installation still follows the browser's
+secure-context rules. Read [docs/security.md](docs/security.md) and
 [SECURITY.md](SECURITY.md) before exposing the service.
 
 ## Updates and backup
@@ -390,7 +399,7 @@ does not own or maintain the project.
 
 ## Status and license
 
-Tuniku `0.3.2` starts independently of Gluetun and guides a new administrator
+Tuniku `0.3.3` starts independently of Gluetun and guides a new administrator
 to either generate a complete Gluetun Compose proposal or connect an existing
 Control Server. ZimaOS delivery and runtime secret management remain aligned
 with the ishiku platform.

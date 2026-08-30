@@ -1,11 +1,12 @@
-import type { Bootstrap, ComposeResult, GluetunProviderProfile, Instance, Overview, PortLabel, User } from "./models.js";
+import type { Bootstrap, ComposeResult, GluetunProviderProfile, Instance, Overview, PortLabel, SessionSummary, User } from "./models.js";
 
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly code: string,
     readonly status: number,
-    readonly details?: unknown
+    readonly details?: unknown,
+    readonly requestId?: string
   ) {
     super(message);
   }
@@ -25,7 +26,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = payload?.error ?? {};
-    throw new ApiError(error.message || `Request failed with HTTP ${response.status}.`, error.code || "request_failed", response.status, error.details);
+    throw new ApiError(
+      error.message || `Request failed with HTTP ${response.status}.`,
+      error.code || "request_failed",
+      response.status,
+      error.details,
+      error.requestId
+    );
   }
   return payload as T;
 }
@@ -40,6 +47,15 @@ export const api = {
   ),
   login: (body: unknown) => request<{ user: User; csrfToken: string }>("/api/v1/auth/login", { method: "POST", body: json(body) }),
   logout: () => request<{ ok: boolean }>("/api/v1/auth/logout", { method: "POST", body: "{}" }),
+  sessions: () => request<{ sessions: SessionSummary }>("/api/v1/auth/sessions"),
+  reauthenticate: (password: string) => request<{ ok: boolean; reauthenticatedAt: string }>(
+    "/api/v1/auth/reauthenticate",
+    { method: "POST", body: json({ password }) }
+  ),
+  revokeOtherSessions: () => request<{ revoked: number }>(
+    "/api/v1/auth/sessions/others",
+    { method: "DELETE" }
+  ),
   instances: () => request<{ instances: Instance[] }>("/api/v1/instances"),
   saveInstance: (id: string, body: unknown) => request<{ instance: Instance }>(`/api/v1/instances/${id}`, { method: "PUT", body: json(body) }),
   testInstance: (id: string, body: unknown = {}) => request<any>(`/api/v1/instances/${id}/test`, { method: "POST", body: json(body) }),

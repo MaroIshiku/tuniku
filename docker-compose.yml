@@ -12,7 +12,7 @@ services:
       ISHIKU_LOG_LEVEL: "info"
       TUNIKU_DATA_PATH: "/data"
       TUNIKU_LOG_LEVEL: "info"
-      TUNIKU_SECURE_COOKIES: "false"
+      HTTPS_ONLY: "false"
       TUNIKU_TRUSTED_PROXY_COUNT: "0"
       TZ: "Europe/Berlin"
     ports:
@@ -88,7 +88,9 @@ x-casaos:
       en_us: |
         Required: set ISHIKU_SETUP_SECRET to at least 32 random characters before starting. Tuniku creates and persists its internal session and credential-encryption keys automatically under /data.
 
-        The initial stack contains only Tuniku, so an unconfigured Gluetun service cannot block first start or enter a restart loop. After creating the first admin, choose Create Gluetun configuration in Tuniku, enter the VPN settings there, and manually replace or merge the generated complete Compose proposal.
+        The initial stack contains only Tuniku, so an unconfigured Gluetun service cannot block first start or enter a restart loop. After creating the first admin, choose Create Gluetun configuration in Tuniku and deploy the generated Gluetun-only add-on stack. It joins the existing external network named tuniku and does not duplicate Tuniku or port 65001.
+
+        HTTPS_ONLY=false supports direct local HTTP access. Set HTTPS_ONLY=true only when Tuniku is reached through an HTTPS reverse proxy; signed-in HTTP access then intentionally stops working because the session cookie becomes Secure.
 
         Persistent Tuniku data is stored at /DATA/AppData/i_tuniku/Data and Gluetun data at /DATA/AppData/i_tuniku/Gluetun. Back up existing data before switching an older named-volume installation to these host paths.
 

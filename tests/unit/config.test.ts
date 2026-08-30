@@ -32,6 +32,13 @@ describe("runtime secret configuration", () => {
     expect(configured.registrationSecret).toBeNull();
   });
 
+  it("keeps local HTTP enabled by default and supports the Compose HTTPS_ONLY switch", () => {
+    const dataPath = fs.mkdtempSync(path.join(os.tmpdir(), "tuniku-config-"));
+    expect(loadConfig({ TUNIKU_DATA_PATH: dataPath }).secureCookies).toBe(false);
+    expect(loadConfig({ TUNIKU_DATA_PATH: dataPath, HTTPS_ONLY: "true" }).secureCookies).toBe(true);
+    expect(loadConfig({ TUNIKU_DATA_PATH: dataPath, HTTPSONLY: "true" }).secureCookies).toBe(true);
+  });
+
   it("keeps legacy file-backed overrides compatible", () => {
     const dataPath = fs.mkdtempSync(path.join(os.tmpdir(), "tuniku-config-"));
     const secretPath = path.join(dataPath, "legacy-setup");

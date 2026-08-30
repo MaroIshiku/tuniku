@@ -57,14 +57,15 @@ returns optimistic success.
 
 ## Persistence
 
-Migration version 1 contains:
+Migration version 3 contains:
 
 - Local administrator accounts.
-- Server-side sessions.
+- Server-side sessions with 30-minute idle expiry, 24-hour absolute expiry,
+  recent password confirmation, and revocation of other sessions.
 - Gluetun instance preferences and encrypted optional credentials.
 - Local port labels.
 - Redacted Compose drafts.
-- Redacted audit events.
+- Redacted audit events correlated with stable API request IDs.
 
 All instance-related entities use an instance identifier even though version 1
 shows one active instance.

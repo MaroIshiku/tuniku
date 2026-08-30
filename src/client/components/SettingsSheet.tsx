@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../lib/api.js";
-import type { Instance, Language, Mode, Theme, User } from "../lib/models.js";
+import type { Instance, Language, Mode, SessionSummary, Theme, User } from "../lib/models.js";
 import { useI18n } from "../lib/i18n.js";
 import { Icon } from "./Icon.js";
 import { Sheet } from "./Sheet.js";
+import { copyText } from "../lib/clipboard.js";
 
 const NEW_INSTANCE_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -41,6 +42,8 @@ export function SettingsSheet(props: {
   const [diagnostics, setDiagnostics] = useState<any>(null);
   const [dockerObservation, setDockerObservation] = useState<any>(null);
   const [debugDetails, setDebugDetails] = useState<any>(null);
+  const [sessions, setSessions] = useState<SessionSummary | null>(null);
+  const [reauthPassword, setReauthPassword] = useState("");
 
   useEffect(() => {
     if (!props.instance) return;
@@ -60,6 +63,7 @@ export function SettingsSheet(props: {
     void api.diagnostics().then(setDiagnostics).catch(() => setDiagnostics(null));
     void api.dockerObservation().then((result) => setDockerObservation(result.observation)).catch(() => setDockerObservation(null));
     void api.debugDetails().then(setDebugDetails).catch(() => setDebugDetails(null));
+    void api.sessions().then((result) => setSessions(result.sessions)).catch(() => setSessions(null));
   }, [props.open]);
 
   const instanceId = props.instance?.id || NEW_INSTANCE_ID;
@@ -105,15 +109,53 @@ export function SettingsSheet(props: {
 
   async function copyDebug(): Promise<void> {
     const value = debugDetails ?? await api.debugDetails();
-    await navigator.clipboard.writeText(JSON.stringify(value, null, 2));
+    await copyText(JSON.stringify(value, null, 2));
     props.notify(t("copied"));
   }
+
+  async function revokeOtherSessions(): Promise<void> {
+    setBusy(true);
+    try {
+      await api.reauthenticate(reauthPassword);
+      await api.revokeOtherSessions();
+      setReauthPassword("");
+      setSessions((current) => current ? { ...current, otherCount: 0 } : current);
+      props.notify(t("sessionsRevoked"));
+    } catch (error) {
+      props.notify(error instanceof Error ? error.message : t("error"), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const formatDate = (value: string | undefined): string => value
+    ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
+    : t("unknown");
 
   return (
     <Sheet open={props.open} title={t("settings")} onClose={props.onClose}>
       <section className="sheet-section profile-summary">
         <div className="profile-avatar">{props.user.displayName.slice(0, 2).toUpperCase()}</div>
-        <div><strong>{props.user.displayName}</strong><span>@{props.user.username}</span></div>
+        <div><span>{t("profile")}</span><strong>{props.user.displayName}</strong><span>@{props.user.username}</span></div>
+      </section>
+
+      <section className="sheet-section">
+        <div className="section-title"><Icon name="user" /><h3>{t("sessions")}</h3></div>
+        <div className="technical-card">
+          <dl>
+            <div><dt>{t("currentSession")}</dt><dd>{t("running")}</dd></div>
+            <div><dt>{t("signedInSince")}</dt><dd>{formatDate(sessions?.current.createdAt)}</dd></div>
+            <div><dt>{t("sessionExpires")}</dt><dd>{formatDate(sessions?.current.expiresAt)}</dd></div>
+            <div><dt>{t("otherSessions")}</dt><dd>{sessions?.otherCount ?? 0}</dd></div>
+          </dl>
+        </div>
+        {(sessions?.otherCount ?? 0) > 0 && <>
+          <label className="text-field">
+            <span>{t("confirmPassword")}</span>
+            <input type="password" autoComplete="current-password" value={reauthPassword} onChange={(event) => setReauthPassword(event.target.value)} />
+          </label>
+          <button className="button button-outlined" type="button" disabled={busy || !reauthPassword} onClick={() => void revokeOtherSessions()}>{t("revokeOtherSessions")}</button>
+        </>}
       </section>
 
       <section className="sheet-section">
@@ -167,7 +209,7 @@ export function SettingsSheet(props: {
         <div className="about-identity"><div className="psu-app-symbol"><img src="/assets/logos/tuniku.png" alt="Tuniku" /></div><div><h3>{t("about")}</h3><p>{t("footerBoundary")}</p></div></div>
         <div className="technical-card">
           <dl>
-            <div><dt>{t("version")}</dt><dd>{debugDetails?.app?.version || "0.3.2"}</dd></div>
+            <div><dt>{t("version")}</dt><dd>{debugDetails?.app?.version || "0.3.3"}</dd></div>
             <div><dt>{t("buildDate")}</dt><dd>{debugDetails?.app?.buildDate || "development"}</dd></div>
             <div><dt>{t("gitSha")}</dt><dd>{debugDetails?.app?.gitSha || "development"}</dd></div>
           </dl>

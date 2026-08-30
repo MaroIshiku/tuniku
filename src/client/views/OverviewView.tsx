@@ -1,6 +1,7 @@
 import type { Instance, Overview, Section } from "../lib/models.js";
 import { useI18n } from "../lib/i18n.js";
 import { Icon } from "../components/Icon.js";
+import { copyText } from "../lib/clipboard.js";
 
 function statusTone(value: string | undefined): string {
   if (["running", "completed"].includes(value || "")) return "success";
@@ -56,7 +57,7 @@ export function OverviewView(props: {
         <article className="status-card">
           <div className="card-icon"><Icon name="globe" /></div>
           <div className="card-heading"><span>{t("publicIp")}</span><strong className="technical-value">{props.overview?.publicIp?.publicIp || "—"}</strong></div>
-          {props.overview?.publicIp?.publicIp && <button className="icon-button" type="button" aria-label={`${t("copy")} ${t("publicIp")}`} onClick={() => void navigator.clipboard.writeText(props.overview!.publicIp!.publicIp)}><Icon name="copy" /></button>}
+          {props.overview?.publicIp?.publicIp && <button className="icon-button" type="button" aria-label={`${t("copy")} ${t("publicIp")}`} onClick={() => void copyText(props.overview!.publicIp!.publicIp)}><Icon name="copy" /></button>}
         </article>
         <article className="status-card">
           <div className="card-icon"><Icon name="dns" /></div>

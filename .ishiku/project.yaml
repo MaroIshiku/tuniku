@@ -55,7 +55,7 @@
   "upstreams": [
     {
       "id": "gluetun",
-      "source": "https://github.com/qdm12/gluetun",
+      "source": "https://github.com/passteque/gluetun",
       "strategy": "adapter"
     }
   ]

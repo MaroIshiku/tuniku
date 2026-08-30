@@ -26,7 +26,7 @@
     },
     {
       "id": "AUTH-001",
-      "implementation": ["src/server/security.ts", "src/server/db.ts", "src/server/routes/api.ts"],
+      "implementation": ["src/server/security.ts", "src/server/db.ts", "src/server/routes/api.ts", "src/client/components/SettingsSheet.tsx"],
       "tests": {
         "unit": ["tests/unit/security.test.ts"],
         "integration": ["tests/integration/gluetun.test.ts"],
@@ -48,7 +48,7 @@
     },
     {
       "id": "ASSISTANT-001",
-      "implementation": ["src/server/compose/providers.ts", "src/server/compose/generator.ts", "src/server/routes/api.ts", "src/client/views/AssistantView.tsx", "src/client/styles.css", "docs/compose-assistant.md"],
+      "implementation": ["src/server/compose/providers.ts", "src/server/compose/generator.ts", "src/server/routes/api.ts", "src/client/views/AssistantView.tsx", "src/client/styles.css", "docs/compose-assistant.md", ".ishiku/decisions/gluetun-addon-secret-output.json"],
       "tests": {
         "unit": ["tests/unit/compose.test.ts"],
         "integration": [],

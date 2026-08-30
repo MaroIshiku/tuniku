@@ -289,21 +289,10 @@ function buildCompose(input: ComposeGenerationInput, profile?: GluetunProviderPr
     devices: ["/dev/net/tun:/dev/net/tun"],
     environment: providerEnvironment(input, profile),
     volumes: gluetunVolumes,
+    networks: ["tuniku"],
     restart: "unless-stopped"
   };
   const services: Record<string, unknown> = { gluetun };
-  if (input.taskType === "new_gluetun_setup") {
-    services.tuniku = {
-      image: "ghcr.io/maroishiku/tuniku:0.3.2",
-      ports: ["65001:8080/tcp"],
-      environment: {
-        TUNIKU_DATA_PATH: "/data",
-        ISHIKU_SETUP_SECRET: "replace-with-at-least-32-random-characters"
-      },
-      volumes: ["/DATA/AppData/i_tuniku/Data:/data"],
-      restart: "unless-stopped"
-    };
-  }
   if (input.hostPort && input.containerPort) {
     gluetun.ports = [
       `${input.hostAddress?.trim() ? `${input.hostAddress.trim()}:` : ""}${input.hostPort}:${input.containerPort}/${input.protocol || "tcp"}`
@@ -317,7 +306,16 @@ function buildCompose(input: ComposeGenerationInput, profile?: GluetunProviderPr
       depends_on: ["gluetun"]
     };
   }
-  const document: Record<string, unknown> = { services };
+  const document: Record<string, unknown> = {
+    name: "tuniku-gluetun",
+    services,
+    networks: {
+      tuniku: {
+        external: true,
+        name: "tuniku"
+      }
+    }
+  };
   return document;
 }
 
@@ -389,10 +387,17 @@ export function generateCompose(input: ComposeGenerationInput): ComposeGeneratio
   if (input.pastedCompose && !inspected?.valid) warnings.push("The pasted Compose file is invalid and was not used for detection.");
   if (containsSecretValues && input.includeSecrets !== true) warnings.push("Secret values are redacted. Include sensitive values and generate again before deployment.");
 
-  const manualSteps = [
+  const manualSteps = input.taskType === "new_gluetun_setup" ? [
+    "Keep the current Tuniku stack running; do not replace or duplicate its service.",
+    "Confirm that the existing Tuniku stack created the Docker network named `tuniku`.",
+    "Import this file as a separate `tuniku-gluetun` stack in ZimaOS. It attaches only Gluetun to the existing external network.",
+    "Validate the add-on with `docker compose -f docker-compose.gluetun-addon.yml config`.",
+    "Deploy the add-on and inspect the Gluetun logs until its health check is healthy.",
+    "In Tuniku Settings, connect to `http://gluetun:8000` and enter the same Control Server authentication values.",
+    "Test the connection in Tuniku and verify the VPN public IP."
+  ] : [
     "Review the generated fragment and compare it with the Gluetun documentation for your installed version.",
-    "Start Tuniku first with ISHIKU_SETUP_SECRET set to at least 32 random characters; Gluetun is not required for this step.",
-    "Replace every [REDACTED] value, or explicitly include sensitive values and generate again.",
+    "Keep the current Tuniku stack running and attach Gluetun to its existing external `tuniku` network.",
     "Edit your Compose stack manually with this proposal. Tuniku does not write the host file or require Docker access.",
     "Validate the resulting Compose stack with `docker compose config`.",
     "Redeploy or recreate the affected services manually.",
@@ -402,6 +407,7 @@ export function generateCompose(input: ComposeGenerationInput): ComposeGeneratio
     "Never commit real VPN credentials, private keys, API keys, or generated full-secret snippets.",
     "Do not expose an unauthenticated Gluetun Control Server to an untrusted network.",
     "Published ports may expose an application beyond the intended network; consider an explicit host bind address.",
+    "The generated response can contain VPN and Control Server credentials. Keep it local and close the result when deployment is complete.",
     "Environment and file binding support can depend on the installed Gluetun version. Verify generated keys before deployment."
   ];
   const env = buildEnv(input, profile);
@@ -418,13 +424,15 @@ export function generateCompose(input: ComposeGenerationInput): ComposeGeneratio
       vpnType: input.vpnType || "unknown",
       publishedHostPorts: existingPorts
     },
-    recommendedChange: "Apply the generated Compose fragment manually, then redeploy and verify the actual Gluetun state.",
+    recommendedChange: input.taskType === "new_gluetun_setup"
+      ? "Deploy the generated Gluetun-only add-on beside the running Tuniku stack, then connect Tuniku to http://gluetun:8000."
+      : "Apply the generated Compose fragment manually, then redeploy and verify the actual Gluetun state.",
     snippets: { compose, env, secrets, steps },
     manualSteps,
     securityWarnings,
     validation: { valid: validation.valid && collisions.length === 0, errors: validation.errors, warnings },
     artifacts: [
-      { filename: "docker-compose.generated.yml", content: compose, mediaType: "application/yaml" },
+      { filename: input.taskType === "new_gluetun_setup" ? "docker-compose.gluetun-addon.yml" : "docker-compose.generated.yml", content: compose, mediaType: "application/yaml" },
       { filename: "gluetun.optional.env", content: env, mediaType: "text/plain" },
       { filename: "secrets.README.txt", content: `${secrets}\n`, mediaType: "text/plain" },
       { filename: "tuniku-manual-steps.md", content: `${steps}\n`, mediaType: "text/markdown" }

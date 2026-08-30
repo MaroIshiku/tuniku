@@ -19,6 +19,13 @@ Passwords use Argon2id. Sessions use random opaque tokens, store only their
 SHA-256 hash in SQLite, and use signed HttpOnly SameSite=Lax cookies. Mutating
 requests require the session-specific CSRF token.
 
+Sessions expire after 30 minutes without activity and always expire after 24
+hours. The Settings sheet shows the current session and the number of other
+active sessions. Revoking other sessions requires a recent password
+confirmation. Sign-in, re-authentication, revocation, and other audited actions
+carry the server request ID so an operator can correlate a safe API error with
+redacted audit evidence.
+
 New installations provide only `ISHIKU_SETUP_SECRET`. Tuniku atomically
 creates its cookie-signing secret with mode `0600` under
 `/data/.secrets/session-secret` and reuses it across restarts. Existing
