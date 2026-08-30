@@ -44,7 +44,7 @@ describe("Compose Assistant", () => {
       VPN_TYPE: "wireguard",
       WIREGUARD_PRIVATE_KEY: "[REDACTED]",
       WIREGUARD_ADDRESSES: "10.2.0.2/32",
-      HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE: '{"auth":"apikey","apikey":"[REDACTED]"}'
+      HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE: "[REDACTED]"
     });
     expect(compose.services.gluetun.environment.OPENVPN_CUSTOM_CONFIG).toBeUndefined();
     expect(compose.services.gluetun.volumes).not.toContain("/DATA/AppData/i_tuniku/custom.conf:/gluetun/custom.conf:ro");
