@@ -33,7 +33,7 @@
     ".agents/skills/ishiku-upstream-maintenance/agents/openai.yaml": "f6b69bb16a8955284adc4587b1eb16460ab0c993ae919df769726238935480bb",
     ".agents/skills/ishiku-upstream-maintenance/SKILL.md": "db8985e0b4aeca8b7a75f81a2f81de1f1abf82d394fdd770b0628c86d7829100",
     ".github/workflows/ishiku-pull-request-verify.yml": "87e0ea5002f38cc379e04e941dcdeb4a5e041f0d5eaddc906368ad40eb7c7912",
-    ".github/workflows/ishiku-release-release.yml": "8fce76eb17215e13eedf5f6e698ad864b80934a0f92ba527738987da449750eb",
+    ".github/workflows/ishiku-release-release.yml": "eae440da7188dbc2bcb252b701356bcfdeea2a9b376ba975e0fcd4e46028c767",
     ".github/workflows/ishiku-upstream-update-upstream-update.yml": "a2d6630c1c13ee2e073f50b5ece4706369032db83969b10a5073580372978916",
     ".ishiku/kit/platform.yaml": "c91fcfff614fdbcf9d2be37a1accdfb983cc64e5e341bc838a720e5143ff31df",
     ".ishiku/kit/policies/architecture.md": "2fcf85b24b459c7bbb903bd363a409ab6f316fad3d4b05fb7ab0078ff4a775a6",

@@ -35,9 +35,11 @@ jobs:
           created=$(git show -s --format=%cI HEAD)
           test "$GITHUB_REF_NAME" = "v$version"
           test -n "$version"
-          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
-          printf 'image=%s\n' "$image" >> "$GITHUB_OUTPUT"
-          printf 'created=%s\n' "$created" >> "$GITHUB_OUTPUT"
+          {
+            printf 'version=%s\n' "$version"
+            printf 'image=%s\n' "$image"
+            printf 'created=%s\n' "$created"
+          } >> "$GITHUB_OUTPUT"
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:

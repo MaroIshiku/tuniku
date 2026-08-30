@@ -116,7 +116,7 @@
     },
     {
       "path": ".github/workflows/ishiku-release-release.yml",
-      "sha256": "8fce76eb17215e13eedf5f6e698ad864b80934a0f92ba527738987da449750eb"
+      "sha256": "eae440da7188dbc2bcb252b701356bcfdeea2a9b376ba975e0fcd4e46028c767"
     },
     {
       "path": ".github/workflows/ishiku-upstream-update-upstream-update.yml",
