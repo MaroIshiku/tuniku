@@ -7,20 +7,32 @@ import {
   manualRoutingFragment,
   validateCompose
 } from "../../src/server/compose/generator.js";
+import { gluetunProviderProfiles } from "../../src/server/compose/providers.js";
 
 describe("Compose Assistant", () => {
+  it("exposes the complete Gluetun v3.41.3 provider and native WireGuard catalog", () => {
+    expect(gluetunProviderProfiles).toHaveLength(24);
+    expect(gluetunProviderProfiles.filter((provider) => provider.protocols.includes("wireguard")).map((provider) => provider.id)).toEqual([
+      "airvpn", "fastestvpn", "ivpn", "mullvad", "nordvpn", "protonvpn", "surfshark", "windscribe", "custom"
+    ]);
+    expect(gluetunProviderProfiles.every((provider) => provider.protocols.includes("openvpn"))).toBe(true);
+  });
+
   it("generates parseable Compose YAML with five output sections", () => {
     const result = generateCompose({
       taskType: "new_gluetun_setup",
       provider: "protonvpn",
       vpnType: "wireguard",
       wireguardPrivateKey: "do-not-persist",
+      wireguardAddresses: "10.2.0.2/32",
+      authMode: "api_key",
+      apiKey: "control-api-key",
       includeSecrets: false
     });
     expect(validateCompose(result.snippets.compose).valid).toBe(true);
     const compose = YAML.parse(result.snippets.compose);
     expect(compose.services.gluetun.image).toMatch(/^ghcr\.io\/qdm12\/gluetun:v3\.41\.3@sha256:/);
-    expect(compose.services.tuniku.image).toBe("ghcr.io/maroishiku/tuniku:0.3.1");
+    expect(compose.services.tuniku.image).toBe("ghcr.io/maroishiku/tuniku:0.3.2");
     expect(compose.services.tuniku.depends_on).toBeUndefined();
     expect(compose.services.tuniku.environment).toEqual({
       TUNIKU_DATA_PATH: "/data",
@@ -28,6 +40,16 @@ describe("Compose Assistant", () => {
     });
     expect(compose.services.gluetun.devices).toEqual(["/dev/net/tun:/dev/net/tun"]);
     expect(compose.services.gluetun.volumes).toEqual(["/DATA/AppData/i_tuniku/Gluetun:/gluetun"]);
+    expect(compose.services.gluetun.environment).toMatchObject({
+      VPN_SERVICE_PROVIDER: "protonvpn",
+      VPN_TYPE: "wireguard",
+      WIREGUARD_PRIVATE_KEY: "[REDACTED]",
+      WIREGUARD_ADDRESSES: "10.2.0.2/32",
+      HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE: "[REDACTED]"
+    });
+    expect(compose.services.gluetun.environment.OPENVPN_CUSTOM_CONFIG).toBeUndefined();
+    expect(compose.services.gluetun.volumes).not.toContain("/DATA/AppData/i_tuniku/custom.conf:/gluetun/custom.conf:ro");
+    expect(result.snippets.compose).not.toContain("${");
     expect(compose.services.tuniku.volumes).toEqual(["/DATA/AppData/i_tuniku/Data:/data"]);
     expect(compose.volumes).toBeUndefined();
     expect(compose.services.tuniku.secrets).toBeUndefined();
@@ -36,9 +58,34 @@ describe("Compose Assistant", () => {
     expect(result.snippets.env).toContain("WIREGUARD_PRIVATE_KEY=[REDACTED]");
     expect(result.detectedConfiguration).toBeDefined();
     expect(result.recommendedChange).toBeTruthy();
-    expect(result.manualSteps).toHaveLength(6);
+    expect(result.manualSteps).toHaveLength(7);
     expect(result.manualSteps.join(" ")).toContain("Gluetun is not required");
     expect(result.securityWarnings.length).toBeGreaterThan(0);
+    expect(result.artifacts.some((artifact) => artifact.filename === "gluetun.optional.env")).toBe(true);
+  });
+
+  it("includes direct secret values only after explicit opt-in", () => {
+    const result = generateCompose({
+      taskType: "new_gluetun_setup",
+      provider: "protonvpn",
+      vpnType: "wireguard",
+      wireguardPrivateKey: "private-key",
+      wireguardAddresses: "10.2.0.2/32",
+      authMode: "api_key",
+      apiKey: "control-key",
+      includeSecrets: true
+    });
+    const compose = YAML.parse(result.snippets.compose);
+    expect(compose.services.gluetun.environment.WIREGUARD_PRIVATE_KEY).toBe("private-key");
+    expect(compose.services.gluetun.environment.HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE).toContain("control-key");
+    expect(result.redacted).toBe(false);
+    expect(result.snippets.compose).not.toContain("${");
+  });
+
+  it("rejects unsupported protocols and missing provider-specific data", () => {
+    expect(() => generateCompose({ taskType: "configure_wireguard", provider: "expressvpn", vpnType: "wireguard" })).toThrow(/does not support/);
+    expect(() => generateCompose({ taskType: "configure_wireguard", provider: "airvpn", vpnType: "wireguard", wireguardPrivateKey: "key", wireguardAddresses: "10.0.0.2/32" })).toThrow(/preshared key/);
+    expect(() => generateCompose({ taskType: "configure_openvpn", provider: "custom", vpnType: "openvpn", customOpenvpnConfigPath: "relative.conf" })).toThrow(/absolute Linux host path/);
   });
 
   it("generates the manual network namespace and Gluetun port mapping", () => {

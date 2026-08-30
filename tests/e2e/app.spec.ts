@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 test.describe.configure({ mode: "serial" });
 
@@ -22,7 +23,11 @@ test("first-run setup, Gluetun connection, control, ports, and Compose generatio
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole("button", { name: "Create Gluetun configuration" }).click();
   await expect(page.getByRole("heading", { name: "Compose Assistant" })).toBeVisible();
-  await page.getByLabel("VPN service provider").fill("protonvpn");
+  await page.getByLabel("VPN service provider").selectOption("protonvpn");
+  await expect(page.getByText("ProtonVPN · WireGuard")).toBeVisible();
+  await page.getByLabel("WireGuard private key").fill("e2e-wireguard-private-key");
+  await page.getByLabel("WireGuard addresses").fill("10.2.0.2/32");
+  await page.getByLabel("API key").fill("e2e-control-api-key");
   await page.getByRole("button", { name: "Generate guidance" }).click();
   await expect(page.locator(".validation-chip", { hasText: "Generated YAML is valid" })).toBeVisible();
   await expect(page.locator(".code-block", { hasText: "gluetun:" }).first()).toBeVisible();
@@ -55,10 +60,46 @@ test("first-run setup, Gluetun connection, control, ports, and Compose generatio
 
   await page.getByRole("button", { name: "Assistant", exact: true }).first().click();
   await expect(page.getByRole("heading", { name: "Compose Assistant" })).toBeVisible();
-  await page.getByLabel("VPN service provider").fill("protonvpn");
+  await page.getByLabel("VPN service provider").selectOption("protonvpn");
+  await page.getByLabel("WireGuard private key").fill("e2e-wireguard-private-key");
+  await page.getByLabel("WireGuard addresses").fill("10.2.0.2/32");
+  await page.getByLabel("API key").fill("e2e-control-api-key");
   await page.getByRole("button", { name: "Generate guidance" }).click();
   await expect(page.getByRole("heading", { name: "3. Copy-paste snippet" })).toBeVisible();
   await expect(page.locator(".validation-chip", { hasText: "Generated YAML is valid" })).toBeVisible();
+  const composeText = await page.locator(".snippet-card .code-block").textContent();
+  expect(composeText).toContain("VPN_SERVICE_PROVIDER: protonvpn");
+  expect(composeText).not.toContain("${");
+  const accessibility = await new AxeBuilder({ page }).include(".app-main").analyze();
+  expect(accessibility.violations.filter((violation) => violation.impact === "critical" || violation.impact === "serious")).toEqual([]);
+  for (const viewport of [
+    { width: 320, height: 800 },
+    { width: 360, height: 800 },
+    { width: 390, height: 844 },
+    { width: 412, height: 915 },
+    { width: 768, height: 1024 },
+    { width: 1440, height: 900 },
+    { width: 1920, height: 1080 }
+  ]) {
+    await page.setViewportSize(viewport);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (viewport.width === 390) {
+      await expect(page.locator(".toast")).toHaveCount(0, { timeout: 10_000 });
+      await page.locator(".result-redaction").scrollIntoViewIfNeeded();
+      await page.evaluate(() => {
+        document.documentElement.setAttribute("data-mode", "dark");
+        document.documentElement.setAttribute("data-resolved-mode", "dark");
+        document.documentElement.style.colorScheme = "dark";
+      });
+      await page.screenshot({ path: testInfo.outputPath("compose-assistant-generated-mobile-dark.png"), fullPage: false });
+      await page.evaluate(() => {
+        document.documentElement.setAttribute("data-mode", "system");
+        document.documentElement.setAttribute("data-resolved-mode", "light");
+        document.documentElement.style.colorScheme = "light";
+      });
+    }
+  }
+  await page.screenshot({ path: testInfo.outputPath("compose-assistant-generated-wide.png"), fullPage: false });
 });
 
 test("mobile navigation and settings sheet remain usable", async ({ browser }, testInfo) => {

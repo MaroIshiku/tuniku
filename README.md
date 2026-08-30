@@ -131,11 +131,14 @@ Open `http://<docker-host>:65001` or route Tuniku through your own reverse
 proxy.
 
 Create the administrator, then choose **Create Gluetun configuration**. Enter
-the provider, VPN type, credentials, server selection, and Control Server
-authentication in Tuniku. Review and download the generated Compose and
-environment proposal, then replace or merge the ZimaOS stack manually and
+the provider from the Gluetun dropdown, then follow the protocol-specific
+credential, server selection, and Control Server authentication steps. Review
+and download the generated standalone Compose, then replace or merge the ZimaOS stack manually and
 redeploy it. The generated stack starts both services, while Tuniku remains
 available even if Gluetun needs another correction.
+
+The Compose includes direct values and does not require an env file. An
+optional env download is available for operators who prefer that format.
 
 This manual deployment step is intentional. Provider settings are Gluetun
 container startup settings; Tuniku does not mount the Docker socket, write host
@@ -245,6 +248,11 @@ API keys use the `X-API-Key` header.
 The assistant supports new setup, Control Server, authentication, provider and
 VPN type, WireGuard, OpenVPN, server selection, published ports, manual
 application routing, secret migration, and review tasks.
+
+Provider choices and compatible protocols are pinned to Gluetun `v3.41.3`.
+The form changes interactively to request the credentials, keys, certificates,
+or custom configuration path required by the selected combination. Secret
+values remain redacted unless they are explicitly included for that response.
 
 Every result contains:
 
@@ -382,7 +390,7 @@ does not own or maintain the project.
 
 ## Status and license
 
-Tuniku `0.3.1` starts independently of Gluetun and guides a new administrator
+Tuniku `0.3.2` starts independently of Gluetun and guides a new administrator
 to either generate a complete Gluetun Compose proposal or connect an existing
 Control Server. ZimaOS delivery and runtime secret management remain aligned
 with the ishiku platform.

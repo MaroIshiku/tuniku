@@ -1,4 +1,4 @@
-import type { Bootstrap, ComposeResult, Instance, Overview, PortLabel, User } from "./models.js";
+import type { Bootstrap, ComposeResult, GluetunProviderProfile, Instance, Overview, PortLabel, User } from "./models.js";
 
 export class ApiError extends Error {
   constructor(
@@ -54,6 +54,7 @@ export const api = {
   updatePort: (id: string, portId: string, body: unknown) => request<{ port: PortLabel }>(`/api/v1/instances/${id}/port-labels/${portId}`, { method: "PUT", body: json(body) }),
   deletePort: (id: string, portId: string) => request<{ ok: boolean }>(`/api/v1/instances/${id}/port-labels/${portId}`, { method: "DELETE" }),
   generate: (body: unknown) => request<{ result: ComposeResult }>("/api/v1/compose/generate", { method: "POST", body: json(body) }),
+  composeProviders: () => request<{ providers: GluetunProviderProfile[]; gluetunVersion: string }>("/api/v1/compose/providers"),
   activity: () => request<{ events: any[] }>("/api/v1/activity"),
   diagnostics: () => request<any>("/api/v1/admin/diagnostics"),
   dockerObservation: () => request<any>("/api/v1/admin/docker-observation"),

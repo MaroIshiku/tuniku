@@ -2,6 +2,24 @@
 
 All notable changes to Tuniku will be documented here.
 
+## [0.3.2] - 2026-08-30
+
+### Changed
+
+- Replaced free-form provider entry with the Gluetun v3.41.3 provider catalog
+  and protocol-aware, provider-specific setup guidance.
+- Generated Compose files now contain direct values and run without an env
+  file; a redacted or full `.env` remains available as an optional export.
+- Kept sensitive values redacted until the operator explicitly includes them
+  for a generation response.
+- Kept generated results within the responsive app grid at compact, medium,
+  expanded, and wide viewport sizes.
+
+### Security
+
+- Added server-side catalog, protocol, required-field, input-size, and unknown-
+  field validation for Compose generation requests.
+
 ## [0.3.1] - 2026-08-29
 
 ### Fixed

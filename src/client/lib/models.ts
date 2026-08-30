@@ -74,3 +74,16 @@ export interface ComposeResult {
   containsSecretValues: boolean;
   redacted: boolean;
 }
+
+export interface GluetunProviderProfile {
+  id: string;
+  label: string;
+  protocols: Array<"openvpn" | "wireguard">;
+  guidance: string;
+  docsUrl: string;
+  openvpnCredentials: "required" | "optional" | "none";
+  openvpnCertificate: "none" | "client_key" | "encrypted_key";
+  openvpnPasswordDefault?: string;
+  wireguardPresharedKey: boolean;
+  customConfiguration: boolean;
+}

@@ -47,6 +47,17 @@
       "status": "verified"
     },
     {
+      "id": "ASSISTANT-001",
+      "implementation": ["src/server/compose/providers.ts", "src/server/compose/generator.ts", "src/server/routes/api.ts", "src/client/views/AssistantView.tsx", "src/client/styles.css", "docs/compose-assistant.md"],
+      "tests": {
+        "unit": ["tests/unit/compose.test.ts"],
+        "integration": [],
+        "e2e": ["tests/e2e/app.spec.ts"],
+        "security": ["tests/unit/compose.test.ts", ".ishiku/kit/scripts/check-security"]
+      },
+      "status": "verified"
+    },
+    {
       "id": "UI-001",
       "implementation": ["src/client/", "design-system/", "assets/icon-source.png", "public/assets/icons/"],
       "tests": {

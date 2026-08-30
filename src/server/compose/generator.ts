@@ -1,5 +1,6 @@
 import YAML, { parseDocument } from "yaml";
 import { redactText, redactValue } from "../security.js";
+import { getProviderProfile, type GluetunProviderProfile } from "./providers.js";
 
 export const composeTasks = [
   "new_gluetun_setup",
@@ -30,8 +31,17 @@ export interface ComposeGenerationInput {
   basicPassword?: string;
   wireguardPrivateKey?: string;
   wireguardAddresses?: string;
+  wireguardPresharedKey?: string;
+  wireguardPublicKey?: string;
+  wireguardEndpointIp?: string;
+  wireguardEndpointPort?: number;
   openvpnUser?: string;
   openvpnPassword?: string;
+  openvpnCertificate?: string;
+  openvpnKey?: string;
+  openvpnEncryptedKey?: string;
+  openvpnKeyPassphrase?: string;
+  customOpenvpnConfigPath?: string;
   appName?: string;
   appImage?: string;
   hostAddress?: string;
@@ -73,13 +83,75 @@ const secretFields = [
   "apiKey",
   "basicPassword",
   "wireguardPrivateKey",
+  "wireguardPresharedKey",
   "openvpnUser",
-  "openvpnPassword"
+  "openvpnPassword",
+  "openvpnCertificate",
+  "openvpnKey",
+  "openvpnEncryptedKey",
+  "openvpnKeyPassphrase"
 ] as const;
+
+const providerTasks = new Set<ComposeTask>(["new_gluetun_setup", "configure_provider", "configure_wireguard", "configure_openvpn", "set_server_selection"]);
+const completeProviderTasks = new Set<ComposeTask>(["new_gluetun_setup", "configure_provider", "configure_wireguard", "configure_openvpn"]);
 
 function assertPort(value: number | undefined, label: string): void {
   if (value !== undefined && (!Number.isInteger(value) || value < 1 || value > 65_535)) {
     throw new Error(`${label} must be a number between 1 and 65535.`);
+  }
+}
+
+function requireValue(value: string | undefined, label: string): void {
+  if (!value?.trim()) throw new Error(`${label} is required for this provider and protocol.`);
+}
+
+function validateProviderInput(input: ComposeGenerationInput): GluetunProviderProfile | undefined {
+  if (!providerTasks.has(input.taskType)) return undefined;
+  const profile = getProviderProfile(input.provider);
+  if (!profile) throw new Error("Choose a supported Gluetun provider from the list.");
+  if (!input.vpnType || !profile.protocols.includes(input.vpnType)) {
+    throw new Error(`${profile.label} does not support the selected VPN protocol in Gluetun v3.41.3.`);
+  }
+  if (!completeProviderTasks.has(input.taskType)) return profile;
+  if (input.vpnType === "wireguard") {
+    requireValue(input.wireguardPrivateKey, "WireGuard private key");
+    requireValue(input.wireguardAddresses, "WireGuard address");
+    if (profile.wireguardPresharedKey) requireValue(input.wireguardPresharedKey, "WireGuard preshared key");
+    if (profile.customConfiguration) {
+      requireValue(input.wireguardPublicKey, "WireGuard server public key");
+      requireValue(input.wireguardEndpointIp, "WireGuard endpoint IP");
+      assertPort(input.wireguardEndpointPort, "WireGuard endpoint port");
+      if (!input.wireguardEndpointPort) throw new Error("WireGuard endpoint port is required for a custom provider.");
+    }
+  } else if (profile.customConfiguration) {
+    requireValue(input.customOpenvpnConfigPath, "Host path to the custom OpenVPN configuration");
+    const sourcePath = input.customOpenvpnConfigPath?.trim() ?? "";
+    if (!sourcePath.startsWith("/") || sourcePath.includes(":") || /[\r\n\0]/.test(sourcePath)) {
+      throw new Error("The custom OpenVPN configuration must use a safe absolute Linux host path.");
+    }
+  } else {
+    if (profile.openvpnCredentials === "required" || profile.id === "ivpn") requireValue(input.openvpnUser, "OpenVPN username");
+    if (profile.openvpnCredentials === "required" && !profile.openvpnPasswordDefault) requireValue(input.openvpnPassword, "OpenVPN password");
+    if (profile.openvpnCertificate === "client_key") {
+      requireValue(input.openvpnCertificate, "OpenVPN client certificate");
+      requireValue(input.openvpnKey, "OpenVPN client key");
+    }
+    if (profile.openvpnCertificate === "encrypted_key") {
+      requireValue(input.openvpnCertificate, "OpenVPN client certificate");
+      requireValue(input.openvpnEncryptedKey, "OpenVPN encrypted client key");
+      requireValue(input.openvpnKeyPassphrase, "OpenVPN key passphrase");
+    }
+  }
+  return profile;
+}
+
+function validateControlAuth(input: ComposeGenerationInput): void {
+  if (!["new_gluetun_setup", "enable_control_server", "configure_control_auth"].includes(input.taskType)) return;
+  if (!input.authMode) throw new Error("Choose a Control Server authentication mode.");
+  if (input.authMode === "api_key") requireValue(input.apiKey, "Control Server API key");
+  if (input.authMode === "basic") {
+    requireValue(input.basicUsername, "Control Server Basic Auth username");
+    requireValue(input.basicPassword, "Control Server Basic Auth password");
   }
 }
 
@@ -170,37 +242,59 @@ export function detectPortCollisions(existingPorts: number[], plannedPorts: numb
   return [...new Set(plannedPorts.filter((port) => seen.has(port)))].sort((left, right) => left - right);
 }
 
-function providerEnvironment(input: ComposeGenerationInput): Record<string, string> {
+function outputValue(value: string, input: ComposeGenerationInput, secret = false): string {
+  return secret && input.includeSecrets !== true ? "[REDACTED]" : value;
+}
+
+function providerEnvironment(input: ComposeGenerationInput, profile?: GluetunProviderProfile): Record<string, string> {
   const environment: Record<string, string> = {};
-  if (input.provider) environment.VPN_SERVICE_PROVIDER = "${VPN_SERVICE_PROVIDER}";
-  if (input.vpnType) environment.VPN_TYPE = "${VPN_TYPE}";
-  if (input.countries) environment.SERVER_COUNTRIES = "${SERVER_COUNTRIES}";
-  if (input.regions) environment.SERVER_REGIONS = "${SERVER_REGIONS}";
-  if (input.cities) environment.SERVER_CITIES = "${SERVER_CITIES}";
-  if (input.wireguardPrivateKey) environment.WIREGUARD_PRIVATE_KEY = "${WIREGUARD_PRIVATE_KEY}";
-  if (input.wireguardAddresses) environment.WIREGUARD_ADDRESSES = "${WIREGUARD_ADDRESSES}";
-  if (input.openvpnUser) environment.OPENVPN_USER = "${OPENVPN_USER}";
-  if (input.openvpnPassword) environment.OPENVPN_PASSWORD = "${OPENVPN_PASSWORD}";
+  if (input.provider) environment.VPN_SERVICE_PROVIDER = input.provider;
+  if (input.vpnType) environment.VPN_TYPE = input.vpnType;
+  if (input.countries) environment.SERVER_COUNTRIES = input.countries;
+  if (input.regions) environment.SERVER_REGIONS = input.regions;
+  if (input.cities) environment.SERVER_CITIES = input.cities;
+  if (input.vpnType === "wireguard") {
+    if (input.wireguardPrivateKey) environment.WIREGUARD_PRIVATE_KEY = outputValue(input.wireguardPrivateKey, input, true);
+    if (input.wireguardAddresses) environment.WIREGUARD_ADDRESSES = input.wireguardAddresses;
+    if (input.wireguardPresharedKey) environment.WIREGUARD_PRESHARED_KEY = outputValue(input.wireguardPresharedKey, input, true);
+    if (profile?.customConfiguration && input.wireguardPublicKey) environment.WIREGUARD_PUBLIC_KEY = input.wireguardPublicKey;
+    if (profile?.customConfiguration && input.wireguardEndpointIp) environment.WIREGUARD_ENDPOINT_IP = input.wireguardEndpointIp;
+    if (profile?.customConfiguration && input.wireguardEndpointPort) environment.WIREGUARD_ENDPOINT_PORT = String(input.wireguardEndpointPort);
+  }
+  if (input.vpnType === "openvpn") {
+    if (input.openvpnUser) environment.OPENVPN_USER = outputValue(input.openvpnUser, input, true);
+    const openvpnPassword = input.openvpnPassword || profile?.openvpnPasswordDefault;
+    if (openvpnPassword) environment.OPENVPN_PASSWORD = outputValue(openvpnPassword, input, true);
+    if (input.openvpnCertificate) environment.OPENVPN_CERT = outputValue(input.openvpnCertificate, input, true);
+    if (input.openvpnKey) environment.OPENVPN_KEY = outputValue(input.openvpnKey, input, true);
+    if (input.openvpnEncryptedKey) environment.OPENVPN_ENCRYPTED_KEY = outputValue(input.openvpnEncryptedKey, input, true);
+    if (input.openvpnKeyPassphrase) environment.OPENVPN_KEY_PASSPHRASE = outputValue(input.openvpnKeyPassphrase, input, true);
+    if (profile?.customConfiguration && input.customOpenvpnConfigPath) environment.OPENVPN_CUSTOM_CONFIG = "/gluetun/custom.conf";
+  }
   if (input.authMode === "none") environment.HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE = '{"auth":"none"}';
-  if (input.authMode === "api_key") environment.HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE = "${HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE}";
-  if (input.authMode === "basic") environment.HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE = "${HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE}";
+  if (input.authMode === "api_key" && input.apiKey) environment.HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE = outputValue(JSON.stringify({ auth: "apikey", apikey: input.apiKey }), input, true);
+  if (input.authMode === "basic" && input.basicUsername && input.basicPassword) environment.HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE = outputValue(JSON.stringify({ auth: "basic", username: input.basicUsername, password: input.basicPassword }), input, true);
   return environment;
 }
 
-function buildCompose(input: ComposeGenerationInput): Record<string, unknown> {
+function buildCompose(input: ComposeGenerationInput, profile?: GluetunProviderProfile): Record<string, unknown> {
+  const gluetunVolumes = ["/DATA/AppData/i_tuniku/Gluetun:/gluetun"];
+  if (input.vpnType === "openvpn" && profile?.customConfiguration && input.customOpenvpnConfigPath) {
+    gluetunVolumes.push(`${input.customOpenvpnConfigPath.trim()}:/gluetun/custom.conf:ro`);
+  }
   const gluetun: Record<string, unknown> = {
     image: "ghcr.io/qdm12/gluetun:v3.41.3@sha256:fa19cc76b2af13d57a8d3dc3066f2ada061b1c761b8aecf989b3877c0486e027",
     container_name: "gluetun",
     cap_add: ["NET_ADMIN"],
     devices: ["/dev/net/tun:/dev/net/tun"],
-    environment: providerEnvironment(input),
-    volumes: ["/DATA/AppData/i_tuniku/Gluetun:/gluetun"],
+    environment: providerEnvironment(input, profile),
+    volumes: gluetunVolumes,
     restart: "unless-stopped"
   };
   const services: Record<string, unknown> = { gluetun };
   if (input.taskType === "new_gluetun_setup") {
     services.tuniku = {
-      image: "ghcr.io/maroishiku/tuniku:0.3.1",
+      image: "ghcr.io/maroishiku/tuniku:0.3.2",
       ports: ["65001:8080/tcp"],
       environment: {
         TUNIKU_DATA_PATH: "/data",
@@ -227,7 +321,7 @@ function buildCompose(input: ComposeGenerationInput): Record<string, unknown> {
   return document;
 }
 
-function buildEnv(input: ComposeGenerationInput): string {
+function buildEnv(input: ComposeGenerationInput, profile?: GluetunProviderProfile): string {
   const includeSecrets = input.includeSecrets === true;
   const lines = [
     envLine("VPN_SERVICE_PROVIDER", input.provider, includeSecrets, false),
@@ -235,10 +329,19 @@ function buildEnv(input: ComposeGenerationInput): string {
     envLine("SERVER_COUNTRIES", input.countries, includeSecrets, false),
     envLine("SERVER_REGIONS", input.regions, includeSecrets, false),
     envLine("SERVER_CITIES", input.cities, includeSecrets, false),
-    envLine("WIREGUARD_PRIVATE_KEY", input.wireguardPrivateKey, includeSecrets, true),
-    envLine("WIREGUARD_ADDRESSES", input.wireguardAddresses, includeSecrets, false),
-    envLine("OPENVPN_USER", input.openvpnUser, includeSecrets, true),
-    envLine("OPENVPN_PASSWORD", input.openvpnPassword, includeSecrets, true)
+    envLine("WIREGUARD_PRIVATE_KEY", input.vpnType === "wireguard" ? input.wireguardPrivateKey : undefined, includeSecrets, true),
+    envLine("WIREGUARD_ADDRESSES", input.vpnType === "wireguard" ? input.wireguardAddresses : undefined, includeSecrets, false),
+    envLine("WIREGUARD_PRESHARED_KEY", input.vpnType === "wireguard" ? input.wireguardPresharedKey : undefined, includeSecrets, true),
+    envLine("WIREGUARD_PUBLIC_KEY", input.vpnType === "wireguard" && profile?.customConfiguration ? input.wireguardPublicKey : undefined, includeSecrets, false),
+    envLine("WIREGUARD_ENDPOINT_IP", input.vpnType === "wireguard" && profile?.customConfiguration ? input.wireguardEndpointIp : undefined, includeSecrets, false),
+    envLine("WIREGUARD_ENDPOINT_PORT", input.vpnType === "wireguard" && profile?.customConfiguration && input.wireguardEndpointPort ? String(input.wireguardEndpointPort) : undefined, includeSecrets, false),
+    envLine("OPENVPN_USER", input.vpnType === "openvpn" ? input.openvpnUser : undefined, includeSecrets, true),
+    envLine("OPENVPN_PASSWORD", input.vpnType === "openvpn" ? input.openvpnPassword || profile?.openvpnPasswordDefault : undefined, includeSecrets, true),
+    envLine("OPENVPN_CERT", input.vpnType === "openvpn" ? input.openvpnCertificate : undefined, includeSecrets, true),
+    envLine("OPENVPN_KEY", input.vpnType === "openvpn" ? input.openvpnKey : undefined, includeSecrets, true),
+    envLine("OPENVPN_ENCRYPTED_KEY", input.vpnType === "openvpn" ? input.openvpnEncryptedKey : undefined, includeSecrets, true),
+    envLine("OPENVPN_KEY_PASSPHRASE", input.vpnType === "openvpn" ? input.openvpnKeyPassphrase : undefined, includeSecrets, true),
+    envLine("OPENVPN_CUSTOM_CONFIG", input.vpnType === "openvpn" && profile?.customConfiguration && input.customOpenvpnConfigPath ? "/gluetun/custom.conf" : undefined, includeSecrets, false)
   ];
   if (input.authMode === "api_key" && input.apiKey) {
     lines.push(
@@ -270,8 +373,10 @@ export function generateCompose(input: ComposeGenerationInput): ComposeGeneratio
   if ((input.hostPort === undefined) !== (input.containerPort === undefined)) {
     throw new Error("Host port and container port must be supplied together.");
   }
-  const containsSecretValues = secretFields.some((field) => Boolean(input[field]));
-  const composeDocument = buildCompose(input);
+  const profile = validateProviderInput(input);
+  validateControlAuth(input);
+  const containsSecretValues = secretFields.some((field) => Boolean(input[field])) || Boolean(input.basicUsername);
+  const composeDocument = buildCompose(input, profile);
   const compose = YAML.stringify(composeDocument, { lineWidth: 0 });
   const validation = validateCompose(compose);
   const inspected = input.pastedCompose ? inspectCompose(input.pastedCompose) : null;
@@ -282,10 +387,12 @@ export function generateCompose(input: ComposeGenerationInput): ComposeGeneratio
   if (collisions.length) warnings.push(`Host port collision detected: ${collisions.join(", ")}.`);
   if (input.authMode === "none") warnings.push("Unauthenticated Gluetun Control Server access is strongly discouraged.");
   if (input.pastedCompose && !inspected?.valid) warnings.push("The pasted Compose file is invalid and was not used for detection.");
+  if (containsSecretValues && input.includeSecrets !== true) warnings.push("Secret values are redacted. Include sensitive values and generate again before deployment.");
 
   const manualSteps = [
     "Review the generated fragment and compare it with the Gluetun documentation for your installed version.",
     "Start Tuniku first with ISHIKU_SETUP_SECRET set to at least 32 random characters; Gluetun is not required for this step.",
+    "Replace every [REDACTED] value, or explicitly include sensitive values and generate again.",
     "Edit your Compose stack manually with this proposal. Tuniku does not write the host file or require Docker access.",
     "Validate the resulting Compose stack with `docker compose config`.",
     "Redeploy or recreate the affected services manually.",
@@ -297,7 +404,7 @@ export function generateCompose(input: ComposeGenerationInput): ComposeGeneratio
     "Published ports may expose an application beyond the intended network; consider an explicit host bind address.",
     "Environment and file binding support can depend on the installed Gluetun version. Verify generated keys before deployment."
   ];
-  const env = buildEnv(input);
+  const env = buildEnv(input, profile);
   const secrets = [
     "New Tuniku installations need only ISHIKU_SETUP_SECRET in Compose.",
     "Tuniku generates persistent internal session and credential-encryption keys under /data/.secrets.",
@@ -317,8 +424,8 @@ export function generateCompose(input: ComposeGenerationInput): ComposeGeneratio
     securityWarnings,
     validation: { valid: validation.valid && collisions.length === 0, errors: validation.errors, warnings },
     artifacts: [
-      { filename: "docker-compose.example.yml", content: compose, mediaType: "application/yaml" },
-      { filename: ".env.example", content: env, mediaType: "text/plain" },
+      { filename: "docker-compose.generated.yml", content: compose, mediaType: "application/yaml" },
+      { filename: "gluetun.optional.env", content: env, mediaType: "text/plain" },
       { filename: "secrets.README.txt", content: `${secrets}\n`, mediaType: "text/plain" },
       { filename: "tuniku-manual-steps.md", content: `${steps}\n`, mediaType: "text/markdown" }
     ],

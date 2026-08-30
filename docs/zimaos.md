@@ -12,7 +12,7 @@ ZimaOS wording and controls can differ between versions. The primary
    unconfigured Gluetun service.
 5. Complete Tuniku first-run registration with the same setup value.
 6. Choose **Create Gluetun configuration**, enter the VPN and Control Server
-   settings, and generate the proposal.
+   settings in the provider-guided flow, and generate the proposal.
 7. Review and manually replace or merge the generated Compose in ZimaOS, then
    redeploy it.
 8. Configure `http://gluetun:8000` as the Control Server URL when prompted, or
@@ -23,6 +23,8 @@ The current documented Control Server interface can read VPN settings and
 change supported runtime state, but it is not a safe substitute for creating
 the initial container configuration. Tuniku therefore generates the complete
 proposal without receiving Docker or host-file write access.
+The generated Compose uses direct scalar values. It does not require an env
+file; the optional env download is only a convenience copy of those settings.
 
 Tuniku automatically persists its internal session and credential-encryption
 keys below `/data/.secrets`. No second or third Tuniku secret is needed in the

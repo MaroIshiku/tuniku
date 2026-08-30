@@ -137,7 +137,7 @@ const en = {
   validYaml: "Generated YAML is valid",
   invalidYaml: "Review validation errors before use",
   compose: "Compose",
-  env: ".env",
+  env: "Optional .env",
   secrets: "Secrets",
   steps: "Steps",
   appearance: "Appearance",

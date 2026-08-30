@@ -27,6 +27,7 @@ import {
   type ComposeGenerationInput
 } from "../compose/generator.js";
 import { DockerObserver } from "../docker/observer.js";
+import { gluetunProviderProfiles } from "../compose/providers.js";
 
 const setupLimiter = new SlidingWindowRateLimiter(8, 15 * 60_000);
 const loginLimiter = new SlidingWindowRateLimiter(8, 15 * 60_000);
@@ -131,6 +132,40 @@ const instanceSchema = z.object({
   password: z.string().max(4096).optional(),
   saveCredential: z.boolean().default(false)
 });
+
+const composeInputSchema = z.object({
+  taskType: z.enum(composeTasks),
+  provider: z.string().max(80).optional(),
+  vpnType: z.enum(["wireguard", "openvpn"]).optional(),
+  countries: z.string().max(500).optional(),
+  regions: z.string().max(500).optional(),
+  cities: z.string().max(500).optional(),
+  authMode: z.enum(["none", "api_key", "basic"]).optional(),
+  apiKey: z.string().max(4096).optional(),
+  basicUsername: z.string().max(256).optional(),
+  basicPassword: z.string().max(4096).optional(),
+  wireguardPrivateKey: z.string().max(4096).optional(),
+  wireguardAddresses: z.string().max(1024).optional(),
+  wireguardPresharedKey: z.string().max(4096).optional(),
+  wireguardPublicKey: z.string().max(4096).optional(),
+  wireguardEndpointIp: z.string().max(64).optional(),
+  wireguardEndpointPort: z.number().int().min(1).max(65_535).optional(),
+  openvpnUser: z.string().max(4096).optional(),
+  openvpnPassword: z.string().max(4096).optional(),
+  openvpnCertificate: z.string().max(65_536).optional(),
+  openvpnKey: z.string().max(65_536).optional(),
+  openvpnEncryptedKey: z.string().max(65_536).optional(),
+  openvpnKeyPassphrase: z.string().max(4096).optional(),
+  customOpenvpnConfigPath: z.string().max(1024).optional(),
+  appName: z.string().max(120).optional(),
+  appImage: z.string().max(500).optional(),
+  hostAddress: z.string().max(255).optional(),
+  hostPort: z.number().int().min(1).max(65_535).optional(),
+  containerPort: z.number().int().min(1).max(65_535).optional(),
+  protocol: z.enum(["tcp", "udp"]).optional(),
+  pastedCompose: z.string().max(1_048_576).optional(),
+  includeSecrets: z.boolean().optional()
+}).strict();
 
 export function registerApiRoutes(
   app: FastifyInstance,
@@ -509,6 +544,11 @@ export function registerApiRoutes(
     }
   });
 
+  app.get("/api/v1/compose/providers", async (request, reply) => {
+    if (!requireSession(request, reply, db)) return;
+    return { providers: gluetunProviderProfiles, gluetunVersion: "v3.41.3" };
+  });
+
   app.post("/api/v1/compose/validate", async (request, reply) => {
     if (!requireSession(request, reply, db)) return;
     const body = z.object({ content: z.string().max(1_048_576) }).parse(request.body);
@@ -530,10 +570,10 @@ export function registerApiRoutes(
         instanceId: z.string().uuid().nullable().optional(),
         saveDraft: z.boolean().default(false),
         title: z.string().trim().max(120).default("Compose draft"),
-        input: z.record(z.string(), z.unknown())
+        input: composeInputSchema
       }).parse(request.body);
-      const taskType = z.enum(composeTasks).parse(body.input.taskType);
-      const input = { ...body.input, taskType } as ComposeGenerationInput;
+      const taskType = body.input.taskType;
+      const input = body.input as ComposeGenerationInput;
       const result = generateCompose(input);
       if (body.saveDraft) {
         const redacted = generateCompose({ ...input, includeSecrets: false });

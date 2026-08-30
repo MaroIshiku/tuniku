@@ -52,6 +52,19 @@
       "security_critical": true
     },
     {
+      "id": "ASSISTANT-001",
+      "title": "Guided standalone Gluetun configuration",
+      "priority": "critical",
+      "acceptance": [
+        "The authenticated assistant offers the Gluetun v3.41.3 provider catalog as a dropdown and only offers protocols supported natively by the selected provider.",
+        "The assistant guides operators through provider- and protocol-specific required connection fields, optional server filters, and Control Server authentication, with server-side validation of the same constraints.",
+        "Generated Compose uses direct scalar values and has no dependency on an env file; an env artifact remains an optional convenience export.",
+        "Sensitive values are redacted by default and appear in generated output only after an explicit per-generation opt-in.",
+        "The assistant and generated result do not create page-level horizontal overflow at supported compact, medium, expanded, wide, or 200 percent zoom layouts; code can scroll inside its own region."
+      ],
+      "security_critical": true
+    },
+    {
       "id": "UI-001",
       "title": "Consistent English interface",
       "priority": "high",

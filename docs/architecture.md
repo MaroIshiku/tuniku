@@ -28,8 +28,9 @@ running Control Server.
 
 Provider selection and VPN credentials are Gluetun startup configuration, not
 Control Server runtime settings. Tuniku therefore collects them in the
-authenticated Compose Assistant and produces reviewable Compose and environment
-text. Applying that proposal remains a manual ZimaOS operation; Tuniku does not
+authenticated Compose Assistant and produces reviewable standalone Compose
+text. The generated Compose contains direct values and does not require an env
+file; a separate env export is optional. Applying that proposal remains a manual ZimaOS operation; Tuniku does not
 gain Docker-socket or host-file access.
 
 ## Gluetun adapter
