@@ -57,6 +57,16 @@
       "id": "gluetun",
       "source": "https://github.com/passteque/gluetun",
       "strategy": "adapter"
+    },
+    {
+      "id": "gluetun-wiki",
+      "source": "https://github.com/qdm12/gluetun-wiki",
+      "strategy": "provider-schema"
+    },
+    {
+      "id": "gluetun-servers",
+      "source": "https://github.com/qdm12/gluetun-servers",
+      "strategy": "generated-catalog"
     }
   ]
 }

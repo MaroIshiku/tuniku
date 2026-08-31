@@ -86,7 +86,7 @@ describe("read-only Docker observation", () => {
     const observer = new DockerObserver(url, true);
     const result = await observer.observeGluetun();
     observer.close();
-    expect(result.container).toMatchObject({ state: "exited", exitCode: 1, restartCount: 3 });
+    expect(result.container).toMatchObject({ state: "exited", displayState: "Failed", exitCode: 1, restartCount: 3 });
     expect(result.ports[0]).toMatchObject({ hostPort: 8000, containerPort: 8000, protocol: "tcp" });
     expect(result.environment).toEqual([
       { name: "VPN_SERVICE_PROVIDER", sensitive: false },

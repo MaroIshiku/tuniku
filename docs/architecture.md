@@ -11,17 +11,22 @@ browser -> Tuniku UI -> Tuniku REST API -> Gluetun adapter -> Control Server
                          |                 |
                          |                 +-- documented /v1 routes only
                          +-- SQLite
+                         +-- provider schema + official server catalog
                          +-- generation-only Compose Assistant
+                         +-- fixed client -> internal observer -> Docker socket
 ```
 
 Tuniku has no code path for Docker container creation, restart, update, delete,
 network mutation, volume mutation, image mutation, or `exec`. It never mounts a
-host Compose file and never writes one.
+host Compose file and never writes one. The web application does not mount the
+Docker socket. The primary deployment's separate observer helper mounts it and
+accepts only fixed GET routes for Gluetun list, inspect, and bounded logs.
 
 ## First-run boundary
 
-The primary ZimaOS deployment contains and starts only Tuniku, so missing
-Gluetun provider credentials cannot block it or create a Gluetun restart loop.
+The primary ZimaOS deployment starts the Tuniku application and its isolated
+diagnostic helper, but no Gluetun service, so missing Gluetun provider
+credentials cannot block it or create a Gluetun restart loop.
 After the administrator account is created, the empty state offers
 two explicit paths: generate a new Gluetun Compose proposal or connect an already
 running Control Server.
@@ -30,8 +35,36 @@ Provider selection and VPN credentials are Gluetun startup configuration, not
 Control Server runtime settings. Tuniku therefore collects them in the
 authenticated Compose Assistant and produces reviewable standalone Compose
 text. The generated Compose contains direct values and does not require an env
-file; a separate env export is optional. Applying that proposal remains a manual ZimaOS operation; Tuniku does not
-gain Docker-socket or host-file access.
+file; a separate env export is optional. Applying that proposal remains a
+manual ZimaOS operation; Tuniku does not gain Docker mutation or host-file
+access.
+
+## Provider data bootstrap
+
+Tuniku carries a compact licensed snapshot of the official
+`qdm12/gluetun-servers` data, split by provider and VPN protocol. Authenticated
+administrators can refresh one provider at a time from the fixed official raw
+GitHub origin. Downloads have time, byte, record, and value-length bounds and
+are written atomically under `/data/server-catalog`.
+
+This removes the circular dependency between configuring and starting Gluetun:
+no fake production service or credentials are needed. Provider requirements
+come from the official walkthrough schema; current location choices come from
+the server dataset. Generated Compose uses `qmcgaw/gluetun:latest`, a named
+`/gluetun` volume, and the existing external `tuniku` network.
+
+## Docker diagnostics boundary
+
+The optional observer helper has no published port and joins only the internal
+`tuniku_observer` network shared with Tuniku. It locates a Gluetun container and
+returns a reduced inspect response. All environment values except the provider
+and VPN type are removed before leaving the helper. Log output is bounded and
+redacted again by Tuniku before reaching the browser.
+
+The helper does not expose arbitrary Docker paths or methods. It has no route
+for `exec`, container lifecycle, images, volumes, networks, archives, or build.
+Failure of the helper returns an unavailable diagnostic response and never
+becomes a Tuniku health or startup dependency.
 
 ## Gluetun adapter
 

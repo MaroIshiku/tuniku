@@ -137,7 +137,7 @@ export function SettingsSheet(props: {
     }
   }
 
-  const formatDate = (value: string | undefined): string => value
+  const formatDate = (value: string | null | undefined): string => value
     ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
     : t("unknown");
 
@@ -229,7 +229,7 @@ export function SettingsSheet(props: {
         <div className="section-title"><Icon name="activity" /><div><h3>Gluetun diagnostics</h3><p>Read from Docker without running a shell inside Gluetun.</p></div></div>
         {dockerObservation?.container ? <>
           <div className="technical-card"><dl>
-            <div><dt>Status</dt><dd>{dockerObservation.container.state}{dockerObservation.container.health ? ` · ${dockerObservation.container.health}` : ""}</dd></div>
+            <div><dt>Status</dt><dd>{dockerObservation.container.displayState || dockerObservation.container.state}{dockerObservation.container.health ? ` · ${dockerObservation.container.health}` : ""}</dd></div>
             <div><dt>Exit code</dt><dd>{dockerObservation.container.exitCode ?? t("unknown")}</dd></div>
             <div><dt>Restarts</dt><dd>{dockerObservation.container.restartCount ?? 0}</dd></div>
             <div><dt>Started</dt><dd>{formatDate(dockerObservation.container.startedAt)}</dd></div>

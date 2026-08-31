@@ -40,6 +40,10 @@ theme supports System, Light, and Dark mode.
   ephemeral in server memory.
 - Compose Assistant with defensive YAML inspection, validation, secret
   redaction, port-collision checks, downloads, and manual deployment steps.
+- Provider- and protocol-specific setup fields with searchable choices from
+  the official Gluetun server catalog and an authenticated refresh action.
+- Docker-level Gluetun state, health, exit, restart, timestamp, configuration,
+  and bounded redacted log diagnostics that do not require a container shell.
 - Local port labels that never imply an integration with a foreign application.
 - English interface copy throughout the application.
 - Lavender, Mint, Sky, Amber, Rose, and Graphite themes.
@@ -80,6 +84,8 @@ flowchart LR
     B["Browser"] --> T["Tuniku UI and API"]
     T --> D[("Tuniku SQLite data")]
     T -->|"documented /v1 routes only"| G["Gluetun Control Server"]
+    T -->|"internal fixed GET routes"| O["Gluetun observer helper"]
+    O -->|"list / inspect / logs"| X["Docker API"]
     G --> V["Gluetun VPN runtime"]
     A["Foreign application"] -. "manual Compose: network_mode service:gluetun" .-> V
     T -. "generates snippets; never writes or deploys" .-> C["User-managed Compose stack"]
@@ -104,9 +110,11 @@ the Compose file and:
 - confirm the Tuniku host path under `/DATA/AppData/i_tuniku/Data`.
 
 No Gluetun provider or VPN credential is required before this first start.
-The primary stack contains only Tuniku. This prevents an invalid VPN
-configuration from blocking the setup interface or creating a Gluetun restart
-loop.
+The primary stack contains the Tuniku application plus an isolated diagnostic
+helper, but no Gluetun service. This prevents an invalid VPN configuration from
+blocking the setup interface or creating a Gluetun restart loop. The helper is
+optional for custom deployments; it only supplies Docker-level Gluetun status
+and logs.
 
 Tuniku runs as UID/GID `1000`. If the host creates the data directory with
 different ownership, run
@@ -144,8 +152,10 @@ The Compose includes direct values and does not require an env file. An
 optional env download is available for operators who prefer that format.
 
 This manual deployment step is intentional. Provider settings are Gluetun
-container startup settings; Tuniku does not mount the Docker socket, write host
-Compose files, or recreate containers.
+container startup settings; the Tuniku application does not mount the Docker
+socket, write host Compose files, or recreate containers. In the primary
+Compose, only the separate internal observer helper sees the socket and its
+HTTP surface is limited to Gluetun list, inspect, and logs operations.
 
 For a file-backed setup secret and a Gluetun configuration prepared before
 startup, use `docker-compose.example.yml`. That hardened alternative mounts
@@ -222,13 +232,19 @@ The `/data` mount contains:
 No VPN credentials are stored unless encrypted persistence is explicitly
 enabled and an encryption key is configured.
 
-### Optional Docker observation
+### Gluetun diagnostics
 
-Set `TUNIKU_DOCKER_PROXY_URL` only to a restricted Docker Socket Proxy that
-permits container-list and container-inspect `GET` requests. Tuniku can then
-read Gluetun health, published ports, networks, and environment variable names.
-Sensitive environment values are never returned. The integration is disabled
-by default and has no write methods. Do not mount the raw Docker socket.
+The primary Compose includes `tuniku-docker-observer` on an internal network.
+It reads only the Gluetun container list, inspect metadata, and the final 200
+log lines. It publishes no host port, strips environment values before returning
+metadata, and implements no Docker write, exec, archive, image, volume, or
+network route. Tuniku remains independent if the helper or Gluetun is absent.
+
+Custom deployments may omit the helper and leave `TUNIKU_DOCKER_PROXY_URL`
+unset, or point it at an equivalently restricted HTTP proxy. Never mount the
+raw Docker socket into the Tuniku application. A read-only bind flag on a Unix
+socket does not itself make Docker operations read-only; the helper's route
+allow-list is the effective boundary.
 
 ### Connect to Gluetun Control Server
 
@@ -252,10 +268,13 @@ The assistant supports new setup, Control Server, authentication, provider and
 VPN type, WireGuard, OpenVPN, server selection, published ports, manual
 application routing, secret migration, and review tasks.
 
-Provider choices and compatible protocols are pinned to Gluetun `v3.41.3`.
-The form changes interactively to request the credentials, keys, certificates,
-or custom configuration path required by the selected combination. Generated
-output contains `[REDACTED]` markers by default. Enable **Include secret values**
+Provider choices and compatible protocols follow the current official
+walkthroughs for `qmcgaw/gluetun:latest`. The form changes interactively to
+request only the credentials, keys, certificates, filters, and provider options
+documented for the selected combination. Search suggestions use a bundled
+snapshot of the official `qdm12/gluetun-servers` data and can be refreshed in
+the authenticated assistant without starting Gluetun. Generated output contains
+`[REDACTED]` markers by default. Enable **Include secret values**
 for one generation response, or replace every marker before deployment. Saved
 drafts, audit events, logs, diagnostics, and Compose inspection always remain
 redacted. Secret-bearing results are removed from the browser after 15 minutes.
@@ -302,8 +321,9 @@ from Docker port publishing. Tuniku presents them separately.
 ### ZimaOS
 
 Import `docker-compose.yml` in the ZimaOS interface, fill the single
-`ISHIKU_SETUP_SECRET` field, save the Tuniku-only stack, and deploy it. Add
-Gluetun later with the complete proposal generated inside Tuniku. UI terminology
+`ISHIKU_SETUP_SECRET` field, save the Tuniku stack, and deploy it. It includes
+the optional internal diagnostic helper but no Gluetun service. Add Gluetun
+later with the complete proposal generated inside Tuniku. UI terminology
 can vary by ZimaOS version. Tuniku never presses deploy or recreates containers.
 
 See [docs/zimaos.md](docs/zimaos.md).
@@ -321,7 +341,8 @@ See [docs/zimaos.md](docs/zimaos.md).
 - Explicit Gluetun route and mutation allow-list.
 - Credential and configuration redaction in audit data, logs, diagnostics, and
   stored drafts.
-- No shell execution, writable Docker socket, or host Compose write path.
+- No shell execution or host Compose write path in Tuniku; the web application
+  has no Docker socket and its isolated observer exposes fixed read operations.
 
 Direct access through `http://<docker-host>:65001` is supported on the trusted
 local network with `HTTPS_ONLY=false`, including copy actions. Set
@@ -334,7 +355,7 @@ secure-context rules. Read [docs/security.md](docs/security.md) and
 
 Stop Tuniku or create a consistent SQLite backup, then copy
 `/DATA/AppData/i_tuniku/Data`. This preserves the database and both internal
-keys. Back up `/DATA/AppData/i_tuniku/Gluetun` separately.
+keys. Back up the generated add-on's `gluetun_data` named volume separately.
 
 Update with:
 
@@ -361,6 +382,13 @@ credentials remain stored.
   characters or mount `ISHIKU_SETUP_SECRET_FILE`.
 - **Control Server unreachable:** confirm the URL from inside Tuniku's Docker
   network. `localhost` means the Tuniku container itself.
+- **Gluetun exited:** open **Settings → Gluetun diagnostics** for Docker state,
+  exit code, timestamps, detected provider/filter problems, and the last logs.
+- **`/bin/sh` not found:** the current Gluetun image is intentionally shellless;
+  this does not identify the startup failure. Use Docker inspect/logs or Tuniku's
+  diagnostics instead of `docker exec ... /bin/sh`.
+- **PIA location rejected:** use a current `SERVER_REGIONS` value such as
+  `SE Stockholm`; PIA does not support `SERVER_COUNTRIES` or `SERVER_CITIES`.
 - **Unauthorized:** verify the Gluetun role, authentication mode, and route
   permissions.
 - **Unsupported capability:** the connected Gluetun release or role does not

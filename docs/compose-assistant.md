@@ -50,31 +50,53 @@ found in pasted Compose content are compared with planned mappings.
 
 ## Guided Gluetun configuration
 
-The provider dropdown is pinned to Gluetun `v3.41.3`. Tuniku offers only the
-OpenVPN and native WireGuard choices supported for the selected provider in
-that release. The form then requests the applicable connection data:
+The provider dropdown follows the provider constants and official walkthroughs
+for `qmcgaw/gluetun:latest`. Tuniku offers only the OpenVPN and native WireGuard
+choices supported for the selected provider. The form then requests the
+applicable connection data:
 
 - WireGuard private key and address, plus AirVPN's preshared key or all custom
   endpoint values where required.
 - OpenVPN manual credentials, provider certificates and keys, or a read-only
   custom configuration-file mount where required.
-- Optional country, region, and city filters.
+- Only the server filters and provider-specific options documented for that
+  provider and protocol.
 - Control Server authentication for a complete new setup.
 
-The API validates the same catalog, protocol compatibility, required fields,
-ports, input sizes, and accepted field names. The browser is not the security
-boundary.
+For example, Private Internet Access presents `SERVER_REGIONS`, `SERVER_NAMES`,
+and `SERVER_HOSTNAMES`; it does not offer the unsupported generic country or
+city fields. Region `SE Stockholm` is valid in the bundled current catalog,
+whereas `Stockholm` by itself is rejected before Compose is generated.
+
+Each supported server filter is a searchable input backed by a compact snapshot
+of the official [`qdm12/gluetun-servers`](https://github.com/qdm12/gluetun-servers)
+dataset. **Refresh server data** retrieves the selected provider's current JSON
+directly from that repository, validates and bounds it, and writes a local cache
+under `/data/server-catalog`. The bundled snapshot remains available offline.
+
+This is the bootstrap path: Tuniku does not need to run a fake Gluetun service
+or invent temporary credentials. It can validate provider values before the
+real Gluetun container exists. The generated service then uses a Docker-managed
+`gluetun_data:/gluetun` volume, avoiding first-start bind-directory ownership
+problems, and joins the existing external `tuniku` network without a conflicting
+`network_mode` value.
+
+The API validates the same provider schema, protocol compatibility, current
+server values, required fields, exact environment names, provider-option values,
+ports, input sizes, and accepted field names. The rendered YAML is parsed again
+before it is marked valid. The browser is not the security boundary.
 
 ## Supported Gluetun variables
 
 Tuniku uses only established names such as `VPN_SERVICE_PROVIDER`, `VPN_TYPE`,
-`SERVER_COUNTRIES`, `SERVER_REGIONS`, `SERVER_CITIES`,
-`WIREGUARD_PRIVATE_KEY`, `WIREGUARD_ADDRESSES`, `OPENVPN_USER`,
-`OPENVPN_PASSWORD`, the provider-specific certificate/key and custom endpoint
-variables shown by the guided flow, and
-`HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE`.
+the supported subset of `SERVER_COUNTRIES`, `SERVER_REGIONS`, `SERVER_CITIES`,
+`SERVER_HOSTNAMES`, `SERVER_NAMES`, `SERVER_CATEGORIES`, and `ISP`, plus the
+protocol credentials and provider-specific options shown by the guided flow.
+The generator emits `qmcgaw/gluetun:latest` with `pull_policy: always` as an
+explicit product requirement.
 
-Support and exact binding behavior can change between Gluetun releases. Verify
-the generated fragment against the current official documentation before
-deployment. Custom advanced values are presented as user-owned input; Tuniku
-does not claim that unknown keys are supported.
+Because `latest` is mutable, support and exact binding behavior can change
+between Tuniku releases. The refresh action updates server values, while changes
+to provider-required variables still require a Tuniku schema update and its
+release checks. Custom advanced values are presented as user-owned input;
+Tuniku does not claim that unknown keys are supported.

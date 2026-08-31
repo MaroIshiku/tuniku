@@ -29,14 +29,30 @@ describe("standalone delivery", () => {
       read_only: true
     });
     expect(compose.services["tuniku-docker-observer"].networks).toEqual(["tuniku_observer"]);
+    expect(compose.services["tuniku-docker-observer"].ports).toBeUndefined();
+    expect(compose.services["tuniku-docker-observer"].command).toEqual(["dist/server/docker/observerProxy.js"]);
+    expect(compose.services["tuniku-docker-observer"].cap_drop).toEqual(["ALL"]);
+    expect(compose.services["tuniku-docker-observer"].security_opt).toContain("no-new-privileges:true");
     expect(compose.networks.tuniku_observer.internal).toBe(true);
     expect(compose.services.tuniku.environment.TUNIKU_DOCKER_PROXY_URL).toBe("http://tuniku-docker-observer:2375");
+    expect(compose.services.tuniku.environment.TUNIKU_ALLOW_LOOPBACK_UPSTREAM).toBe("false");
     expect(compose.services.tuniku.volumes).toContainEqual({
       type: "bind",
       source: "/DATA/AppData/i_tuniku/Data",
       target: "/data"
     });
     expect(compose["x-casaos"].port_map).toBe("65001");
+  });
+
+  it("keeps the Docker observer surface fixed and read-only", () => {
+    const source = fs.readFileSync(path.join(repositoryRoot, "src/server/docker/observerProxy.ts"), "utf8");
+
+    expect(source).toContain('request.method !== "GET"');
+    expect(source).toContain('url.pathname === "/containers/json"');
+    expect(source).toContain("/json$/i");
+    expect(source).toContain("/logs$/i");
+    expect(source).not.toContain('method: "POST"');
+    expect(source).not.toContain("/exec");
   });
 
   it("keeps one file-backed setup secret in the hardened alternative", () => {

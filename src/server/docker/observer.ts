@@ -3,6 +3,8 @@ import { redactText, validateUpstreamUrl } from "../security.js";
 import { getProviderProfile } from "../compose/providers.js";
 
 const sensitiveName = /(password|token|secret|private[_-]?key|api[_-]?key|auth|openvpn_user|wireguard)/i;
+const ansiColor = new RegExp("\\u001b\\[[0-9;]*m", "g");
+type DisplayState = "Running" | "Stopped" | "Restarting" | "Failed" | "Paused" | "Unknown";
 
 export interface DockerObservation {
   available: boolean;
@@ -11,6 +13,7 @@ export interface DockerObservation {
     name: string;
     image: string;
     state: string;
+    displayState: DisplayState;
     health: string | null;
     exitCode: number | null;
     startedAt: string | null;
@@ -42,6 +45,15 @@ export class DockerObserver {
 
   close(): void {
     void this.dispatcher.close();
+  }
+
+  private displayState(status: string, exitCode: number): DisplayState {
+    if (status === "running") return "Running";
+    if (status === "restarting") return "Restarting";
+    if (status === "paused") return "Paused";
+    if (status === "dead" || (status === "exited" && exitCode !== 0)) return "Failed";
+    if (status === "created" || status === "exited") return "Stopped";
+    return "Unknown";
   }
 
   private async get(path: string): Promise<any> {
@@ -149,14 +161,16 @@ export class DockerObserver {
       }
     }
     const state = inspected?.State ?? {};
-    if (Number(state.ExitCode) !== 0 && state.Status !== "running") issues.push(`Gluetun exited with code ${Number(state.ExitCode)}.`);
+    const stateName = String(state.Status || match.State || "unknown");
+    const exitCode = Number(state.ExitCode);
+    if (Number.isInteger(exitCode) && exitCode !== 0 && state.Status !== "running") issues.push(`Gluetun exited with code ${exitCode}.`);
     if (state.OOMKilled) issues.push("Gluetun was terminated by the out-of-memory killer.");
     if (state.Error) issues.push(`Docker runtime error: ${String(state.Error)}`);
     let logs: string | null = null;
     let logsError: string | null = null;
     try {
       const bytes = await this.getBytes(`/containers/${encodeURIComponent(match.Id)}/logs?stdout=1&stderr=1&tail=200&timestamps=1`);
-      logs = redactText(this.decodeLogs(bytes).replace(/\u001b\[[0-9;]*m/g, "").trim()).slice(-262_144) || null;
+      logs = redactText(this.decodeLogs(bytes).replace(ansiColor, "").trim()).slice(-262_144) || null;
     } catch (error) {
       logsError = error instanceof Error ? error.message : "Docker logs could not be read.";
     }
@@ -166,9 +180,10 @@ export class DockerObserver {
         id: String(inspected?.Id || match.Id).slice(0, 12),
         name: String(inspected?.Name || "").replace(/^\//, ""),
         image: String(inspected?.Config?.Image || match.Image || ""),
-        state: String(state.Status || match.State || "unknown"),
+        state: stateName,
+        displayState: this.displayState(stateName, exitCode),
         health: state.Health?.Status ? String(state.Health.Status) : null,
-        exitCode: Number.isInteger(Number(state.ExitCode)) ? Number(state.ExitCode) : null,
+        exitCode: Number.isInteger(exitCode) ? exitCode : null,
         startedAt: state.StartedAt ? String(state.StartedAt) : null,
         finishedAt: state.FinishedAt ? String(state.FinishedAt) : null,
         error: state.Error ? String(state.Error) : null,

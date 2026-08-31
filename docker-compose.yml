@@ -13,7 +13,7 @@ services:
       TUNIKU_DATA_PATH: "/data"
       TUNIKU_LOG_LEVEL: "info"
       HTTPS_ONLY: "false"
-      TUNIKU_ALLOW_LOOPBACK_UPSTREAM: "true"
+      TUNIKU_ALLOW_LOOPBACK_UPSTREAM: "false"
       TUNIKU_DOCKER_PROXY_URL: "http://tuniku-docker-observer:2375"
       TUNIKU_TRUSTED_PROXY_COUNT: "0"
       TZ: "Europe/Berlin"
@@ -129,10 +129,12 @@ x-casaos:
       en_us: |
         Required: set ISHIKU_SETUP_SECRET to at least 32 random characters before starting. Tuniku creates and persists its internal session and credential-encryption keys automatically under /data.
 
-        The initial stack contains only Tuniku, so an unconfigured Gluetun service cannot block first start or enter a restart loop. After creating the first admin, choose Create Gluetun configuration in Tuniku and deploy the generated Gluetun-only add-on stack. It joins the existing external network named tuniku and does not duplicate Tuniku or port 65001.
+        The initial stack contains the Tuniku application and an internal diagnostic helper, but no Gluetun service, so an unconfigured VPN cannot block first start or enter a restart loop. After creating the first admin, choose Create Gluetun configuration in Tuniku and deploy the generated Gluetun-only add-on stack. It uses qmcgaw/gluetun:latest, joins the existing external network named tuniku, and does not duplicate Tuniku or port 65001.
+
+        The diagnostic helper has no host port and exposes only Gluetun list, inspect, and log reads to Tuniku on an internal network. It never runs docker exec and Tuniku remains available when Gluetun fails.
 
         HTTPS_ONLY=false supports direct local HTTP access. Set HTTPS_ONLY=true only when Tuniku is reached through an HTTPS reverse proxy; signed-in HTTP access then intentionally stops working because the session cookie becomes Secure.
 
-        Persistent Tuniku data is stored at /DATA/AppData/i_tuniku/Data and Gluetun data at /DATA/AppData/i_tuniku/Gluetun. Back up existing data before switching an older named-volume installation to these host paths.
+        Persistent Tuniku data is stored at /DATA/AppData/i_tuniku/Data. The generated Gluetun add-on uses a Docker-managed gluetun_data volume; back it up separately. Back up existing data before switching an older Tuniku named-volume installation to this host path.
 
         Tuniku runs as UID/GID 1000. If the host creates the Tuniku data directory with different ownership, run `chown -R 1000:1000 /DATA/AppData/i_tuniku/Data` before deployment.

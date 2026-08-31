@@ -46,10 +46,10 @@
       "title": "First start without Gluetun configuration",
       "priority": "critical",
       "acceptance": [
-        "The primary ZimaOS deployment contains only Tuniku and starts without any Gluetun provider or credential fields.",
+        "The primary ZimaOS deployment contains the Tuniku application and a narrowly allow-listed internal Docker observer helper, but no Gluetun service, provider field, or VPN credential field.",
         "After administrator creation, the empty state offers both generation of a new Gluetun Compose proposal and connection to an existing Gluetun Control Server.",
         "The new-configuration proposal is a separate Gluetun-only add-on that joins the existing external tuniku network and cannot duplicate Tuniku or host port 65001.",
-        "Compose generation is authenticated and generation-only; Tuniku does not mount the Docker socket, modify host Compose files, or claim that runtime Control Server routes can apply startup provider settings.",
+        "Compose generation is authenticated and generation-only; the Tuniku application does not mount the Docker socket, modify host Compose files, or claim that runtime Control Server routes can apply startup provider settings.",
         "Preconfigured deployments and existing Gluetun connections remain compatible, and Tuniku health never depends on Gluetun health."
       ],
       "security_critical": true
@@ -59,12 +59,26 @@
       "title": "Guided standalone Gluetun configuration",
       "priority": "critical",
       "acceptance": [
-        "The authenticated assistant offers the Gluetun v3.41.3 provider catalog as a dropdown and only offers protocols supported natively by the selected provider.",
-        "The assistant guides operators through provider- and protocol-specific required connection fields, optional server filters, and Control Server authentication, with server-side validation of the same constraints.",
+        "The authenticated assistant offers the provider catalog accepted by qmcgaw/gluetun:latest and only offers protocols supported natively by the selected provider.",
+        "The assistant guides operators through provider- and protocol-specific required connection fields, supported provider options, server filters, and Control Server authentication, with server-side validation of the same constraints.",
+        "Server filters use searchable values derived from the official qdm12/gluetun-servers data, retain a bundled offline snapshot, and can be refreshed without starting a production Gluetun container.",
+        "Generated Gluetun services use qmcgaw/gluetun:latest, a Docker-managed /gluetun volume, no network_mode override, and syntactically validated Compose.",
         "Generated Compose uses direct scalar values and has no dependency on an env file; an env artifact remains an optional convenience export.",
         "Sensitive values are redacted by default and appear in generated output only after an explicit per-generation opt-in; drafts, logs, audits, and inspected input remain redacted, and the browser removes a secret-bearing result after 15 minutes.",
         "For an already running Tuniku installation, the primary generated artifact contains only Gluetun and joins the existing external Docker network named tuniku instead of duplicating Tuniku or host port 65001.",
         "The assistant and generated result do not create page-level horizontal overflow at supported compact, medium, expanded, wide, or 200 percent zoom layouts; code can scroll inside its own region."
+      ],
+      "security_critical": true
+    },
+    {
+      "id": "DIAG-001",
+      "title": "Gluetun failure diagnostics",
+      "priority": "critical",
+      "acceptance": [
+        "Tuniku remains available when Gluetun is missing, stopped, restarting, unhealthy, or exited.",
+        "Authenticated diagnostics show Gluetun state, health, exit code, restart count, start and finish timestamps, bounded redacted Docker logs, and recognizable provider or network configuration problems.",
+        "Diagnostics use Docker list, inspect, and logs operations through a dedicated internal allow-listed helper and never depend on docker exec or a shell inside Gluetun.",
+        "The Tuniku application never mounts the Docker socket, the observer has no externally published port, and no Docker mutation route is exposed."
       ],
       "security_critical": true
     },

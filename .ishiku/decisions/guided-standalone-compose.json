@@ -1,8 +1,8 @@
 {
   "id": "DEC-004",
   "date": "2026-08-30",
-  "decision": "Generate standalone Compose with direct values by default and drive provider configuration from a Gluetun v3.41.3 catalog with protocol-specific fields. Keep the env artifact optional and redact secrets unless explicitly included for one response.",
-  "rationale": "A Compose proposal that silently depends on an env file is not complete in ZimaOS, and free-form provider entry cannot guide operators through Gluetun's provider-specific requirements. Pinning the catalog to the same immutable Gluetun release makes the generated constraints reviewable and testable.",
+  "decision": "Generate standalone Compose with direct values by default and drive provider configuration from the current qmcgaw/gluetun:latest provider schema with protocol-specific fields. Keep the env artifact optional and redact secrets unless explicitly included for one response.",
+  "rationale": "A Compose proposal that silently depends on an env file is not complete in ZimaOS, and free-form provider entry cannot guide operators through Gluetun's provider-specific requirements. The user explicitly requires qmcgaw/gluetun:latest, so Tuniku validates against the current official provider walkthroughs and refreshable server data while its release checks detect upstream drift.",
   "compatibility": [
     "Existing saved drafts and manually prepared Compose files remain readable.",
     "The generator output shape retains compose, env, secrets, and steps tabs; only the env file changes from required interpolation input to an optional export.",

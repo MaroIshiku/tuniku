@@ -1,0 +1,13 @@
+{
+  "id": "DEC-006",
+  "date": "2026-08-31",
+  "decision": "Bootstrap the guided setup from a licensed bundled snapshot of qdm12/gluetun-servers and allow authenticated refreshes from that official repository. Do not start a fake or partially configured production Gluetun container to discover provider values.",
+  "rationale": "Gluetun startup validates provider filters before a VPN connection and can exit when a value is invalid. Reading the official server dataset directly gives Tuniku real provider and protocol choices before Gluetun exists, avoids fake credentials, and keeps Tuniku available throughout first setup. A bundled snapshot preserves offline setup while refreshes handle provider server changes.",
+  "compatibility": [
+    "Generated Gluetun services use qmcgaw/gluetun:latest as explicitly required and therefore intentionally follow that mutable upstream tag.",
+    "The generated /gluetun path uses a Docker-managed named volume to avoid host bind-directory ownership failures on first start.",
+    "Existing Gluetun data and manually maintained Compose files remain untouched; applying the generated add-on remains an operator action."
+  ],
+  "rollback": "Disable online refresh and restore the prior static provider schema. Existing databases and user-managed Gluetun volumes are unchanged, but server choices may become stale.",
+  "risk_class": "C"
+}

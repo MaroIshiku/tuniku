@@ -55,4 +55,4 @@ const output = {
 };
 const outputPath = path.resolve("src/server/compose/server-catalog.json");
 fs.writeFileSync(outputPath, `${JSON.stringify(output)}\n`, "utf8");
-console.log(`Wrote ${Object.keys(providers).length} provider catalogs to ${outputPath}.`);
+process.stdout.write(`Wrote ${Object.keys(providers).length} provider catalogs to ${outputPath}.\n`);

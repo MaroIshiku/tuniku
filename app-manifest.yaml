@@ -7,12 +7,15 @@ capabilities:
   - gluetun_status
   - gluetun_allow_listed_control
   - compose_generation
+  - provider_server_catalog
+  - gluetun_failure_diagnostics
   - port_overview
   - local_admin_authentication
 required_services:
   - tuniku
 optional_integrations:
   - gluetun_control_server
+  - docker_gluetun_observer
 data_paths:
   root: /data
   database: /data/tuniku.db

@@ -2,7 +2,7 @@
 
 All notable changes to Tuniku will be documented here.
 
-## [0.3.3] - 2026-08-30
+## [0.3.3] - 2026-08-31
 
 ### Changed
 
@@ -15,10 +15,23 @@ All notable changes to Tuniku will be documented here.
   cookies behind an HTTPS reverse proxy.
 - Preserved redacted generated credentials by default with an explicit,
   short-lived full-secret output option.
+- Replaced generic Gluetun location fields with provider- and protocol-specific
+  filters and options sourced from the current official provider walkthroughs.
+- Added searchable, protocol-aware server choices from the official
+  `qdm12/gluetun-servers` catalog, plus authenticated per-provider refreshes and
+  a licensed offline snapshot.
+- Changed generated services and all setup templates to
+  `qmcgaw/gluetun:latest` with `pull_policy: always`, as explicitly required.
+- Changed generated `/gluetun` persistence to a Docker-managed named volume and
+  removed conflicting network-mode output from the add-on flow.
+- Added Gluetun container state, health, exit code, restart, timestamp,
+  configuration-issue, and bounded redacted log diagnostics through an isolated
+  internal Docker observer; no container shell is required.
 - Added blocking high/critical container scans, multi-architecture release
   promotion, attached SBOM evidence, immutable tags, and GitHub Releases.
-- Verified the Gluetun v3.41.3 provider catalog against the migrated upstream
-  repository and refreshed locked dependency patch levels.
+- Verified the current `qmcgaw/gluetun:latest` provider schema against Gluetun
+  source commit `7d749df` and the official walkthroughs at commit `888ab89`,
+  and refreshed locked dependency patch levels.
 
 ## [0.3.2] - 2026-08-30
 

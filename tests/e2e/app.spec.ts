@@ -67,8 +67,11 @@ test("first-run setup, Gluetun connection, control, ports, and Compose generatio
   await expect(page.locator(".validation-chip", { hasText: "Generated YAML is valid" })).toBeVisible();
   const composeText = await page.locator(".snippet-card .code-block").textContent();
   expect(composeText).toContain("VPN_SERVICE_PROVIDER: protonvpn");
+  expect(composeText).toContain("image: qmcgaw/gluetun:latest");
+  expect(composeText).toContain("gluetun_data:/gluetun");
   expect(composeText).toContain("[REDACTED]");
   expect(composeText).toContain("external: true");
+  expect(composeText).not.toContain("network_mode:");
   expect(composeText).not.toContain("services:\n  tuniku:");
   expect(composeText).not.toContain("e2e-wireguard-private-key");
   expect(composeText).not.toContain("${");
