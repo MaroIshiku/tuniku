@@ -3,8 +3,20 @@ import { redactText, validateUpstreamUrl } from "../security.js";
 import { getProviderProfile } from "../compose/providers.js";
 
 const sensitiveName = /(password|token|secret|private[_-]?key|api[_-]?key|auth|openvpn_user|wireguard)/i;
-const ansiColor = new RegExp("\\u001b\\[[0-9;]*m", "g");
 type DisplayState = "Running" | "Stopped" | "Restarting" | "Failed" | "Paused" | "Unknown";
+
+function stripAnsi(value: string): string {
+  let output = "";
+  for (let index = 0; index < value.length; index += 1) {
+    if (value.charCodeAt(index) === 27 && value[index + 1] === "[") {
+      index += 2;
+      while (index < value.length && (value.charCodeAt(index) < 64 || value.charCodeAt(index) > 126)) index += 1;
+      continue;
+    }
+    output += value[index];
+  }
+  return output;
+}
 
 export interface DockerObservation {
   available: boolean;
@@ -170,7 +182,7 @@ export class DockerObserver {
     let logsError: string | null = null;
     try {
       const bytes = await this.getBytes(`/containers/${encodeURIComponent(match.Id)}/logs?stdout=1&stderr=1&tail=200&timestamps=1`);
-      logs = redactText(this.decodeLogs(bytes).replace(ansiColor, "").trim()).slice(-262_144) || null;
+      logs = redactText(stripAnsi(this.decodeLogs(bytes)).trim()).slice(-262_144) || null;
     } catch (error) {
       logsError = error instanceof Error ? error.message : "Docker logs could not be read.";
     }
