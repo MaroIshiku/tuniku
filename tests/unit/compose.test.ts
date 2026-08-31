@@ -20,6 +20,35 @@ describe("Compose Assistant", () => {
     expect(gluetunProviderProfiles.find((provider) => provider.id === "mullvad")?.protocols).toEqual(["wireguard"]);
   });
 
+  it("keeps every provider's server filters aligned with its official walkthrough", () => {
+    const filters = Object.fromEntries(gluetunProviderProfiles.map((provider) => [provider.id, provider.serverFilters]));
+    expect(filters).toEqual({
+      airvpn: ["countries", "regions", "cities", "names", "hostnames"],
+      cyberghost: ["countries", "hostnames"],
+      expressvpn: ["countries", "cities", "hostnames"],
+      fastestvpn: ["countries", "cities", "hostnames"],
+      giganews: ["regions", "hostnames"],
+      hidemyass: ["countries", "regions", "cities", "hostnames"],
+      ipvanish: ["countries", "cities", "hostnames"],
+      ivpn: ["countries", "cities", "hostnames", "isps"],
+      mullvad: ["countries", "cities", "hostnames", "isps"],
+      nordvpn: ["countries", "regions", "cities", "hostnames", "categories"],
+      privado: ["countries", "regions", "cities", "hostnames"],
+      "private internet access": ["regions", "names", "hostnames"],
+      privatevpn: ["countries", "cities", "hostnames"],
+      protonvpn: ["countries", "regions", "cities", "hostnames"],
+      purevpn: ["countries", "regions", "cities", "hostnames"],
+      slickvpn: ["countries", "regions", "cities", "hostnames"],
+      surfshark: ["countries", "regions", "cities", "hostnames"],
+      torguard: ["countries", "cities", "hostnames"],
+      vpnsecure: ["regions", "cities", "hostnames"],
+      "vpn unlimited": ["countries", "regions", "cities", "hostnames"],
+      vyprvpn: ["regions", "hostnames"],
+      windscribe: ["regions", "cities", "hostnames"],
+      custom: []
+    });
+  });
+
   it("generates a deployable Gluetun-only add-on for the running Tuniku stack", () => {
     const result = generateCompose({
       taskType: "new_gluetun_setup",
