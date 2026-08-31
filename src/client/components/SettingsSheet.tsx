@@ -61,10 +61,19 @@ export function SettingsSheet(props: {
   useEffect(() => {
     if (!props.open) return;
     void api.diagnostics().then(setDiagnostics).catch(() => setDiagnostics(null));
-    void api.dockerObservation().then((result) => setDockerObservation(result.observation)).catch(() => setDockerObservation(null));
+    void refreshDockerObservation();
     void api.debugDetails().then(setDebugDetails).catch(() => setDebugDetails(null));
     void api.sessions().then((result) => setSessions(result.sessions)).catch(() => setSessions(null));
   }, [props.open]);
+
+  async function refreshDockerObservation(): Promise<void> {
+    try {
+      const result = await api.dockerObservation();
+      setDockerObservation(result.observation);
+    } catch (error) {
+      setDockerObservation({ available: false, container: null, issues: [], logs: null, logsError: error instanceof Error ? error.message : "Gluetun diagnostics are unavailable." });
+    }
+  }
 
   const instanceId = props.instance?.id || NEW_INSTANCE_ID;
   const update = (key: string, value: unknown) => setForm((current) => ({ ...current, [key]: value }));
@@ -214,6 +223,23 @@ export function SettingsSheet(props: {
             <div><dt>{t("gitSha")}</dt><dd>{debugDetails?.app?.gitSha || "development"}</dd></div>
           </dl>
         </div>
+      </section>
+
+      <section className="sheet-section gluetun-diagnostics">
+        <div className="section-title"><Icon name="activity" /><div><h3>Gluetun diagnostics</h3><p>Read from Docker without running a shell inside Gluetun.</p></div></div>
+        {dockerObservation?.container ? <>
+          <div className="technical-card"><dl>
+            <div><dt>Status</dt><dd>{dockerObservation.container.state}{dockerObservation.container.health ? ` · ${dockerObservation.container.health}` : ""}</dd></div>
+            <div><dt>Exit code</dt><dd>{dockerObservation.container.exitCode ?? t("unknown")}</dd></div>
+            <div><dt>Restarts</dt><dd>{dockerObservation.container.restartCount ?? 0}</dd></div>
+            <div><dt>Started</dt><dd>{formatDate(dockerObservation.container.startedAt)}</dd></div>
+            <div><dt>Last stopped</dt><dd>{formatDate(dockerObservation.container.finishedAt)}</dd></div>
+            <div><dt>Image</dt><dd>{dockerObservation.container.image}</dd></div>
+          </dl></div>
+          {dockerObservation.issues?.length > 0 && <div className="inline-banner warning diagnostics-issues"><Icon name="warning" /><ul>{dockerObservation.issues.map((issue: string) => <li key={issue}>{issue}</li>)}</ul></div>}
+          <div><strong>Last Gluetun logs</strong>{dockerObservation.logs ? <pre className="code-block diagnostics-log" tabIndex={0}><code>{dockerObservation.logs}</code></pre> : <div className="inline-banner warning"><Icon name="warning" /><span>{dockerObservation.logsError || "No Gluetun log output is available."}</span></div>}</div>
+        </> : <div className="inline-banner warning"><Icon name="warning" /><span>{dockerObservation?.logsError || dockerObservation?.issues?.[0] || "No Gluetun container was found."}</span></div>}
+        <button className="button button-outlined" type="button" onClick={() => void refreshDockerObservation()}><Icon name="refresh" />Refresh diagnostics</button>
       </section>
 
       <section className="sheet-section">

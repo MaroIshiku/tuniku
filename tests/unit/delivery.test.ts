@@ -21,7 +21,16 @@ describe("standalone delivery", () => {
     expect(compose.services.tuniku.secrets).toBeUndefined();
     expect(compose.services.tuniku.depends_on).toBeUndefined();
     expect(JSON.stringify(compose.services.tuniku.volumes)).not.toContain("docker.sock");
-    expect(Object.keys(compose.services)).toEqual(["tuniku"]);
+    expect(Object.keys(compose.services)).toEqual(["tuniku", "tuniku-docker-observer"]);
+    expect(compose.services["tuniku-docker-observer"].volumes).toContainEqual({
+      type: "bind",
+      source: "/var/run/docker.sock",
+      target: "/var/run/docker.sock",
+      read_only: true
+    });
+    expect(compose.services["tuniku-docker-observer"].networks).toEqual(["tuniku_observer"]);
+    expect(compose.networks.tuniku_observer.internal).toBe(true);
+    expect(compose.services.tuniku.environment.TUNIKU_DOCKER_PROXY_URL).toBe("http://tuniku-docker-observer:2375");
     expect(compose.services.tuniku.volumes).toContainEqual({
       type: "bind",
       source: "/DATA/AppData/i_tuniku/Data",
@@ -38,9 +47,7 @@ describe("standalone delivery", () => {
     expect(compose.services.tuniku.depends_on).toBeUndefined();
     expect(JSON.stringify(compose.services.tuniku.volumes)).not.toContain("docker.sock");
     expect(Object.keys(compose.secrets)).toEqual(["ishiku_setup_secret"]);
-    expect(compose.services.gluetun.image).toMatch(
-      /^ghcr\.io\/qdm12\/gluetun:v3\.41\.3@sha256:[a-f0-9]{64}$/
-    );
+    expect(compose.services.gluetun.image).toBe("qmcgaw/gluetun:latest");
   });
 
   it("references separate standard and maskable PWA icons", () => {

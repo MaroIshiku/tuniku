@@ -8,14 +8,16 @@ import {
   validateCompose
 } from "../../src/server/compose/generator.js";
 import { gluetunProviderProfiles } from "../../src/server/compose/providers.js";
+import { ServerCatalog } from "../../src/server/compose/serverCatalog.js";
 
 describe("Compose Assistant", () => {
-  it("exposes the complete Gluetun v3.41.3 provider and native WireGuard catalog", () => {
-    expect(gluetunProviderProfiles).toHaveLength(24);
+  it("exposes the provider and protocol catalog accepted by Gluetun latest", () => {
+    expect(gluetunProviderProfiles).toHaveLength(23);
     expect(gluetunProviderProfiles.filter((provider) => provider.protocols.includes("wireguard")).map((provider) => provider.id)).toEqual([
       "airvpn", "fastestvpn", "ivpn", "mullvad", "nordvpn", "protonvpn", "surfshark", "windscribe", "custom"
     ]);
-    expect(gluetunProviderProfiles.every((provider) => provider.protocols.includes("openvpn"))).toBe(true);
+    expect(gluetunProviderProfiles.find((provider) => provider.id === "perfect privacy")).toBeUndefined();
+    expect(gluetunProviderProfiles.find((provider) => provider.id === "mullvad")?.protocols).toEqual(["wireguard"]);
   });
 
   it("generates a deployable Gluetun-only add-on for the running Tuniku stack", () => {
@@ -24,32 +26,31 @@ describe("Compose Assistant", () => {
       provider: "protonvpn",
       vpnType: "wireguard",
       wireguardPrivateKey: "do-not-persist",
-      wireguardAddresses: "10.2.0.2/32",
       authMode: "api_key",
       apiKey: "control-api-key",
       includeSecrets: false
     });
     expect(validateCompose(result.snippets.compose).valid).toBe(true);
     const compose = YAML.parse(result.snippets.compose);
-    expect(compose.services.gluetun.image).toMatch(/^ghcr\.io\/qdm12\/gluetun:v3\.41\.3@sha256:/);
+    expect(compose.services.gluetun.image).toBe("qmcgaw/gluetun:latest");
+    expect(compose.services.gluetun.pull_policy).toBe("always");
     expect(compose.name).toBe("tuniku-gluetun");
     expect(Object.keys(compose.services)).toEqual(["gluetun"]);
     expect(compose.services.tuniku).toBeUndefined();
     expect(compose.networks.tuniku).toEqual({ external: true, name: "tuniku" });
     expect(compose.services.gluetun.networks).toEqual(["tuniku"]);
     expect(compose.services.gluetun.devices).toEqual(["/dev/net/tun:/dev/net/tun"]);
-    expect(compose.services.gluetun.volumes).toEqual(["/DATA/AppData/i_tuniku/Gluetun:/gluetun"]);
+    expect(compose.services.gluetun.volumes).toEqual(["gluetun_data:/gluetun"]);
     expect(compose.services.gluetun.environment).toMatchObject({
       VPN_SERVICE_PROVIDER: "protonvpn",
       VPN_TYPE: "wireguard",
       WIREGUARD_PRIVATE_KEY: "[REDACTED]",
-      WIREGUARD_ADDRESSES: "10.2.0.2/32",
       HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE: "[REDACTED]"
     });
     expect(compose.services.gluetun.environment.OPENVPN_CUSTOM_CONFIG).toBeUndefined();
     expect(compose.services.gluetun.volumes).not.toContain("/DATA/AppData/i_tuniku/custom.conf:/gluetun/custom.conf:ro");
     expect(result.snippets.compose).not.toContain("${");
-    expect(compose.volumes).toBeUndefined();
+    expect(compose.volumes).toEqual({ gluetun_data: {} });
     expect(compose.secrets).toBeUndefined();
     expect(result.snippets.secrets).toContain("only ISHIKU_SETUP_SECRET");
     expect(result.snippets.env).toContain("WIREGUARD_PRIVATE_KEY=[REDACTED]");
@@ -69,7 +70,6 @@ describe("Compose Assistant", () => {
       provider: "protonvpn",
       vpnType: "wireguard",
       wireguardPrivateKey: "private-key",
-      wireguardAddresses: "10.2.0.2/32",
       authMode: "api_key",
       apiKey: "control-key",
       includeSecrets: true
@@ -85,6 +85,23 @@ describe("Compose Assistant", () => {
     expect(() => generateCompose({ taskType: "configure_wireguard", provider: "expressvpn", vpnType: "wireguard" })).toThrow(/does not support/);
     expect(() => generateCompose({ taskType: "configure_wireguard", provider: "airvpn", vpnType: "wireguard", wireguardPrivateKey: "key", wireguardAddresses: "10.0.0.2/32" })).toThrow(/preshared key/);
     expect(() => generateCompose({ taskType: "configure_openvpn", provider: "custom", vpnType: "openvpn", customOpenvpnConfigPath: "relative.conf" })).toThrow(/absolute Linux host path/);
+  });
+
+  it("uses only PIA filters and current values documented by Gluetun", () => {
+    const catalog = new ServerCatalog("/tmp/tuniku-catalog-test");
+    expect(() => generateCompose({
+      taskType: "new_gluetun_setup", provider: "private internet access", vpnType: "openvpn",
+      openvpnUser: "user", openvpnPassword: "password", countries: "SE", cities: "Stockholm", authMode: "none"
+    }, catalog)).toThrow(/does not support the countries/);
+    const result = generateCompose({
+      taskType: "new_gluetun_setup", provider: "private internet access", vpnType: "openvpn",
+      openvpnUser: "user", openvpnPassword: "password", regions: "SE Stockholm", authMode: "none"
+    }, catalog);
+    const compose = YAML.parse(result.snippets.compose);
+    expect(compose.services.gluetun.environment).toMatchObject({ SERVER_REGIONS: "SE Stockholm" });
+    expect(compose.services.gluetun.environment.SERVER_COUNTRIES).toBeUndefined();
+    expect(compose.services.gluetun.environment.SERVER_CITIES).toBeUndefined();
+    expect(compose.services.gluetun.network_mode).toBeUndefined();
   });
 
   it("generates the manual network namespace and Gluetun port mapping", () => {

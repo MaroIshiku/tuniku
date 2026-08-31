@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import type { ComposeResult, GluetunProviderProfile, Instance } from "../lib/models.js";
+import type { ComposeResult, GluetunProviderProfile, Instance, ServerOptions } from "../lib/models.js";
 import { api, ApiError } from "../lib/api.js";
 import { useI18n, type TranslationKey } from "../lib/i18n.js";
 import { Icon } from "../components/Icon.js";
@@ -19,9 +19,30 @@ const tasks: Array<{ id: string; label: TranslationKey; icon: string }> = [
   { id: "review_existing_configuration", label: "reviewCompose", icon: "code" }
 ];
 
+type ServerFilter = GluetunProviderProfile["serverFilters"][number];
+const filterFormKeys: Record<ServerFilter, string> = {
+  countries: "countries",
+  regions: "regions",
+  cities: "cities",
+  hostnames: "hostnames",
+  names: "serverNames",
+  categories: "categories",
+  isps: "isps"
+};
+const filterLabels: Record<ServerFilter, string> = {
+  countries: "Server countries",
+  regions: "Server regions",
+  cities: "Server cities",
+  hostnames: "Server hostnames",
+  names: "Server names",
+  categories: "Server categories",
+  isps: "Server ISPs"
+};
+
 const initial = {
   taskType: "new_gluetun_setup", provider: "", vpnType: "wireguard" as "wireguard" | "openvpn",
-  countries: "", regions: "", cities: "", authMode: "api_key" as "none" | "api_key" | "basic",
+  countries: "", regions: "", cities: "", hostnames: "", serverNames: "", categories: "", isps: "",
+  providerOptions: {} as Record<string, string>, authMode: "api_key" as "none" | "api_key" | "basic",
   apiKey: "", basicUsername: "", basicPassword: "", wireguardPrivateKey: "", wireguardAddresses: "",
   wireguardPresharedKey: "", wireguardPublicKey: "", wireguardEndpointIp: "", wireguardEndpointPort: "51820",
   openvpnUser: "", openvpnPassword: "", openvpnCertificate: "", openvpnKey: "", openvpnEncryptedKey: "",
@@ -34,8 +55,10 @@ export function AssistantView(props: { instance: Instance | null; notify: (text:
   const { t } = useI18n();
   const [form, setForm] = useState(initial);
   const [providers, setProviders] = useState<GluetunProviderProfile[]>([]);
-  const [gluetunVersion, setGluetunVersion] = useState("v3.41.3");
+  const [gluetunVersion, setGluetunVersion] = useState("latest");
   const [providerLoadError, setProviderLoadError] = useState(false);
+  const [serverOptions, setServerOptions] = useState<Partial<Record<ServerFilter, ServerOptions>>>({});
+  const [catalogBusy, setCatalogBusy] = useState(false);
   const [saveDraft, setSaveDraft] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ComposeResult | null>(null);
@@ -46,6 +69,7 @@ export function AssistantView(props: { instance: Instance | null; notify: (text:
   const needsCredentials = needsProvider && form.taskType !== "set_server_selection";
   const needsAuth = ["new_gluetun_setup", "enable_control_server", "configure_control_auth"].includes(form.taskType);
   const selectedProvider = providers.find((provider) => provider.id === form.provider);
+  const visibleProviderOptions = selectedProvider?.options.filter((option) => !option.protocols || option.protocols.includes(form.vpnType)) ?? [];
 
   useEffect(() => {
     let active = true;
@@ -57,6 +81,21 @@ export function AssistantView(props: { instance: Instance | null; notify: (text:
     }).catch(() => { if (active) setProviderLoadError(true); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!selectedProvider || selectedProvider.id === "custom") {
+      setServerOptions({});
+      return;
+    }
+    let active = true;
+    void Promise.all(selectedProvider.serverFilters.map(async (field) => {
+      const response = await api.serverOptions(selectedProvider.id, form.vpnType, field);
+      return [field, response.options] as const;
+    })).then((entries) => {
+      if (active) setServerOptions(Object.fromEntries(entries));
+    }).catch(() => { if (active) setServerOptions({}); });
+    return () => { active = false; };
+  }, [selectedProvider?.id, form.vpnType]);
 
   useEffect(() => {
     if (!result?.containsSecretValues || result.redacted) return;
@@ -74,7 +113,45 @@ export function AssistantView(props: { instance: Instance | null; notify: (text:
 
   function selectProvider(providerId: string): void {
     const profile = providers.find((provider) => provider.id === providerId);
-    setForm((current) => ({ ...current, provider: providerId, vpnType: profile && !profile.protocols.includes(current.vpnType) ? profile.protocols[0] ?? "openvpn" : current.vpnType }));
+    setForm((current) => ({
+      ...current,
+      provider: providerId,
+      vpnType: profile && !profile.protocols.includes(current.vpnType) ? profile.protocols[0] ?? "openvpn" : current.vpnType,
+      countries: "", regions: "", cities: "", hostnames: "", serverNames: "", categories: "", isps: "", providerOptions: {}
+    }));
+  }
+
+  function selectVpnType(vpnType: "openvpn" | "wireguard"): void {
+    setForm((current) => ({ ...current, vpnType, countries: "", regions: "", cities: "", hostnames: "", serverNames: "", categories: "", isps: "", providerOptions: {} }));
+  }
+
+  function updateProviderOption(environmentName: string, value: string): void {
+    setForm((current) => ({ ...current, providerOptions: { ...current.providerOptions, [environmentName]: value } }));
+  }
+
+  async function loadServerOptions(field: ServerFilter, value: string): Promise<void> {
+    if (!selectedProvider || selectedProvider.id === "custom") return;
+    const query = value.slice(value.lastIndexOf(",") + 1).trim();
+    try {
+      const response = await api.serverOptions(selectedProvider.id, form.vpnType, field, query);
+      setServerOptions((current) => ({ ...current, [field]: response.options }));
+    } catch {
+      // The bundled catalog remains optional; server-side generation still validates input.
+    }
+  }
+
+  async function refreshCatalog(): Promise<void> {
+    if (!selectedProvider || selectedProvider.id === "custom") return;
+    setCatalogBusy(true);
+    try {
+      await api.refreshServerOptions(selectedProvider.id);
+      await Promise.all(selectedProvider.serverFilters.map((field) => loadServerOptions(field, String(form[filterFormKeys[field] as keyof typeof form] ?? ""))));
+      props.notify("Official Gluetun server data refreshed.", "success");
+    } catch (error) {
+      props.notify(error instanceof Error ? error.message : t("error"), "error");
+    } finally {
+      setCatalogBusy(false);
+    }
   }
 
   async function submit(event: FormEvent): Promise<void> {
@@ -113,27 +190,34 @@ export function AssistantView(props: { instance: Instance | null; notify: (text:
           <section className="configuration-step" aria-labelledby="provider-step-title">
             <div className="step-heading"><span className="step-number">1</span><div><h3 id="provider-step-title">Choose your provider</h3><p>Supported provider identifiers are pinned to Gluetun {gluetunVersion}.</p></div></div>
             {providerLoadError && <div className="inline-banner warning"><Icon name="warning" /><span>The provider catalog could not be loaded. Reload the page before generating a configuration.</span></div>}
-            <div className="field-grid"><label className="select-field"><span>{t("provider")}</span><select required value={form.provider} disabled={providers.length === 0} onChange={(event) => selectProvider(event.target.value)}><option value="">Choose a provider</option>{providers.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}</select></label><label className="select-field"><span>{t("vpnType")}</span><select required value={form.vpnType} disabled={!selectedProvider} onChange={(event) => update("vpnType", event.target.value)}>{selectedProvider?.protocols.map((protocol) => <option key={protocol} value={protocol}>{protocol === "wireguard" ? "WireGuard" : "OpenVPN"}</option>)}</select></label></div>
+            <div className="field-grid"><label className="select-field"><span>{t("provider")}</span><select required value={form.provider} disabled={providers.length === 0} onChange={(event) => selectProvider(event.target.value)}><option value="">Choose a provider</option>{providers.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}</select></label><label className="select-field"><span>{t("vpnType")}</span><select required value={form.vpnType} disabled={!selectedProvider} onChange={(event) => selectVpnType(event.target.value as "openvpn" | "wireguard")}>{selectedProvider?.protocols.map((protocol) => <option key={protocol} value={protocol}>{protocol === "wireguard" ? "WireGuard" : "OpenVPN"}</option>)}</select></label></div>
             {selectedProvider && <div className="provider-guidance"><Icon name="vpn" /><div><strong>{selectedProvider.label} · {protocolName}</strong><p>{selectedProvider.guidance}</p><a href={selectedProvider.docsUrl} target="_blank" rel="noreferrer">Open official provider instructions</a></div></div>}
           </section>
           {needsCredentials && selectedProvider && <section className="configuration-step" aria-labelledby="credentials-step-title">
             <div className="step-heading"><span className="step-number">2</span><div><h3 id="credentials-step-title">Enter {protocolName} connection data</h3><p>Only fields required by this provider and protocol are shown.</p></div></div>
             {form.vpnType === "wireguard" ? <div className="tonal-form-group">
-              <div className="field-grid"><label className="text-field"><span>{t("wireguardKey")}</span><input required type="password" autoComplete="off" value={form.wireguardPrivateKey} onChange={(event) => update("wireguardPrivateKey", event.target.value)} /></label><label className="text-field"><span>{t("wireguardAddresses")}</span><input required value={form.wireguardAddresses} placeholder="10.0.0.2/32" onChange={(event) => update("wireguardAddresses", event.target.value)} /></label></div>
+              <div className="field-grid"><label className="text-field"><span>{t("wireguardKey")}</span><input required type="password" autoComplete="off" value={form.wireguardPrivateKey} onChange={(event) => update("wireguardPrivateKey", event.target.value)} /></label>{selectedProvider.wireguardAddresses && <label className="text-field"><span>{t("wireguardAddresses")}</span><input required value={form.wireguardAddresses} placeholder="10.0.0.2/32" onChange={(event) => update("wireguardAddresses", event.target.value)} /></label>}</div>
               {selectedProvider.wireguardPresharedKey && <label className="text-field"><span>WireGuard preshared key</span><input required type="password" autoComplete="off" value={form.wireguardPresharedKey} onChange={(event) => update("wireguardPresharedKey", event.target.value)} /></label>}
               {selectedProvider.customConfiguration && <div className="field-grid three"><label className="text-field"><span>Server public key</span><input required value={form.wireguardPublicKey} onChange={(event) => update("wireguardPublicKey", event.target.value)} /></label><label className="text-field"><span>Endpoint IP</span><input required inputMode="decimal" value={form.wireguardEndpointIp} onChange={(event) => update("wireguardEndpointIp", event.target.value)} /></label><label className="text-field"><span>Endpoint port</span><input required type="number" min="1" max="65535" value={form.wireguardEndpointPort} onChange={(event) => update("wireguardEndpointPort", event.target.value)} /></label></div>}
             </div> : <div className="tonal-form-group">
               {selectedProvider.customConfiguration ? <label className="text-field"><span>Host path to custom OpenVPN configuration</span><input required value={form.customOpenvpnConfigPath} onChange={(event) => update("customOpenvpnConfigPath", event.target.value)} /><small>Tuniku mounts this file read-only at /gluetun/custom.conf.</small></label> : <>
-                {(selectedProvider.openvpnCredentials !== "none" || selectedProvider.id === "ivpn") && <div className="field-grid"><label className="text-field"><span>{t("openvpnUser")}</span><input required={selectedProvider.openvpnCredentials === "required" || selectedProvider.id === "ivpn"} autoComplete="off" value={form.openvpnUser} onChange={(event) => update("openvpnUser", event.target.value)} /></label><label className="text-field"><span>{t("openvpnPassword")}{selectedProvider.openvpnPasswordDefault ? " (optional)" : ""}</span><input required={selectedProvider.openvpnCredentials === "required" && !selectedProvider.openvpnPasswordDefault} type="password" autoComplete="off" value={form.openvpnPassword} onChange={(event) => update("openvpnPassword", event.target.value)} />{selectedProvider.openvpnPasswordDefault && <small>Leave blank to use the provider default.</small>}</label></div>}
+                {(selectedProvider.openvpnCredentials !== "none" || selectedProvider.id === "ivpn") && <div className="field-grid"><label className="text-field"><span>{t("openvpnUser")}</span><input required={selectedProvider.openvpnCredentials === "required" || selectedProvider.id === "ivpn"} autoComplete="off" value={form.openvpnUser} onChange={(event) => update("openvpnUser", event.target.value)} /></label><label className="text-field"><span>{t("openvpnPassword")}{selectedProvider.openvpnCredentials === "optional" ? " (optional for IVPN account IDs)" : ""}</span><input required={selectedProvider.openvpnCredentials === "required"} type="password" autoComplete="off" value={form.openvpnPassword} onChange={(event) => update("openvpnPassword", event.target.value)} /></label></div>}
                 {selectedProvider.openvpnCertificate !== "none" && <label className="text-field"><span>OpenVPN client certificate</span><textarea required rows={5} className="code-input" value={form.openvpnCertificate} onChange={(event) => update("openvpnCertificate", event.target.value)} /></label>}
                 {selectedProvider.openvpnCertificate === "client_key" && <label className="text-field"><span>OpenVPN client key</span><textarea required rows={5} className="code-input" value={form.openvpnKey} onChange={(event) => update("openvpnKey", event.target.value)} /></label>}
                 {selectedProvider.openvpnCertificate === "encrypted_key" && <><label className="text-field"><span>OpenVPN encrypted client key</span><textarea required rows={5} className="code-input" value={form.openvpnEncryptedKey} onChange={(event) => update("openvpnEncryptedKey", event.target.value)} /></label><label className="text-field"><span>OpenVPN key passphrase</span><input required type="password" autoComplete="off" value={form.openvpnKeyPassphrase} onChange={(event) => update("openvpnKeyPassphrase", event.target.value)} /></label></>}
               </>}
             </div>}
           </section>}
-          <section className="configuration-step" aria-labelledby="location-step-title"><div className="step-heading"><span className="step-number">3</span><div><h3 id="location-step-title">Limit server location (optional)</h3><p>Comma-separated filters are passed directly to Gluetun.</p></div></div><div className="field-grid three"><label className="text-field"><span>{t("countries")}</span><input value={form.countries} placeholder="Germany,Netherlands" onChange={(event) => update("countries", event.target.value)} /></label><label className="text-field"><span>{t("regions")}</span><input value={form.regions} onChange={(event) => update("regions", event.target.value)} /></label><label className="text-field"><span>{t("cities")}</span><input value={form.cities} onChange={(event) => update("cities", event.target.value)} /></label></div></section>
+          {selectedProvider.serverFilters.length > 0 && <section className="configuration-step" aria-labelledby="location-step-title"><div className="step-heading"><span className="step-number">3</span><div><h3 id="location-step-title">Choose supported servers (optional)</h3><p>Only filters documented for {selectedProvider.label} are shown. Suggestions come from the official Gluetun server catalog.</p></div></div><div className="button-row"><button className="button button-outlined" type="button" disabled={catalogBusy} onClick={() => void refreshCatalog()}><Icon name="refresh" />{catalogBusy ? "Refreshing…" : "Refresh server data"}</button>{Object.values(serverOptions)[0] && <span className="muted-copy">{Object.values(serverOptions)[0]?.source === "refreshed" ? "Refreshed catalog" : "Bundled catalog"} · {Object.values(serverOptions)[0]?.updatedAt ? new Date(Object.values(serverOptions)[0]!.updatedAt!).toLocaleDateString("en") : Object.values(serverOptions)[0]?.sourceRevision}</span>}</div><div className="field-grid three">{selectedProvider.serverFilters.map((field) => {
+            const formKey = filterFormKeys[field];
+            const value = String(form[formKey as keyof typeof form] ?? "");
+            const prefix = value.includes(",") ? `${value.slice(0, value.lastIndexOf(",") + 1)} ` : "";
+            const listId = `server-options-${field}`;
+            return <label className="text-field" key={field}><span>{filterLabels[field]}</span><input list={listId} value={value} placeholder="Search or leave empty" onFocus={() => void loadServerOptions(field, value)} onChange={(event) => { update(formKey, event.target.value); void loadServerOptions(field, event.target.value); }} /><datalist id={listId}>{serverOptions[field]?.values.map((option) => <option key={option} value={`${prefix}${option}`} />)}</datalist><small>{field === "hostnames" ? "Hostnames can disappear after provider updates; prefer a broader filter when possible." : "Comma-separated values are supported."}</small></label>;
+          })}</div></section>}
+          {visibleProviderOptions.length > 0 && <section className="configuration-step" aria-labelledby="provider-options-title"><div className="step-heading"><span className="step-number">4</span><div><h3 id="provider-options-title">Provider-specific options (optional)</h3><p>These variables are listed in the official {selectedProvider.label} walkthrough.</p></div></div><div className="field-grid">{visibleProviderOptions.map((option) => option.kind === "boolean" ? <label className="switch-row" key={option.env}><input type="checkbox" checked={form.providerOptions[option.env] === option.enabledValue} onChange={(event) => updateProviderOption(option.env, event.target.checked ? option.enabledValue || "on" : "")} /><span><strong>{option.label}</strong><small>{option.description}</small></span></label> : option.kind === "select" ? <label className="select-field" key={option.env}><span>{option.label}</span><select value={form.providerOptions[option.env] || ""} onChange={(event) => updateProviderOption(option.env, event.target.value)}><option value="">Use Gluetun default</option>{option.choices?.map((choice) => <option key={choice} value={choice}>{choice}</option>)}</select><small>{option.description}</small></label> : <label className="text-field" key={option.env}><span>{option.label}</span><input type="number" min="1" max="65535" value={form.providerOptions[option.env] || ""} onChange={(event) => updateProviderOption(option.env, event.target.value)} /><small>{option.description}</small></label>)}</div></section>}
         </div>}
-        {needsAuth && <section className="configuration-step" aria-labelledby="auth-step-title"><div className="step-heading"><span className="step-number">{needsProvider ? 4 : 1}</span><div><h3 id="auth-step-title">Protect Control Server access</h3><p>Tuniku will use the same authentication choice when you connect it later.</p></div></div><div className="segmented-control">{(["none", "api_key", "basic"] as const).map((mode) => <button type="button" key={mode} className={form.authMode === mode ? "active" : ""} onClick={() => update("authMode", mode)}>{mode === "none" ? t("noAuth") : mode === "api_key" ? t("apiKey") : t("basicAuth")}</button>)}</div>{form.authMode === "api_key" && <label className="text-field"><span>{t("apiKey")}</span><input required type="password" autoComplete="off" value={form.apiKey} onChange={(event) => update("apiKey", event.target.value)} /></label>}{form.authMode === "basic" && <div className="field-grid"><label className="text-field"><span>{t("basicUsername")}</span><input required autoComplete="off" value={form.basicUsername} onChange={(event) => update("basicUsername", event.target.value)} /></label><label className="text-field"><span>{t("basicPassword")}</span><input required type="password" autoComplete="off" value={form.basicPassword} onChange={(event) => update("basicPassword", event.target.value)} /></label></div>}</section>}
+        {needsAuth && <section className="configuration-step" aria-labelledby="auth-step-title"><div className="step-heading"><span className="step-number">{needsProvider ? visibleProviderOptions.length > 0 ? 5 : 4 : 1}</span><div><h3 id="auth-step-title">Protect Control Server access</h3><p>Tuniku will use the same authentication choice when you connect it later.</p></div></div><div className="segmented-control">{(["none", "api_key", "basic"] as const).map((mode) => <button type="button" key={mode} className={form.authMode === mode ? "active" : ""} onClick={() => update("authMode", mode)}>{mode === "none" ? t("noAuth") : mode === "api_key" ? t("apiKey") : t("basicAuth")}</button>)}</div>{form.authMode === "api_key" && <label className="text-field"><span>{t("apiKey")}</span><input required type="password" autoComplete="off" value={form.apiKey} onChange={(event) => update("apiKey", event.target.value)} /></label>}{form.authMode === "basic" && <div className="field-grid"><label className="text-field"><span>{t("basicUsername")}</span><input required autoComplete="off" value={form.basicUsername} onChange={(event) => update("basicUsername", event.target.value)} /></label><label className="text-field"><span>{t("basicPassword")}</span><input required type="password" autoComplete="off" value={form.basicPassword} onChange={(event) => update("basicPassword", event.target.value)} /></label></div>}</section>}
         {needsPorts && <>{form.taskType === "route_app_manually" && <div className="field-grid"><label className="text-field"><span>{t("appName")}</span><input value={form.appName} onChange={(event) => update("appName", event.target.value)} /></label><label className="text-field"><span>{t("appImage")}</span><input value={form.appImage} onChange={(event) => update("appImage", event.target.value)} /></label></div>}<div className="field-grid three"><label className="text-field"><span>{t("hostAddress")}</span><input placeholder="127.0.0.1" value={form.hostAddress} onChange={(event) => update("hostAddress", event.target.value)} /></label><label className="text-field"><span>{t("hostPort")}</span><input required type="number" min="1" max="65535" value={form.hostPort} onChange={(event) => update("hostPort", event.target.value)} /></label><label className="text-field"><span>{t("containerPort")}</span><input required type="number" min="1" max="65535" value={form.containerPort} onChange={(event) => update("containerPort", event.target.value)} /></label></div></>}
         {(form.taskType === "review_existing_configuration" || form.taskType === "migrate_secrets") && <label className="text-field"><span>{t("pasteCompose")}</span><textarea className="code-input" rows={12} value={form.pastedCompose} onChange={(event) => update("pastedCompose", event.target.value)} /></label>}
         <div className="assistant-options"><label className="switch-row"><input type="checkbox" checked={saveDraft} onChange={(event) => setSaveDraft(event.target.checked)} /><span>{t("saveDraft")}</span></label><label className="switch-row warning-switch"><input type="checkbox" checked={form.includeSecrets} onChange={(event) => update("includeSecrets", event.target.checked)} /><span>{t("revealSecrets")}</span></label></div>

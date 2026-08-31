@@ -69,27 +69,33 @@ describe("Gluetun capability failures", () => {
 describe("read-only Docker observation", () => {
   it("returns safe metadata without environment values", async () => {
     const url = await listen((server) => {
-      server.get("/containers/json", async () => [{ Id: "abcdef1234567890", Names: ["/gluetun"], Image: "ghcr.io/qdm12/gluetun:v3.41.3", State: "running" }]);
+      server.get("/containers/json", async () => [{ Id: "abcdef1234567890", Names: ["/gluetun"], Image: "qmcgaw/gluetun:latest", State: "exited" }]);
       server.get("/containers/abcdef1234567890/json", async () => ({
         Id: "abcdef1234567890",
         Name: "/gluetun",
-        Config: { Image: "ghcr.io/qdm12/gluetun:v3.41.3", Env: ["VPN_TYPE=wireguard", "WIREGUARD_PRIVATE_KEY=never-return"] },
-        State: { Status: "running", Health: { Status: "healthy" } },
+        Config: { Image: "qmcgaw/gluetun:latest", Env: ["VPN_SERVICE_PROVIDER=private internet access", "VPN_TYPE=openvpn", "SERVER_COUNTRIES=SE", "OPENVPN_PASSWORD=never-return"] },
+        State: { Status: "exited", ExitCode: 1, StartedAt: "2026-08-31T00:00:00Z", FinishedAt: "2026-08-31T00:00:01Z", Error: "", OOMKilled: false },
+        RestartCount: 3,
         NetworkSettings: {
           Ports: { "8000/tcp": [{ HostIp: "127.0.0.1", HostPort: "8000" }] },
-          Networks: { default: {} }
+          Networks: { tuniku: {} }
         }
       }));
+      server.get("/containers/abcdef1234567890/logs", async (_request, reply) => reply.type("text/plain").send("OPENVPN_PASSWORD=never-return\nprovider settings: invalid country\n"));
     });
     const observer = new DockerObserver(url, true);
     const result = await observer.observeGluetun();
     observer.close();
-    expect(result.container?.health).toBe("healthy");
+    expect(result.container).toMatchObject({ state: "exited", exitCode: 1, restartCount: 3 });
     expect(result.ports[0]).toMatchObject({ hostPort: 8000, containerPort: 8000, protocol: "tcp" });
     expect(result.environment).toEqual([
+      { name: "VPN_SERVICE_PROVIDER", sensitive: false },
       { name: "VPN_TYPE", sensitive: false },
-      { name: "WIREGUARD_PRIVATE_KEY", sensitive: true }
+      { name: "SERVER_COUNTRIES", sensitive: false },
+      { name: "OPENVPN_PASSWORD", sensitive: true }
     ]);
+    expect(result.issues).toContain("SERVER_COUNTRIES is not supported for Private Internet Access.");
+    expect(result.logs).toContain("OPENVPN_PASSWORD=[REDACTED]");
     expect(JSON.stringify(result)).not.toContain("never-return");
   });
 });

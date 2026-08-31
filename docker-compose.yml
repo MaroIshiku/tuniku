@@ -13,6 +13,8 @@ services:
       TUNIKU_DATA_PATH: "/data"
       TUNIKU_LOG_LEVEL: "info"
       HTTPS_ONLY: "false"
+      TUNIKU_ALLOW_LOOPBACK_UPSTREAM: "true"
+      TUNIKU_DOCKER_PROXY_URL: "http://tuniku-docker-observer:2375"
       TUNIKU_TRUSTED_PROXY_COUNT: "0"
       TZ: "Europe/Berlin"
     ports:
@@ -25,6 +27,7 @@ services:
         target: /data
     networks:
       - tuniku
+      - tuniku_observer
     read_only: true
     cap_drop:
       - ALL
@@ -55,9 +58,47 @@ services:
         max-size: 5m
     restart: unless-stopped
 
+  tuniku-docker-observer:
+    image: ghcr.io/maroishiku/tuniku:0.3.2@sha256:f4b0aba8e31fb44ddd0f18ece2d8d5f198149073ea10ce13d64c9958730cba7c
+    pull_policy: always
+    container_name: tuniku-docker-observer
+    command: ["dist/server/docker/observerProxy.js"]
+    user: "0:0"
+    environment:
+      TUNIKU_OBSERVER_PORT: "2375"
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+    networks:
+      - tuniku_observer
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: "134217728"
+    cpus: 0.25
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+      - /data:size=1m,mode=0700
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:2375/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+    restart: unless-stopped
+
 networks:
   tuniku:
     name: tuniku
+    driver: bridge
+  tuniku_observer:
+    name: tuniku-observer
+    internal: true
     driver: bridge
 
 x-casaos:

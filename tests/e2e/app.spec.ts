@@ -26,7 +26,6 @@ test("first-run setup, Gluetun connection, control, ports, and Compose generatio
   await page.getByLabel("VPN service provider").selectOption("protonvpn");
   await expect(page.getByText("ProtonVPN · WireGuard")).toBeVisible();
   await page.getByLabel("WireGuard private key").fill("e2e-wireguard-private-key");
-  await page.getByLabel("WireGuard addresses").fill("10.2.0.2/32");
   await page.getByLabel("API key").fill("e2e-control-api-key");
   await page.getByRole("button", { name: "Generate guidance" }).click();
   await expect(page.locator(".validation-chip", { hasText: "Generated YAML is valid" })).toBeVisible();
@@ -62,7 +61,6 @@ test("first-run setup, Gluetun connection, control, ports, and Compose generatio
   await expect(page.getByRole("heading", { name: "Compose Assistant" })).toBeVisible();
   await page.getByLabel("VPN service provider").selectOption("protonvpn");
   await page.getByLabel("WireGuard private key").fill("e2e-wireguard-private-key");
-  await page.getByLabel("WireGuard addresses").fill("10.2.0.2/32");
   await page.getByLabel("API key").fill("e2e-control-api-key");
   await page.getByRole("button", { name: "Generate guidance" }).click();
   await expect(page.getByRole("heading", { name: "3. Copy-paste snippet" })).toBeVisible();

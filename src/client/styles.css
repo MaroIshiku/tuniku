@@ -668,6 +668,10 @@ p { margin-block-end: 0; }
 .technical-card dt { color: var(--color-on-surface-muted); }
 .technical-card dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
 .technical-card code { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.diagnostics-log { max-height: 320px; margin-top: var(--space-2); overflow: auto; }
+.diagnostics-issues { align-items: flex-start; }
+.diagnostics-issues ul { margin: 0; padding-inline-start: var(--space-5); }
+.muted-copy { color: var(--color-on-surface-muted); font-size: var(--type-body-medium-size); align-self: center; }
 .about-identity { display: flex; align-items: center; gap: var(--space-3); }
 .about-identity h3,
 .about-identity p { margin: 0; }

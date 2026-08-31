@@ -93,7 +93,24 @@ export interface GluetunProviderProfile {
   docsUrl: string;
   openvpnCredentials: "required" | "optional" | "none";
   openvpnCertificate: "none" | "client_key" | "encrypted_key";
-  openvpnPasswordDefault?: string;
+  wireguardAddresses: boolean;
   wireguardPresharedKey: boolean;
   customConfiguration: boolean;
+  serverFilters: Array<"countries" | "regions" | "cities" | "hostnames" | "names" | "categories" | "isps">;
+  options: Array<{
+    env: string;
+    label: string;
+    kind: "boolean" | "number" | "select";
+    protocols?: Array<"openvpn" | "wireguard">;
+    choices?: string[];
+    enabledValue?: string;
+    description: string;
+  }>;
+}
+
+export interface ServerOptions {
+  values: string[];
+  source: "refreshed" | "bundled";
+  sourceRevision: string;
+  updatedAt: string | null;
 }

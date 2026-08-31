@@ -28,6 +28,7 @@ import {
 } from "../compose/generator.js";
 import { DockerObserver } from "../docker/observer.js";
 import { gluetunProviderProfiles } from "../compose/providers.js";
+import { ServerCatalog, serverFilterKeys } from "../compose/serverCatalog.js";
 
 const setupLimiter = new SlidingWindowRateLimiter(8, 15 * 60_000);
 const loginNetworkLimiter = new SlidingWindowRateLimiter(20, 15 * 60_000);
@@ -35,6 +36,7 @@ const loginAccountLimiter = new SlidingWindowRateLimiter(8, 15 * 60_000);
 const connectionLimiter = new SlidingWindowRateLimiter(20, 60_000);
 const controlLimiter = new SlidingWindowRateLimiter(20, 60_000);
 const generateLimiter = new SlidingWindowRateLimiter(30, 60_000);
+const catalogRefreshLimiter = new SlidingWindowRateLimiter(5, 15 * 60_000);
 const SESSION_COOKIE = "tuniku_session";
 const SESSION_ABSOLUTE_MS = 24 * 60 * 60_000;
 const SESSION_IDLE_MS = 30 * 60_000;
@@ -171,6 +173,11 @@ const composeInputSchema = z.object({
   countries: z.string().max(500).optional(),
   regions: z.string().max(500).optional(),
   cities: z.string().max(500).optional(),
+  hostnames: z.string().max(2_000).optional(),
+  serverNames: z.string().max(2_000).optional(),
+  categories: z.string().max(500).optional(),
+  isps: z.string().max(500).optional(),
+  providerOptions: z.record(z.string().regex(/^[A-Z][A-Z0-9_]*$/), z.string().max(128)).optional(),
   authMode: z.enum(["none", "api_key", "basic"]).optional(),
   apiKey: z.string().max(4096).optional(),
   basicUsername: z.string().max(256).optional(),
@@ -208,6 +215,7 @@ export function registerApiRoutes(
   }
 ): void {
   const { db, appConfig, state, startedAt } = dependencies;
+  const serverCatalog = new ServerCatalog(appConfig.dataPath);
   const audit = (
     request: FastifyRequest,
     input: Omit<Parameters<TunikuDatabase["audit"]>[0], "id" | "requestId">
@@ -630,7 +638,42 @@ export function registerApiRoutes(
 
   app.get("/api/v1/compose/providers", async (request, reply) => {
     if (!requireSession(request, reply, db)) return;
-    return { providers: gluetunProviderProfiles, gluetunVersion: "v3.41.3" };
+    return { providers: gluetunProviderProfiles, gluetunVersion: "latest", gluetunImage: "qmcgaw/gluetun:latest" };
+  });
+
+  app.get("/api/v1/compose/providers/:providerId/server-options", async (request, reply) => {
+    if (!requireSession(request, reply, db)) return;
+    const providerId = z.string().max(80).parse((request.params as any).providerId);
+    const profile = gluetunProviderProfiles.find((candidate) => candidate.id === providerId);
+    if (!profile || profile.id === "custom") return reply.code(404).send({ error: { code: "provider_not_found", message: "The Gluetun provider is not available." } });
+    const query = z.object({
+      vpnType: z.enum(["openvpn", "wireguard"]),
+      field: z.enum(serverFilterKeys),
+      q: z.string().max(500).default(""),
+      limit: z.coerce.number().int().min(1).max(100).default(50)
+    }).parse(request.query);
+    if (!profile.protocols.includes(query.vpnType) || !profile.serverFilters.includes(query.field)) {
+      return reply.code(400).send({ error: { code: "unsupported_server_filter", message: "This filter is not supported for the selected provider and protocol." } });
+    }
+    const result = serverCatalog.query(profile.id, query.vpnType, query.field, query.q, query.limit);
+    return result ? { options: result } : reply.code(404).send({ error: { code: "server_catalog_unavailable", message: "No server catalog is available for this provider." } });
+  });
+
+  app.post("/api/v1/compose/providers/:providerId/server-options/refresh", async (request, reply) => {
+    const session = requireSession(request, reply, db);
+    if (!session || !requireCsrf(request, reply, session)) return;
+    if (!catalogRefreshLimiter.consume(`${session.user.id}:catalog`)) return reply.code(429).send({ error: { code: "rate_limited", message: "Too many server catalog refresh requests." } });
+    const providerId = z.string().max(80).parse((request.params as any).providerId);
+    const profile = gluetunProviderProfiles.find((candidate) => candidate.id === providerId);
+    if (!profile || profile.id === "custom") return reply.code(404).send({ error: { code: "provider_not_found", message: "The Gluetun provider is not available." } });
+    try {
+      const refreshed = await serverCatalog.refresh(profile.id);
+      audit(request, { userId: session.user.id, instanceId: null, type: "server_catalog_refreshed", result: "success", metadata: { provider: profile.id, updatedAt: refreshed.updatedAt } });
+      return { refreshed };
+    } catch (error) {
+      audit(request, { userId: session.user.id, instanceId: null, type: "server_catalog_refreshed", result: "failed", metadata: { provider: profile.id } });
+      return reply.code(502).send({ error: { code: "server_catalog_refresh_failed", message: error instanceof Error ? error.message : "The official Gluetun server catalog could not be refreshed." } });
+    }
   });
 
   app.post("/api/v1/compose/validate", async (request, reply) => {
@@ -658,9 +701,9 @@ export function registerApiRoutes(
       }).parse(request.body);
       const taskType = body.input.taskType;
       const input = body.input as ComposeGenerationInput;
-      const result = generateCompose(input);
+      const result = generateCompose(input, serverCatalog);
       if (body.saveDraft) {
-        const redacted = generateCompose({ ...input, includeSecrets: false });
+        const redacted = generateCompose({ ...input, includeSecrets: false }, serverCatalog);
         db.saveDraft({
           id: crypto.randomUUID(),
           instanceId: body.instanceId ?? null,
@@ -717,7 +760,7 @@ export function registerApiRoutes(
     const instance = db.listInstances()[0] ?? null;
     return {
       tuniku: { status: "running", uptimeSeconds: Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000) },
-      database: { status: db.isReady() ? "ready" : "unavailable", migrationVersion: 1 },
+      database: { status: db.isReady() ? "ready" : "unavailable", migrationVersion: 3 },
       setup: { completed: db.adminCount() > 0 },
       gluetun: {
         configured: Boolean(instance),
@@ -731,7 +774,7 @@ export function registerApiRoutes(
   app.get("/api/v1/admin/docker-observation", async (request, reply) => {
     if (!requireSession(request, reply, db)) return;
     if (!appConfig.dockerProxyUrl) {
-      return { observation: { available: false, container: null, ports: [], environment: [], networks: [], reason: "not_configured" } };
+      return { observation: { available: false, container: null, ports: [], environment: [], networks: [], logs: null, logsError: "Read-only Docker observation is not configured.", issues: ["Configure a restricted Docker Socket Proxy to inspect Gluetun status and logs."], reason: "not_configured" } };
     }
     const observer = new DockerObserver(appConfig.dockerProxyUrl, appConfig.allowLoopbackUpstream);
     try {

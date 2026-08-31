@@ -1,4 +1,4 @@
-import type { Bootstrap, ComposeResult, GluetunProviderProfile, Instance, Overview, PortLabel, SessionSummary, User } from "./models.js";
+import type { Bootstrap, ComposeResult, GluetunProviderProfile, Instance, Overview, PortLabel, ServerOptions, SessionSummary, User } from "./models.js";
 
 export class ApiError extends Error {
   constructor(
@@ -70,7 +70,13 @@ export const api = {
   updatePort: (id: string, portId: string, body: unknown) => request<{ port: PortLabel }>(`/api/v1/instances/${id}/port-labels/${portId}`, { method: "PUT", body: json(body) }),
   deletePort: (id: string, portId: string) => request<{ ok: boolean }>(`/api/v1/instances/${id}/port-labels/${portId}`, { method: "DELETE" }),
   generate: (body: unknown) => request<{ result: ComposeResult }>("/api/v1/compose/generate", { method: "POST", body: json(body) }),
-  composeProviders: () => request<{ providers: GluetunProviderProfile[]; gluetunVersion: string }>("/api/v1/compose/providers"),
+  composeProviders: () => request<{ providers: GluetunProviderProfile[]; gluetunVersion: string; gluetunImage: string }>("/api/v1/compose/providers"),
+  serverOptions: (provider: string, vpnType: "openvpn" | "wireguard", field: string, query = "") =>
+    request<{ options: ServerOptions }>(`/api/v1/compose/providers/${encodeURIComponent(provider)}/server-options?vpnType=${vpnType}&field=${encodeURIComponent(field)}&q=${encodeURIComponent(query)}&limit=50`),
+  refreshServerOptions: (provider: string) => request<{ refreshed: { sourceRevision: string; updatedAt: string | null } }>(
+    `/api/v1/compose/providers/${encodeURIComponent(provider)}/server-options/refresh`,
+    { method: "POST", body: "{}" }
+  ),
   activity: () => request<{ events: any[] }>("/api/v1/activity"),
   diagnostics: () => request<any>("/api/v1/admin/diagnostics"),
   dockerObservation: () => request<any>("/api/v1/admin/docker-observation"),
