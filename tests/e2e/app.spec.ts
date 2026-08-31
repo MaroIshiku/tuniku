@@ -137,5 +137,9 @@ test("mobile navigation and settings sheet remain usable", async ({ browser }, t
   expect(undersized).toEqual([]);
   await page.waitForTimeout(300);
   await page.screenshot({ path: testInfo.outputPath("mobile-settings.png"), fullPage: false });
+  await page.getByRole("heading", { name: "Gluetun diagnostics" }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole("button", { name: "Refresh diagnostics" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("mobile-gluetun-diagnostics.png"), fullPage: false });
   await context.close();
 });
