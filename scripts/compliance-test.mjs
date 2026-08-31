@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+import process from "node:process";
 
 const repo = resolve(process.argv[2] ?? ".");
 const readJson = (filename) => JSON.parse(readFileSync(filename, "utf8"));
