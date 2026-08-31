@@ -183,6 +183,18 @@ export class DockerObserver {
     try {
       const bytes = await this.getBytes(`/containers/${encodeURIComponent(match.Id)}/logs?stdout=1&stderr=1&tail=200&timestamps=1`);
       logs = redactText(stripAnsi(this.decodeLogs(bytes)).trim()).slice(-262_144) || null;
+      if (logs && /TUN device.*(?:permission denied|not available)/i.test(logs)) {
+        issues.push("Docker cannot use /dev/net/tun. Verify that the device exists and that the Gluetun service has /dev/net/tun plus NET_ADMIN access.");
+      }
+      if (logs && /(?:country|region|city|hostname|server name).*not valid|no possible value available/i.test(logs)) {
+        issues.push("Gluetun rejected the selected server filter. Choose a current value from Tuniku's provider-specific server list.");
+      }
+      if (logs && /AUTH_FAILED|authentication failed|credentials.*(?:invalid|rejected)/i.test(logs)) {
+        issues.push("The VPN provider rejected the configured credentials.");
+      }
+      if (logs && /(?:permission denied.*\/gluetun|\/gluetun.*permission denied)/i.test(logs)) {
+        issues.push("Gluetun cannot write its /gluetun storage. Check the volume or host-directory ownership and permissions.");
+      }
     } catch (error) {
       logsError = error instanceof Error ? error.message : "Docker logs could not be read.";
     }

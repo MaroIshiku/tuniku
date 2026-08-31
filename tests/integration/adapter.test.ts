@@ -81,7 +81,7 @@ describe("read-only Docker observation", () => {
           Networks: { tuniku: {} }
         }
       }));
-      server.get("/containers/abcdef1234567890/logs", async (_request, reply) => reply.type("text/plain").send("OPENVPN_PASSWORD=never-return\nprovider settings: invalid country\n"));
+      server.get("/containers/abcdef1234567890/logs", async (_request, reply) => reply.type("text/plain").send("OPENVPN_PASSWORD=never-return\ncountry specified is not valid: there is no possible value available\n"));
     });
     const observer = new DockerObserver(url, true);
     const result = await observer.observeGluetun();
@@ -95,6 +95,7 @@ describe("read-only Docker observation", () => {
       { name: "OPENVPN_PASSWORD", sensitive: true }
     ]);
     expect(result.issues).toContain("SERVER_COUNTRIES is not supported for Private Internet Access.");
+    expect(result.issues).toContain("Gluetun rejected the selected server filter. Choose a current value from Tuniku's provider-specific server list.");
     expect(result.logs).toContain("OPENVPN_PASSWORD=[REDACTED]");
     expect(JSON.stringify(result)).not.toContain("never-return");
   });
