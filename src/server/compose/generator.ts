@@ -165,7 +165,7 @@ function validateProviderInput(input: ComposeGenerationInput, serverCatalog?: Pi
     }
   } else {
     if (profile.openvpnCredentials === "required" || profile.id === "ivpn") requireValue(input.openvpnUser, "OpenVPN username");
-    if (profile.openvpnCredentials === "required" && !profile.openvpnPasswordDefault) requireValue(input.openvpnPassword, "OpenVPN password");
+    if (profile.openvpnCredentials === "required") requireValue(input.openvpnPassword, "OpenVPN password");
     if (profile.openvpnCertificate === "client_key") {
       requireValue(input.openvpnCertificate, "OpenVPN client certificate");
       requireValue(input.openvpnKey, "OpenVPN client key");
@@ -308,7 +308,7 @@ function providerEnvironment(input: ComposeGenerationInput, profile?: GluetunPro
   }
   if (input.vpnType === "openvpn") {
     if (input.openvpnUser) environment.OPENVPN_USER = outputValue(input.openvpnUser, input, true);
-    const openvpnPassword = input.openvpnPassword || profile?.openvpnPasswordDefault;
+    const openvpnPassword = input.openvpnPassword;
     if (openvpnPassword) environment.OPENVPN_PASSWORD = outputValue(openvpnPassword, input, true);
     if (input.openvpnCertificate) environment.OPENVPN_CERT = outputValue(pemBody(input.openvpnCertificate), input, true);
     if (input.openvpnKey) environment.OPENVPN_KEY = outputValue(pemBody(input.openvpnKey), input, true);
@@ -386,7 +386,7 @@ function buildEnv(input: ComposeGenerationInput, profile?: GluetunProviderProfil
     envLine("WIREGUARD_ENDPOINT_IP", input.vpnType === "wireguard" && profile?.customConfiguration ? input.wireguardEndpointIp : undefined, includeSecrets, false),
     envLine("WIREGUARD_ENDPOINT_PORT", input.vpnType === "wireguard" && profile?.customConfiguration && input.wireguardEndpointPort ? String(input.wireguardEndpointPort) : undefined, includeSecrets, false),
     envLine("OPENVPN_USER", input.vpnType === "openvpn" ? input.openvpnUser : undefined, includeSecrets, true),
-    envLine("OPENVPN_PASSWORD", input.vpnType === "openvpn" ? input.openvpnPassword || profile?.openvpnPasswordDefault : undefined, includeSecrets, true),
+    envLine("OPENVPN_PASSWORD", input.vpnType === "openvpn" ? input.openvpnPassword : undefined, includeSecrets, true),
     envLine("OPENVPN_CERT", input.vpnType === "openvpn" && input.openvpnCertificate ? pemBody(input.openvpnCertificate) : undefined, includeSecrets, true),
     envLine("OPENVPN_KEY", input.vpnType === "openvpn" && input.openvpnKey ? pemBody(input.openvpnKey) : undefined, includeSecrets, true),
     envLine("OPENVPN_ENCRYPTED_KEY", input.vpnType === "openvpn" && input.openvpnEncryptedKey ? pemBody(input.openvpnEncryptedKey) : undefined, includeSecrets, true),

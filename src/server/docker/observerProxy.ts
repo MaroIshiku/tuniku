@@ -92,6 +92,8 @@ const server = http.createServer(async (request, response) => {
 
 server.listen(port, "0.0.0.0");
 
-const shutdown = (): void => server.close(() => process.exit(0));
+const shutdown = (): void => {
+  server.close(() => process.exit(0));
+};
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
