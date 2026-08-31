@@ -71,11 +71,12 @@ const server = http.createServer(async (request, response) => {
     const inspectedResponse = await dockerRequest(`/containers/${encodeURIComponent(container.Id)}/json`);
     if (inspectedResponse.status !== 200) return sendJson(response, inspectedResponse.status, { error: "inspect_failed" });
     const inspected = JSON.parse(inspectedResponse.body.toString("utf8"));
-    const safeEnvironment = Array.isArray(inspected?.Config?.Env) ? inspected.Config.Env.map((entry: string) => {
+    const safeEnvironment = Array.isArray(inspected?.Config?.Env) ? inspected.Config.Env.flatMap((entry: string) => {
       const separator = entry.indexOf("=");
       const name = separator === -1 ? entry : entry.slice(0, separator);
-      if (["VPN_SERVICE_PROVIDER", "VPN_TYPE"].includes(name)) return entry;
-      return `${name}=`;
+      const value = separator === -1 ? "" : entry.slice(separator + 1);
+      if (["VPN_SERVICE_PROVIDER", "VPN_TYPE"].includes(name)) return [entry];
+      return value ? [`${name}=`] : [];
     }) : [];
     return sendJson(response, 200, {
       Id: inspected?.Id,
