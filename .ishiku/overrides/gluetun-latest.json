@@ -1,0 +1,14 @@
+{
+  "id": "OVR-001",
+  "reason": "The product owner explicitly requires every generated and documented Gluetun service to use qmcgaw/gluetun:latest so provider server updates arrive without a Tuniku release.",
+  "policy": "dependencies.floating_tags_forbidden",
+  "security_assessment": "The exception is limited to the Gluetun integration image. Tuniku itself and all build inputs remain digest-pinned. pull_policy is always, generated configuration is provider-validated, server data can be refreshed independently, and the release process tests the then-current latest image. Mutable upstream behavior remains a compatibility and supply-chain risk and must be reviewed on the stated date.",
+  "owner": "MaroIshiku",
+  "review_date": "2026-11-30",
+  "tests": [
+    "node scripts/compliance-test.mjs .",
+    "npm run check",
+    "npm run test:e2e",
+    "runtime generation and startup smoke test with qmcgaw/gluetun:latest"
+  ]
+}

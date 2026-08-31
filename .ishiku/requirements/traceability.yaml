@@ -92,7 +92,7 @@
     },
     {
       "id": "REL-001",
-      "implementation": [".github/workflows/ci.yml", ".github/workflows/container.yml", ".github/workflows/ishiku-release-release.yml"],
+      "implementation": [".github/workflows/ci.yml", ".github/workflows/container.yml", ".github/workflows/ishiku-release-release.yml", "scripts/compliance-test.mjs", ".ishiku/overrides/gluetun-latest.json"],
       "tests": {
         "unit": ["tests/unit/delivery.test.ts"],
         "integration": [".ishiku/kit/scripts/check-release"],

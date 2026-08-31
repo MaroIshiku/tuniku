@@ -32,7 +32,7 @@
     "commands": [
       {
         "name": "ishiku-compliance",
-        "command": "node .ishiku/kit/scripts/compliance-test .",
+        "command": "node scripts/compliance-test.mjs .",
         "required_for_verified": true
       },
       {
