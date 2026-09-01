@@ -66,12 +66,22 @@ and recognizes only these operations for the discovered Gluetun container:
 
 - list containers to locate Gluetun;
 - inspect Gluetun;
-- read the final 200 Gluetun log lines.
+- read the final 200 Gluetun log lines;
+- read one one-shot Docker Stats response and return only aggregate receive and
+  send byte counters.
 
 The inspect response drops environment values except `VPN_SERVICE_PROVIDER`
 and `VPN_TYPE`; Tuniku exposes only environment names and redacts bounded log
 text. No `exec`, container mutation, archive, image, build, volume, network, or
 general Docker forwarding route exists.
+
+Traffic accounting records only positive aggregate byte deltas grouped by
+local day, plus the current counter/rate state. Daily totals older than 90 days
+are deleted. Tuniku does not capture destinations, URLs, DNS queries, packet
+contents, credentials, or a per-application identity. All applications sharing
+Gluetun's network namespace are necessarily combined. Counter resets and
+container replacements establish a new baseline and do not add a synthetic
+delta. Poll failures are ignored for availability purposes.
 
 A read-only Unix-socket mount does not enforce read-only Docker API semantics.
 The security control is therefore the helper's small allow-listed implementation

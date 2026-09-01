@@ -1,13 +1,14 @@
 {
   "id": "DEC-007",
   "date": "2026-08-31",
-  "decision": "Ship an isolated internal observer helper in the primary Compose. Only that helper mounts the Docker socket and it implements fixed GET-only Gluetun list, inspect, and log operations; the Tuniku application never receives the socket.",
-  "rationale": "A stopped or shellless Gluetun container cannot be diagnosed through its Control Server or docker exec. Docker list, inspect, and logs remain available after exit. Isolating these calls behind a purpose-built route and container boundary provides the requested diagnostics without giving the web application a general Docker API or mutation path.",
+  "decision": "Ship an isolated internal observer helper in the primary Compose. Only that helper mounts the Docker socket and it implements fixed GET-only Gluetun list, inspect, log, and aggregate stats operations; the Tuniku application never receives the socket.",
+  "rationale": "A stopped or shellless Gluetun container cannot be diagnosed through its Control Server or docker exec. Docker list, inspect, and logs remain available after exit, while Docker Stats provides aggregate network counters without capturing traffic content. Isolating these calls behind a purpose-built route and container boundary provides the requested diagnostics and traffic accounting without giving the web application a general Docker API or mutation path.",
   "compatibility": [
     "Tuniku starts and remains healthy if the observer helper or Gluetun is unavailable.",
     "The helper has no host port, joins only an internal observer network, strips environment values except provider and VPN type, and exposes no exec, archive, image, network, volume, or mutation route.",
+    "Traffic accounting stores only aggregate byte deltas by local day for 90 days; destinations, URLs, DNS queries, packet contents, and per-application identity are not collected.",
     "Operators using the hardened example or another deployment may omit the observer and leave TUNIKU_DOCKER_PROXY_URL unset."
   ],
-  "rollback": "Remove the tuniku-docker-observer service and TUNIKU_DOCKER_PROXY_URL. Tuniku and its Control Server features continue to work, but Docker-level Gluetun exit diagnostics become unavailable.",
+  "rollback": "Remove the tuniku-docker-observer service and TUNIKU_DOCKER_PROXY_URL. Tuniku and its Control Server features continue to work, but Docker-level Gluetun exit diagnostics, detected ports, and aggregate traffic accounting become unavailable.",
   "risk_class": "C"
 }

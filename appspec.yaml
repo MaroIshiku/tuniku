@@ -78,7 +78,20 @@
         "Tuniku remains available when Gluetun is missing, stopped, restarting, unhealthy, or exited.",
         "Authenticated diagnostics show Gluetun state, health, exit code, restart count, start and finish timestamps, bounded redacted Docker logs, and recognizable provider or network configuration problems.",
         "Diagnostics use Docker list, inspect, and logs operations through a dedicated internal allow-listed helper and never depend on docker exec or a shell inside Gluetun.",
+        "Published Gluetun Docker ports are detected through the same helper, and a missing helper gives actionable full-Compose redeployment guidance instead of exposing a resolver error.",
         "The Tuniku application never mounts the Docker socket, the observer has no externally published port, and no Docker mutation route is exposed."
+      ],
+      "security_critical": true
+    },
+    {
+      "id": "TRAFFIC-001",
+      "title": "Privacy-preserving aggregate VPN traffic accounting",
+      "priority": "high",
+      "acceptance": [
+        "When the optional Docker observer is present, Tuniku displays aggregate Gluetun download and upload rates, current-day totals, and a rolling 90-day tracked total.",
+        "Counters come from a fixed read-only Docker Stats operation and do not record destinations, URLs, DNS queries, packet contents, or credentials.",
+        "Counter resets and Gluetun container replacements do not create false deltas, daily aggregates persist across Tuniku restarts, and traffic polling never affects Tuniku or Gluetun availability.",
+        "The interface and documentation state that shared-network services are aggregated and cannot be reliably separated per application."
       ],
       "security_critical": true
     },

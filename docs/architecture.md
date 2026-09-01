@@ -20,7 +20,8 @@ Tuniku has no code path for Docker container creation, restart, update, delete,
 network mutation, volume mutation, image mutation, or `exec`. It never mounts a
 host Compose file and never writes one. The web application does not mount the
 Docker socket. The primary deployment's separate observer helper mounts it and
-accepts only fixed GET routes for Gluetun list, inspect, and bounded logs.
+accepts only fixed GET routes for Gluetun list, inspect, bounded logs, and
+aggregate one-shot stats.
 
 ## First-run boundary
 
@@ -61,6 +62,12 @@ returns a reduced inspect response. All environment values except the provider
 and VPN type are removed before leaving the helper. Log output is bounded and
 redacted again by Tuniku before reaching the browser.
 
+The stats route reduces Docker's response to container ID, aggregate received
+bytes, aggregate sent bytes, and observation time. Tuniku persists positive
+deltas by local day for 90 days. It cannot attribute traffic to individual
+applications sharing the Gluetun network namespace and does not collect packet
+or destination metadata.
+
 The helper does not expose arbitrary Docker paths or methods. It has no route
 for `exec`, container lifecycle, images, volumes, networks, archives, or build.
 Failure of the helper returns an unavailable diagnostic response and never
@@ -90,7 +97,7 @@ returns optimistic success.
 
 ## Persistence
 
-Migration version 3 contains:
+Migration version 4 contains:
 
 - Local administrator accounts.
 - Server-side sessions with 30-minute idle expiry, 24-hour absolute expiry,
@@ -99,6 +106,7 @@ Migration version 3 contains:
 - Local port labels.
 - Redacted Compose drafts.
 - Redacted audit events correlated with stable API request IDs.
+- Current aggregate Docker traffic counters and rolling daily byte totals.
 
 All instance-related entities use an instance identifier even though version 1
 shows one active instance.
@@ -113,4 +121,6 @@ before these managed files for deployment compatibility.
 
 The server refreshes the configured Gluetun instance every 10 seconds. The
 browser requests cached state every 10 seconds while visible and every 60
-seconds in the background. Data older than 45 seconds is marked stale.
+seconds in the background. Data older than 45 seconds is marked stale. When the
+observer is configured, a separate optional 10-second poll records aggregate
+Gluetun network counters; failures do not affect either service's health.

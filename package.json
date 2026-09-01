@@ -1,6 +1,6 @@
 {
   "name": "tuniku",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "private": true,
   "description": "A secure, self-hosted Gluetun control dashboard and Compose assistant.",
   "type": "module",

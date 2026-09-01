@@ -44,6 +44,9 @@ theme supports System, Light, and Dark mode.
   the official Gluetun server catalog and an authenticated refresh action.
 - Docker-level Gluetun state, health, exit, restart, timestamp, configuration,
   and bounded redacted log diagnostics that do not require a container shell.
+- Aggregate Gluetun download/upload rates, daily totals, and a rolling 90-day
+  total from Docker Stats, without packet or destination logging.
+- Automatic display of ports published on the Gluetun container.
 - Local port labels that never imply an integration with a foreign application.
 - English interface copy throughout the application.
 - Lavender, Mint, Sky, Amber, Rose, and Graphite themes.
@@ -85,7 +88,7 @@ flowchart LR
     T --> D[("Tuniku SQLite data")]
     T -->|"documented /v1 routes only"| G["Gluetun Control Server"]
     T -->|"internal fixed GET routes"| O["Gluetun observer helper"]
-    O -->|"list / inspect / logs"| X["Docker API"]
+    O -->|"list / inspect / logs / stats"| X["Docker API"]
     G --> V["Gluetun VPN runtime"]
     A["Foreign application"] -. "manual Compose: network_mode service:gluetun" .-> V
     T -. "generates snippets; never writes or deploys" .-> C["User-managed Compose stack"]
@@ -114,7 +117,7 @@ The primary stack contains the Tuniku application plus an isolated diagnostic
 helper, but no Gluetun service. This prevents an invalid VPN configuration from
 blocking the setup interface or creating a Gluetun restart loop. The helper is
 optional for custom deployments; it only supplies Docker-level Gluetun status
-and logs.
+and logs, published ports, and aggregate traffic counters.
 
 Tuniku runs as UID/GID `1000`. If the host creates the data directory with
 different ownership, run
@@ -155,7 +158,8 @@ This manual deployment step is intentional. Provider settings are Gluetun
 container startup settings; the Tuniku application does not mount the Docker
 socket, write host Compose files, or recreate containers. In the primary
 Compose, only the separate internal observer helper sees the socket and its
-HTTP surface is limited to Gluetun list, inspect, and logs operations.
+HTTP surface is limited to fixed Gluetun list, inspect, logs, and aggregate
+stats operations.
 
 For a file-backed setup secret and a Gluetun configuration prepared before
 startup, use `docker-compose.example.yml`. That hardened alternative mounts
@@ -225,7 +229,8 @@ Secrets must not be committed to public repositories.
 The `/data` mount contains:
 
 - `tuniku.db` — administrators, sessions, instance preferences, local port
-  labels, redacted drafts, and redacted audit metadata.
+  labels, rolling aggregate traffic totals, redacted drafts, and redacted audit
+  metadata.
 - SQLite WAL files while the service is running.
 - `.secrets/` — automatically generated internal session and credential keys.
 
@@ -235,16 +240,32 @@ enabled and an encryption key is configured.
 ### Gluetun diagnostics
 
 The primary Compose includes `tuniku-docker-observer` on an internal network.
-It reads only the Gluetun container list, inspect metadata, and the final 200
-log lines. It publishes no host port, strips environment values before returning
-metadata, and implements no Docker write, exec, archive, image, volume, or
-network route. Tuniku remains independent if the helper or Gluetun is absent.
+It reads only the Gluetun container list, inspect metadata, the final 200 log
+lines, and one-shot Docker Stats for the selected Gluetun container. It
+publishes no host port, strips environment values before returning metadata,
+and implements no Docker write, exec, archive, image, volume, or network route.
+Tuniku remains independent if the helper or Gluetun is absent.
 
 Custom deployments may omit the helper and leave `TUNIKU_DOCKER_PROXY_URL`
 unset, or point it at an equivalently restricted HTTP proxy. Never mount the
 raw Docker socket into the Tuniku application. A read-only bind flag on a Unix
 socket does not itself make Docker operations read-only; the helper's route
 allow-list is the effective boundary.
+
+### VPN traffic accounting
+
+When the observer is available, the Overview shows the current aggregate
+download/upload rates, today's transferred bytes, and a rolling 90-day total.
+Tuniku samples Docker's cumulative Gluetun network counters every 10 seconds
+and persists only positive byte deltas by local day. Container replacements and
+counter resets start a new baseline instead of adding a false spike.
+
+The values cover the whole Gluetun network namespace: Gluetun itself and every
+application routed through it are combined, with small VPN, DNS, and control
+overhead. Docker cannot reliably separate these applications once they share
+that namespace. Tuniku does not capture packets and does not store destinations,
+URLs, DNS queries, protocols, or payloads. Omit the optional observer if even
+aggregate traffic retention is not wanted.
 
 ### Connect to Gluetun Control Server
 
@@ -295,7 +316,7 @@ See [docs/compose-assistant.md](docs/compose-assistant.md).
 
 ### Route an application behind Gluetun manually
 
-The basic relationship is:
+If the application and Gluetun are services in the same Compose project, use:
 
 ```yaml
 services:
@@ -313,6 +334,11 @@ normal Compose network connection. Publish its web ports on the **Gluetun**
 service, remove conflicting mappings from the application service, then
 redeploy manually. Tuniku does not inspect, authenticate to, configure, or
 restart the application.
+
+If Gluetun is already running in a separate ZimaOS/Compose stack, use
+`network_mode: "container:gluetun"` for the application instead. The
+`service:gluetun` form only resolves within the same Compose project. In both
+cases, publish the application's UI port on Gluetun, not on the application.
 
 The official Gluetun documentation distinguishes
 [VPN provider port forwarding](https://github.com/qdm12/gluetun-wiki/blob/main/setup/advanced/vpn-port-forwarding.md)
@@ -364,6 +390,12 @@ docker compose pull
 docker compose up -d
 ```
 
+For upgrades from a one-container Tuniku deployment, replace/import the
+complete current `docker-compose.yml` before running these commands. Pulling a
+new Tuniku image alone cannot create `tuniku-docker-observer` or its internal
+network. A raw `getaddrinfo ENOTFOUND tuniku-docker-observer` message therefore
+means the full current Compose has not been deployed (or the helper is absent).
+
 For a local build:
 
 ```sh
@@ -384,6 +416,12 @@ credentials remain stored.
   network. `localhost` means the Tuniku container itself.
 - **Gluetun exited:** open **Settings → Gluetun diagnostics** for Docker state,
   exit code, timestamps, detected provider/filter problems, and the last logs.
+- **Observer cannot be resolved:** deploy the complete current
+  `docker-compose.yml`; an image-only update cannot add the observer service or
+  its internal Docker network.
+- **Traffic counters unavailable:** verify that the observer is healthy and a
+  Gluetun container exists. Counters intentionally stay optional and never
+  block Tuniku.
 - **`/bin/sh` not found:** the current Gluetun image is intentionally shellless;
   this does not identify the startup failure. Use Docker inspect/logs or Tuniku's
   diagnostics instead of `docker exec ... /bin/sh`.
@@ -427,7 +465,7 @@ does not own or maintain the project.
 
 ## Status and license
 
-Tuniku `0.3.3` starts independently of Gluetun and guides a new administrator
+Tuniku `0.3.4` starts independently of Gluetun and guides a new administrator
 to either generate a complete Gluetun Compose proposal or connect an existing
 Control Server. ZimaOS delivery and runtime secret management remain aligned
 with the ishiku platform.

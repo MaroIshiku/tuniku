@@ -2,6 +2,29 @@
 
 All notable changes to Tuniku will be documented here.
 
+## [0.3.4] - 2026-09-01
+
+### Added
+
+- Added privacy-preserving aggregate Gluetun download/upload rates, current-day
+  totals, and rolling 90-day totals using one-shot Docker Stats.
+- Added automatic display of Docker ports published on the Gluetun container.
+
+### Fixed
+
+- Accepted the current Gluetun Control Server mutation response field
+  `outcome`, while retaining compatibility with older `status` responses.
+- Treated Gluetun's no-forwarding response (`port: 0`, `ports: null`) as a valid
+  empty port list instead of an unrecognized response.
+- Replaced raw observer DNS failures with instructions to redeploy the complete
+  current Compose, which creates the observer service and internal network.
+
+### Security
+
+- Kept traffic observation behind a fixed GET-only observer route and retained
+  only aggregate byte deltas; Tuniku does not capture destinations, URLs, DNS
+  queries, credentials, or packet contents.
+
 ## [0.3.3] - 2026-08-31
 
 ### Changed

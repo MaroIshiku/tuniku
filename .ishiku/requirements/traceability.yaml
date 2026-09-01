@@ -69,6 +69,17 @@
       "status": "verified"
     },
     {
+      "id": "TRAFFIC-001",
+      "implementation": ["src/server/docker/observer.ts", "src/server/docker/observerProxy.ts", "src/server/gluetun/state.ts", "src/server/db.ts", "src/server/routes/api.ts", "src/client/views/OverviewView.tsx", "docs/security.md", ".ishiku/decisions/docker-observer-helper.json"],
+      "tests": {
+        "unit": ["tests/unit/session.test.ts", "tests/unit/delivery.test.ts"],
+        "integration": ["tests/integration/adapter.test.ts"],
+        "e2e": ["tests/e2e/app.spec.ts"],
+        "security": ["tests/unit/delivery.test.ts", ".ishiku/kit/scripts/check-security"]
+      },
+      "status": "verified"
+    },
+    {
       "id": "UI-001",
       "implementation": ["src/client/", "design-system/", "assets/icon-source.png", "public/assets/icons/"],
       "tests": {

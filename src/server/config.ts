@@ -106,7 +106,7 @@ export function loadConfig(environment: Environment = process.env) {
       generate: () => crypto.randomBytes(32).toString("base64")
     }),
     build: {
-      version: environment.TUNIKU_VERSION || "0.3.3",
+      version: environment.TUNIKU_VERSION || "0.3.4",
       date: environment.TUNIKU_BUILD_DATE || "development",
       gitSha: environment.TUNIKU_GIT_SHA || "development"
     }

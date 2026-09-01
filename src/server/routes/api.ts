@@ -597,7 +597,7 @@ export function registerApiRoutes(
       return {
         ports: [...detectedPorts, ...manualPorts],
         detection: {
-          available: observation.available,
+          available: Boolean(observation.container),
           error: observation.container ? null : observation.issues[0] || "No Gluetun container was found."
         }
       };
@@ -847,7 +847,7 @@ export function registerApiRoutes(
     return redactValue({
       app: { version: appConfig.build.version, buildDate: appConfig.build.date, gitSha: appConfig.build.gitSha },
       runtime: process.version,
-      databaseMigration: 1,
+      databaseMigration: 4,
       dataDirectory: appConfig.dataPath,
       logLevel: appConfig.logLevel,
       setupCompleted: db.adminCount() > 0,

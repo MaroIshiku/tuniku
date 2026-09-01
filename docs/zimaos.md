@@ -42,8 +42,15 @@ Gluetun by service name. For Private Internet Access, use one of the searchable
 If Gluetun exits, keep Tuniku running and open **Settings → Gluetun diagnostics**.
 The primary stack's internal observer reports state, health, exit code, restart
 count, start and finish timestamps, recognizable environment/network problems,
-and the final redacted logs. It uses Docker inspect and logs and does not call
-`docker exec`; `/bin/sh` is not present in the current Gluetun image.
+the final redacted logs, published Docker ports, and aggregate traffic counters.
+It uses Docker inspect, logs, and one-shot stats and does not call `docker exec`;
+`/bin/sh` is not present in the current Gluetun image.
+
+The Overview reports combined download/upload rates, today's totals, and a
+rolling 90-day total for Gluetun plus every application sharing its network
+namespace. Per-application separation is not reliable in this arrangement.
+Tuniku stores only aggregate byte deltas; it does not record destinations,
+URLs, DNS queries, or packet contents.
 
 The primary Tuniku Compose sets `HTTPS_ONLY=false`, so
 `http://<docker-host>:65001` works on the trusted local network. Set
@@ -60,7 +67,13 @@ Before switching them to the primary host-path Compose, stop Tuniku, back up
 the volume, copy the complete `/data` contents to the new path, and retain any
 legacy external encryption key while stored Gluetun credentials depend on it.
 
-To place another application behind Gluetun:
+An image-only update cannot add the observer introduced by the current primary
+stack. When upgrading an older single-service installation, import or replace
+the complete current `docker-compose.yml`, then redeploy it. If Tuniku reports
+`getaddrinfo ENOTFOUND tuniku-docker-observer`, the helper service or its
+internal network has not been created from that Compose.
+
+To place another application behind Gluetun in the same Compose project:
 
 1. Add `network_mode: "service:gluetun"` to that application service.
 2. Publish its required web port on the Gluetun service.
@@ -70,3 +83,7 @@ To place another application behind Gluetun:
 
 Tuniku generates this guidance but does not save the ZimaOS stack, press
 deploy, recreate containers, or authenticate to the foreign application.
+
+For an application kept in a separate ZimaOS/Compose stack, use
+`network_mode: "container:gluetun"` instead of `service:gluetun`. Publish its
+required UI port on the Gluetun service in either arrangement.

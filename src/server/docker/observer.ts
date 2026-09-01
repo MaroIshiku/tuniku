@@ -85,10 +85,10 @@ export class DockerObserver {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(message)) {
-        throw new Error("The Docker observer helper cannot be resolved. Redeploy the complete current Tuniku Compose so the tuniku-docker-observer service and internal network are created.");
+        throw new Error("The Docker observer helper cannot be resolved. Redeploy the complete current Tuniku Compose so the tuniku-docker-observer service and internal network are created.", { cause: error });
       }
       if (/ECONNREFUSED/i.test(message)) {
-        throw new Error("The Docker observer helper is not running or refused the connection.");
+        throw new Error("The Docker observer helper is not running or refused the connection.", { cause: error });
       }
       throw error;
     }

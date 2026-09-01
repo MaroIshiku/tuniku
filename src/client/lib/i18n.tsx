@@ -58,7 +58,7 @@ const en = {
   vpnTraffic: "VPN traffic",
   trafficUnavailable: "Traffic counters unavailable",
   today: "Today",
-  trackedTotal: "Tracked total",
+  trackedTotal: "Tracked total (90 days)",
   configureGluetun: "Configure Gluetun",
   prepareGluetun: "Set up Gluetun",
   configureHint: "Connect one existing Gluetun Control Server to use this section.",

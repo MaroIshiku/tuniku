@@ -41,6 +41,7 @@ test("first-run setup, Gluetun connection, control, ports, and Compose generatio
   await page.getByRole("button", { name: "Close" }).click();
 
   await expect(page.getByRole("heading", { name: "VPN is stopped" })).toBeVisible();
+  await expect(page.getByText("Traffic counters unavailable")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("desktop-overview.png"), fullPage: true });
 
   await page.getByRole("button", { name: "VPN", exact: true }).first().click();
@@ -50,6 +51,7 @@ test("first-run setup, Gluetun connection, control, ports, and Compose generatio
   await expect(page.getByRole("heading", { name: "VPN is running" })).toBeVisible();
 
   await page.getByRole("button", { name: "Ports", exact: true }).first().click();
+  await expect(page.getByText("Automatic port detection unavailable")).toBeVisible();
   await page.getByRole("button", { name: "Add local port" }).first().click();
   await page.getByLabel("Label").fill("Example Web UI");
   await page.getByLabel("Host port").fill("8080");
