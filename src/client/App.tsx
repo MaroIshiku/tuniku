@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, setCsrfToken } from "./lib/api.js";
-import type { Bootstrap, Instance, Overview, PortLabel, Section, User } from "./lib/models.js";
+import type { Bootstrap, Instance, Overview, PortDetection, PortLabel, Section, TrafficSummary, User } from "./lib/models.js";
 import { useTheme } from "./lib/theme.js";
 import { useI18n } from "./lib/i18n.js";
 import { AppShell } from "./components/AppShell.js";
@@ -25,6 +25,8 @@ export function App() {
   const [instance, setInstance] = useState<Instance | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [ports, setPorts] = useState<PortLabel[]>([]);
+  const [portDetection, setPortDetection] = useState<PortDetection | null>(null);
+  const [traffic, setTraffic] = useState<TrafficSummary | null>(null);
   const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionBusy, setActionBusy] = useState(false);
@@ -66,8 +68,9 @@ export function App() {
     if (!target) return;
     setLoading(true);
     try {
-      const response = await api.overview(target.id);
+      const [response, trafficResponse] = await Promise.all([api.overview(target.id), api.traffic()]);
       setOverview(response.overview);
+      setTraffic(trafficResponse.traffic);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         setUser(null);
@@ -83,11 +86,13 @@ export function App() {
   const loadSupportingData = useCallback(async (target: Instance | null): Promise<void> => {
     if (!target) {
       setPorts([]);
+      setPortDetection(null);
       setActivity([]);
       return;
     }
     const [portsResponse, activityResponse] = await Promise.all([api.ports(target.id), api.activity()]);
     setPorts(portsResponse.ports);
+    setPortDetection(portsResponse.detection);
     setActivity(activityResponse.events);
   }, []);
 
@@ -164,6 +169,7 @@ export function App() {
       setUser(null);
       setInstance(null);
       setOverview(null);
+      setTraffic(null);
       setCsrfToken(null);
     }
   }
@@ -188,9 +194,9 @@ export function App() {
     <>
       <AppShell section={section} user={user} onSection={setSection} onSettings={() => setSettingsOpen(true)}>
         <div className="page-enter" key={section}>
-          {section === "overview" && <OverviewView instance={instance} overview={overview} activity={activity} loading={loading} onSection={setSection} onConnectExisting={() => setSettingsOpen(true)} onRefresh={() => void refreshOverview(instance)} />}
+          {section === "overview" && <OverviewView instance={instance} overview={overview} traffic={traffic} activity={activity} loading={loading} onSection={setSection} onConnectExisting={() => setSettingsOpen(true)} onRefresh={() => void refreshOverview(instance)} />}
           {section === "control" && <ControlView instance={instance} overview={overview} busy={actionBusy} onAction={handleControl} onRefresh={() => void refreshOverview(instance)} onSettings={() => setSettingsOpen(true)} />}
-          {section === "ports" && <PortsView instance={instance} overview={overview} ports={ports} onSave={savePort} onDelete={deletePort} onSettings={() => setSettingsOpen(true)} notify={notify} />}
+          {section === "ports" && <PortsView instance={instance} overview={overview} ports={ports} detection={portDetection} onSave={savePort} onDelete={deletePort} onSettings={() => setSettingsOpen(true)} notify={notify} />}
           {section === "assistant" && <AssistantView instance={instance} notify={notify} />}
         </div>
       </AppShell>

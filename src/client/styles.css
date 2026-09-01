@@ -824,7 +824,7 @@ p { margin-block-end: 0; }
   .toast-host { inset-bottom: var(--space-6); }
   .hero-card { grid-template-columns: auto 1fr auto; padding: var(--space-8); }
   .hero-actions { grid-column: auto; }
-  .status-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .status-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
   .status-card { min-height: 142px; align-items: flex-start; flex-wrap: wrap; }
   .status-card .card-heading { flex-basis: calc(100% - 64px); }
   .control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

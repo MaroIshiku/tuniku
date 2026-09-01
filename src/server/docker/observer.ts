@@ -1,6 +1,7 @@
 import { Agent, fetch } from "undici";
 import { redactText, validateUpstreamUrl } from "../security.js";
 import { getProviderProfile } from "../compose/providers.js";
+import type { TrafficCounterSnapshot } from "../types.js";
 
 const sensitiveName = /(password|token|secret|private[_-]?key|api[_-]?key|auth|openvpn_user|wireguard)/i;
 type DisplayState = "Running" | "Stopped" | "Restarting" | "Failed" | "Paused" | "Unknown";
@@ -69,17 +70,42 @@ export class DockerObserver {
   }
 
   private async get(path: string): Promise<any> {
-    const baseUrl = await validateUpstreamUrl(this.baseUrl, this.allowLoopback);
-    const response = await fetch(`${baseUrl}${path}`, {
-      method: "GET",
-      headers: { accept: "application/json" },
-      dispatcher: this.dispatcher,
-      signal: AbortSignal.timeout(5_000)
-    });
-    if (!response.ok) throw new Error(`Docker proxy returned HTTP ${response.status}.`);
-    const text = await response.text();
-    if (text.length > 2_097_152) throw new Error("Docker proxy response exceeds the safe size limit.");
-    return text ? JSON.parse(text) : null;
+    try {
+      const baseUrl = await validateUpstreamUrl(this.baseUrl, this.allowLoopback);
+      const response = await fetch(`${baseUrl}${path}`, {
+        method: "GET",
+        headers: { accept: "application/json" },
+        dispatcher: this.dispatcher,
+        signal: AbortSignal.timeout(5_000)
+      });
+      if (!response.ok) throw new Error(`Docker proxy returned HTTP ${response.status}.`);
+      const text = await response.text();
+      if (text.length > 2_097_152) throw new Error("Docker proxy response exceeds the safe size limit.");
+      return text ? JSON.parse(text) : null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(message)) {
+        throw new Error("The Docker observer helper cannot be resolved. Redeploy the complete current Tuniku Compose so the tuniku-docker-observer service and internal network are created.");
+      }
+      if (/ECONNREFUSED/i.test(message)) {
+        throw new Error("The Docker observer helper is not running or refused the connection.");
+      }
+      throw error;
+    }
+  }
+
+  async observeTraffic(): Promise<TrafficCounterSnapshot> {
+    const value = await this.get("/gluetun/traffic");
+    if (
+      !value ||
+      typeof value.containerId !== "string" ||
+      typeof value.observedAt !== "string" ||
+      !Number.isSafeInteger(value.receivedBytes) || value.receivedBytes < 0 ||
+      !Number.isSafeInteger(value.sentBytes) || value.sentBytes < 0
+    ) {
+      throw new Error("Docker observer returned an unrecognized traffic response.");
+    }
+    return value as TrafficCounterSnapshot;
   }
 
   private async getBytes(path: string): Promise<Uint8Array> {

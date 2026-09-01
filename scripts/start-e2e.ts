@@ -13,7 +13,7 @@ let dnsStatus = "running";
 mock.get("/v1/vpn/status", async () => ({ status: vpnStatus }));
 mock.put("/v1/vpn/status", async (request) => {
   vpnStatus = (request.body as { status: string }).status;
-  return { status: vpnStatus };
+  return { outcome: vpnStatus };
 });
 mock.get("/v1/vpn/settings", async () => ({
   provider: "mockvpn",

@@ -566,7 +566,49 @@ export function registerApiRoutes(
   app.get("/api/v1/instances/:instanceId/ports", async (request, reply) => {
     if (!requireSession(request, reply, db)) return;
     const instanceId = (request.params as any).instanceId as string;
-    return { ports: db.listPorts(instanceId) };
+    const manualPorts = db.listPorts(instanceId);
+    if (!appConfig.dockerProxyUrl) {
+      return { ports: manualPorts, detection: { available: false, error: "Automatic Docker port detection is not configured." } };
+    }
+    const observer = new DockerObserver(appConfig.dockerProxyUrl, appConfig.allowLoopbackUpstream);
+    try {
+      const observation = await observer.observeGluetun();
+      const timestamp = new Date().toISOString();
+      const detectedPorts = observation.ports
+        .filter((detected) => !manualPorts.some((manual) =>
+          manual.hostAddress === detected.hostAddress &&
+          manual.hostPort === detected.hostPort &&
+          manual.containerPort === detected.containerPort &&
+          manual.protocol === detected.protocol
+        ))
+        .map((detected) => ({
+          id: `docker-${detected.hostAddress || "any"}-${detected.hostPort || "none"}-${detected.containerPort}-${detected.protocol}`,
+          instanceId,
+          label: detected.hostPort ? `Published port ${detected.hostPort}` : `Exposed port ${detected.containerPort}`,
+          hostAddress: detected.hostAddress,
+          hostPort: detected.hostPort,
+          containerPort: detected.containerPort,
+          protocol: detected.protocol,
+          sourceType: "docker" as const,
+          notes: "Detected from the Gluetun Docker configuration.",
+          createdAt: timestamp,
+          updatedAt: timestamp
+        }));
+      return {
+        ports: [...detectedPorts, ...manualPorts],
+        detection: {
+          available: observation.available,
+          error: observation.container ? null : observation.issues[0] || "No Gluetun container was found."
+        }
+      };
+    } catch (error) {
+      return {
+        ports: manualPorts,
+        detection: { available: false, error: error instanceof Error ? error.message : "Automatic Docker port detection is unavailable." }
+      };
+    } finally {
+      observer.close();
+    }
   });
 
   const portSchema = z.object({
@@ -760,7 +802,7 @@ export function registerApiRoutes(
     const instance = db.listInstances()[0] ?? null;
     return {
       tuniku: { status: "running", uptimeSeconds: Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000) },
-      database: { status: db.isReady() ? "ready" : "unavailable", migrationVersion: 3 },
+      database: { status: db.isReady() ? "ready" : "unavailable", migrationVersion: 4 },
       setup: { completed: db.adminCount() > 0 },
       gluetun: {
         configured: Boolean(instance),
@@ -789,6 +831,14 @@ export function registerApiRoutes(
     } finally {
       observer.close();
     }
+  });
+
+  app.get("/api/v1/admin/traffic", async (request, reply) => {
+    if (!requireSession(request, reply, db)) return;
+    return {
+      traffic: db.trafficSummary(),
+      privacy: "Aggregate byte counters only. Tuniku does not record destinations, URLs, DNS queries, or packet contents."
+    };
   });
 
   app.get("/api/v1/admin/debug-details", async (request, reply) => {

@@ -19,7 +19,7 @@ async function mockGluetun() {
   mock.get("/v1/vpn/status", async () => ({ status: vpnStatus }));
   mock.put("/v1/vpn/status", async (request) => {
     vpnStatus = (request.body as any).status;
-    return { status: vpnStatus };
+    return { outcome: vpnStatus };
   });
   mock.get("/v1/vpn/settings", async () => ({ provider: "mock", WIREGUARD_PRIVATE_KEY: "secret" }));
   mock.get("/v1/publicip/ip", async () => ({ public_ip: "203.0.113.10" }));
@@ -27,8 +27,8 @@ async function mockGluetun() {
   mock.put("/v1/dns/status", async (request) => request.body);
   mock.get("/v1/updater/status", async () => ({ status: "completed" }));
   mock.put("/v1/updater/status", async (request) => request.body);
-  mock.get("/v1/portforward", async () => ({ port: 51413 }));
-  mock.put("/v1/portforward", async (request) => request.body);
+  mock.get("/v1/portforward", async () => ({ port: 0, ports: null }));
+  mock.put("/v1/portforward", async (_request, reply) => reply.code(200).send());
   await mock.listen({ host: "127.0.0.1", port: 0 });
   apps.push(mock);
   return mock;

@@ -64,6 +64,17 @@ describe("Gluetun capability failures", () => {
     await expect(adapter.read("vpn")).rejects.toEqual(expect.objectContaining<GluetunError>({ code: "timeout" }));
     adapter.close();
   });
+
+  it("accepts current Gluetun mutation outcomes and an empty forwarded-port response", async () => {
+    const url = await listen((server) => {
+      server.put("/v1/vpn/status", async () => ({ outcome: "running" }));
+      server.get("/v1/portforward", async () => ({ port: 0, ports: null }));
+    });
+    const adapter = new GluetunAdapter(instance(url), null, true);
+    await expect(adapter.mutate("vpn", { status: "running" })).resolves.toEqual({ status: "running" });
+    await expect(adapter.read("portForwarding")).resolves.toEqual({ ports: [] });
+    adapter.close();
+  });
 });
 
 describe("read-only Docker observation", () => {
@@ -82,10 +93,15 @@ describe("read-only Docker observation", () => {
         }
       }));
       server.get("/containers/abcdef1234567890/logs", async (_request, reply) => reply.type("text/plain").send("OPENVPN_PASSWORD=never-return\ncountry specified is not valid: there is no possible value available\n"));
+      server.get("/gluetun/traffic", async () => ({
+        containerId: "abcdef1234567890",
+        receivedBytes: 12_345,
+        sentBytes: 6_789,
+        observedAt: "2026-09-01T00:00:00.000Z"
+      }));
     });
     const observer = new DockerObserver(url, true);
     const result = await observer.observeGluetun();
-    observer.close();
     expect(result.container).toMatchObject({ state: "exited", displayState: "Failed", exitCode: 1, restartCount: 3 });
     expect(result.ports[0]).toMatchObject({ hostPort: 8000, containerPort: 8000, protocol: "tcp" });
     expect(result.environment).toEqual([
@@ -98,5 +114,12 @@ describe("read-only Docker observation", () => {
     expect(result.issues).toContain("Gluetun rejected the selected server filter. Choose a current value from Tuniku's provider-specific server list.");
     expect(result.logs).toContain("OPENVPN_PASSWORD=[REDACTED]");
     expect(JSON.stringify(result)).not.toContain("never-return");
+    await expect(observer.observeTraffic()).resolves.toEqual({
+      containerId: "abcdef1234567890",
+      receivedBytes: 12_345,
+      sentBytes: 6_789,
+      observedAt: "2026-09-01T00:00:00.000Z"
+    });
+    observer.close();
   });
 });

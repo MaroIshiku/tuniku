@@ -53,6 +53,8 @@ describe("standalone delivery", () => {
     expect(source).toContain('url.pathname === "/containers/json"');
     expect(source).toContain("/json$/i");
     expect(source).toContain("/logs$/i");
+    expect(source).toContain('url.pathname === "/gluetun/traffic"');
+    expect(source).toContain("/stats?stream=false&one-shot=true");
     expect(source).toContain("return value ? [`${name}=`] : []");
     expect(source).not.toContain('method: "POST"');
     expect(source).not.toContain("/exec");

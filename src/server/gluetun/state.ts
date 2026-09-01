@@ -3,11 +3,14 @@ import type { AppConfig } from "../config.js";
 import type { InstanceRecord, OverviewSnapshot, UpstreamCredential } from "../types.js";
 import { decryptCredential } from "../security.js";
 import { GluetunAdapter } from "./adapter.js";
+import { DockerObserver } from "../docker/observer.js";
 
 export class GluetunStateService {
   private readonly cache = new Map<string, OverviewSnapshot>();
   private readonly ephemeralCredentials = new Map<string, UpstreamCredential>();
   private timer: NodeJS.Timeout | null = null;
+  private trafficTimer: NodeJS.Timeout | null = null;
+  private trafficPolling = false;
 
   constructor(
     private readonly db: TunikuDatabase,
@@ -68,10 +71,30 @@ export class GluetunStateService {
     this.timer = setInterval(() => void poll(), 10_000);
     this.timer.unref();
     void poll();
+    if (this.appConfig.dockerProxyUrl) {
+      const pollTraffic = async () => {
+        if (this.trafficPolling || !this.appConfig.dockerProxyUrl) return;
+        this.trafficPolling = true;
+        const observer = new DockerObserver(this.appConfig.dockerProxyUrl, this.appConfig.allowLoopbackUpstream);
+        try {
+          this.db.recordTraffic(await observer.observeTraffic());
+        } catch {
+          // Traffic accounting is optional and never affects Tuniku or Gluetun availability.
+        } finally {
+          observer.close();
+          this.trafficPolling = false;
+        }
+      };
+      this.trafficTimer = setInterval(() => void pollTraffic(), 10_000);
+      this.trafficTimer.unref();
+      void pollTraffic();
+    }
   }
 
   stop(): void {
     if (this.timer) clearInterval(this.timer);
+    if (this.trafficTimer) clearInterval(this.trafficTimer);
     this.timer = null;
+    this.trafficTimer = null;
   }
 }

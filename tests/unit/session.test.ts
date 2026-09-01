@@ -25,3 +25,32 @@ describe("session lifetime", () => {
     db.close();
   });
 });
+
+describe("privacy-preserving traffic accounting", () => {
+  it("records only positive aggregate deltas and survives a Gluetun container replacement", () => {
+    const dataPath = fs.mkdtempSync(path.join(os.tmpdir(), "tuniku-traffic-"));
+    const db = new TunikuDatabase(path.join(dataPath, "tuniku.db"));
+    const firstAt = new Date(Date.now() - 10_000).toISOString();
+    const secondAt = new Date().toISOString();
+
+    expect(db.recordTraffic({ containerId: "container-a", receivedBytes: 1_000, sentBytes: 500, observedAt: firstAt })).toMatchObject({
+      available: true,
+      trackedDownloadedBytes: 0,
+      trackedUploadedBytes: 0
+    });
+    expect(db.recordTraffic({ containerId: "container-a", receivedBytes: 3_000, sentBytes: 1_500, observedAt: secondAt })).toMatchObject({
+      sessionDownloadedBytes: 3_000,
+      sessionUploadedBytes: 1_500,
+      trackedDownloadedBytes: 2_000,
+      trackedUploadedBytes: 1_000
+    });
+    expect(db.recordTraffic({ containerId: "container-b", receivedBytes: 20, sentBytes: 10, observedAt: new Date(Date.now() + 10_000).toISOString() })).toMatchObject({
+      sessionDownloadedBytes: 20,
+      sessionUploadedBytes: 10,
+      trackedDownloadedBytes: 2_000,
+      trackedUploadedBytes: 1_000
+    });
+    expect(db.raw.pragma("user_version", { simple: true })).toBe(4);
+    db.close();
+  });
+});

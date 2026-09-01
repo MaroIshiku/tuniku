@@ -49,10 +49,13 @@ export class GluetunError extends Error {
 }
 
 function statusPayload(value: unknown): VpnStatus {
-  if (!value || typeof value !== "object" || typeof (value as any).status !== "string") {
+  const status = value && typeof value === "object"
+    ? (typeof (value as any).status === "string" ? (value as any).status : (value as any).outcome)
+    : null;
+  if (typeof status !== "string" || status.length === 0) {
     throw new GluetunError("invalid_schema", "Gluetun returned an unrecognized status response.");
   }
-  return { status: (value as any).status };
+  return { status };
 }
 
 function publicIpPayload(value: unknown): PublicIpStatus {
@@ -68,7 +71,13 @@ function portForwardPayload(value: unknown): PortForwardStatus {
   }
   const single = (value as any).port;
   const multiple = (value as any).ports;
-  const ports = Array.isArray(multiple) ? multiple : Number.isInteger(single) ? [single] : [];
+  const ports = Array.isArray(multiple)
+    ? multiple
+    : Number.isInteger(single) && single > 0
+      ? [single]
+      : single === undefined || single === null || single === 0
+        ? []
+        : [single];
   if (!ports.every((port) => Number.isInteger(port) && port >= 1 && port <= 65_535)) {
     throw new GluetunError("invalid_schema", "Gluetun returned invalid forwarded port values.");
   }
@@ -263,7 +272,11 @@ export class GluetunAdapter {
     if (!Array.isArray(ports) || ports.length > 10 || !ports.every((port) => Number.isInteger(port) && port >= 1 && port <= 65_535)) {
       throw new GluetunError("invalid_schema", "Forwarded ports must be an array of valid port numbers.", 400);
     }
-    return portForwardPayload(await this.request(MUTATION_ROUTES.portForwarding, "PUT", { ports }));
+    const response = await this.request(MUTATION_ROUTES.portForwarding, "PUT", { ports });
+    if (response && typeof response === "object" && Object.keys(response as object).length > 0) {
+      return portForwardPayload(response);
+    }
+    return { ports };
   }
 }
 

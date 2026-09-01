@@ -36,6 +36,10 @@ async function gluetunContainer(): Promise<any | null> {
   }) ?? null;
 }
 
+function safeByteCounter(value: unknown): number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+
 function sendJson(response: http.ServerResponse, status: number, value: unknown): void {
   const body = Buffer.from(JSON.stringify(value));
   response.writeHead(status, { "content-type": "application/json", "content-length": body.length });
@@ -55,6 +59,22 @@ const server = http.createServer(async (request, response) => {
         Image: container.Image,
         State: container.State
       }] : []);
+    }
+    if (url.pathname === "/gluetun/traffic") {
+      const container = await gluetunContainer();
+      if (!container?.Id) return sendJson(response, 404, { error: "gluetun_not_found" });
+      const statsResponse = await dockerRequest(`/containers/${encodeURIComponent(container.Id)}/stats?stream=false&one-shot=true`);
+      if (statsResponse.status !== 200) return sendJson(response, statsResponse.status, { error: "stats_failed" });
+      const stats = JSON.parse(statsResponse.body.toString("utf8"));
+      const networks = stats?.networks && typeof stats.networks === "object" ? Object.values(stats.networks) : [];
+      const receivedBytes = networks.reduce((total: number, network: any) => total + safeByteCounter(network?.rx_bytes), 0);
+      const sentBytes = networks.reduce((total: number, network: any) => total + safeByteCounter(network?.tx_bytes), 0);
+      return sendJson(response, 200, {
+        containerId: String(container.Id),
+        receivedBytes,
+        sentBytes,
+        observedAt: new Date().toISOString()
+      });
     }
     const inspectMatch = url.pathname.match(/^\/containers\/([a-f0-9]{12,64})\/json$/i);
     const logsMatch = url.pathname.match(/^\/containers\/([a-f0-9]{12,64})\/logs$/i);

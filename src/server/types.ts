@@ -56,6 +56,27 @@ export interface PortForwardStatus {
   ports: number[];
 }
 
+export interface TrafficCounterSnapshot {
+  containerId: string;
+  receivedBytes: number;
+  sentBytes: number;
+  observedAt: string;
+}
+
+export interface TrafficSummary {
+  available: boolean;
+  source: "docker_stats";
+  observedAt: string | null;
+  downloadBytesPerSecond: number;
+  uploadBytesPerSecond: number;
+  sessionDownloadedBytes: number;
+  sessionUploadedBytes: number;
+  todayDownloadedBytes: number;
+  todayUploadedBytes: number;
+  trackedDownloadedBytes: number;
+  trackedUploadedBytes: number;
+}
+
 export interface OverviewSnapshot {
   instanceId: string;
   connected: boolean;
@@ -79,7 +100,7 @@ export interface LocalPortLabel {
   hostPort: number | null;
   containerPort: number;
   protocol: "tcp" | "udp";
-  sourceType: "manual";
+  sourceType: "manual" | "docker";
   notes: string | null;
   createdAt: string;
   updatedAt: string;

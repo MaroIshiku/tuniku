@@ -67,10 +67,29 @@ export interface PortLabel {
   hostPort: number | null;
   containerPort: number;
   protocol: "tcp" | "udp";
-  sourceType: "manual";
+  sourceType: "manual" | "docker";
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PortDetection {
+  available: boolean;
+  error: string | null;
+}
+
+export interface TrafficSummary {
+  available: boolean;
+  source: "docker_stats";
+  observedAt: string | null;
+  downloadBytesPerSecond: number;
+  uploadBytesPerSecond: number;
+  sessionDownloadedBytes: number;
+  sessionUploadedBytes: number;
+  todayDownloadedBytes: number;
+  todayUploadedBytes: number;
+  trackedDownloadedBytes: number;
+  trackedUploadedBytes: number;
 }
 
 export interface ComposeResult {

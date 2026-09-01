@@ -1,4 +1,4 @@
-import type { Bootstrap, ComposeResult, GluetunProviderProfile, Instance, Overview, PortLabel, ServerOptions, SessionSummary, User } from "./models.js";
+import type { Bootstrap, ComposeResult, GluetunProviderProfile, Instance, Overview, PortDetection, PortLabel, ServerOptions, SessionSummary, TrafficSummary, User } from "./models.js";
 
 export class ApiError extends Error {
   constructor(
@@ -65,7 +65,7 @@ export const api = {
     request<any>(`/api/v1/instances/${id}/${action}`, { method: "POST", body: json(body) }),
   setForwardedPorts: (id: string, ports: number[]) =>
     request<any>(`/api/v1/instances/${id}/port-forwarding`, { method: "PUT", body: json({ ports, confirmed: true }) }),
-  ports: (id: string) => request<{ ports: PortLabel[] }>(`/api/v1/instances/${id}/ports`),
+  ports: (id: string) => request<{ ports: PortLabel[]; detection: PortDetection }>(`/api/v1/instances/${id}/ports`),
   createPort: (id: string, body: unknown) => request<{ port: PortLabel }>(`/api/v1/instances/${id}/port-labels`, { method: "POST", body: json(body) }),
   updatePort: (id: string, portId: string, body: unknown) => request<{ port: PortLabel }>(`/api/v1/instances/${id}/port-labels/${portId}`, { method: "PUT", body: json(body) }),
   deletePort: (id: string, portId: string) => request<{ ok: boolean }>(`/api/v1/instances/${id}/port-labels/${portId}`, { method: "DELETE" }),
@@ -80,6 +80,7 @@ export const api = {
   activity: () => request<{ events: any[] }>("/api/v1/activity"),
   diagnostics: () => request<any>("/api/v1/admin/diagnostics"),
   dockerObservation: () => request<any>("/api/v1/admin/docker-observation"),
+  traffic: () => request<{ traffic: TrafficSummary; privacy: string }>("/api/v1/admin/traffic"),
   logs: () => request<{ logs: any[] }>("/api/v1/admin/logs"),
   debugDetails: () => request<any>("/api/v1/admin/debug-details"),
   clearDrafts: () => request<{ deleted: number }>("/api/v1/compose/drafts", { method: "DELETE" })

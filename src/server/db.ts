@@ -2,10 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import Database from "better-sqlite3";
-import type { CapabilityMap, InstanceRecord, LocalPortLabel, SessionUser } from "./types.js";
+import type { CapabilityMap, InstanceRecord, LocalPortLabel, SessionUser, TrafficCounterSnapshot, TrafficSummary } from "./types.js";
 
 function now(): string {
   return new Date().toISOString();
+}
+
+function localDay(value = new Date()): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function mapInstance(row: any): InstanceRecord {
@@ -145,6 +152,25 @@ export class TunikuDatabase {
         ALTER TABLE audit_events ADD COLUMN request_id TEXT;
         UPDATE audit_events SET request_id = 'legacy' WHERE request_id IS NULL;
         PRAGMA user_version = 3;
+      `);
+    }
+    if (version < 4) {
+      this.raw.exec(`
+        CREATE TABLE traffic_state (
+          singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+          container_id TEXT NOT NULL,
+          received_bytes INTEGER NOT NULL CHECK (received_bytes >= 0),
+          sent_bytes INTEGER NOT NULL CHECK (sent_bytes >= 0),
+          observed_at TEXT NOT NULL,
+          download_bytes_per_second REAL NOT NULL DEFAULT 0,
+          upload_bytes_per_second REAL NOT NULL DEFAULT 0
+        );
+        CREATE TABLE traffic_daily (
+          day TEXT PRIMARY KEY,
+          downloaded_bytes INTEGER NOT NULL DEFAULT 0 CHECK (downloaded_bytes >= 0),
+          uploaded_bytes INTEGER NOT NULL DEFAULT 0 CHECK (uploaded_bytes >= 0)
+        );
+        PRAGMA user_version = 4;
       `);
     }
   }
@@ -342,6 +368,75 @@ export class TunikuDatabase {
     this.raw.prepare(
       "UPDATE gluetun_instances SET capability_cache_json=?,last_connected_at=?,updated_at=? WHERE id=?"
     ).run(JSON.stringify(capabilities), now(), now(), id);
+  }
+
+  recordTraffic(input: TrafficCounterSnapshot): TrafficSummary {
+    if (
+      !input.containerId ||
+      !Number.isSafeInteger(input.receivedBytes) || input.receivedBytes < 0 ||
+      !Number.isSafeInteger(input.sentBytes) || input.sentBytes < 0 ||
+      !Number.isFinite(Date.parse(input.observedAt))
+    ) throw new Error("Invalid Docker traffic counters.");
+    const previous = this.raw.prepare("SELECT * FROM traffic_state WHERE singleton=1").get() as any;
+    const elapsedSeconds = previous ? (Date.parse(input.observedAt) - Date.parse(previous.observed_at)) / 1000 : 0;
+    const comparable = previous && previous.container_id === input.containerId && elapsedSeconds > 0;
+    const downloadedDelta = comparable && input.receivedBytes >= previous.received_bytes
+      ? input.receivedBytes - previous.received_bytes
+      : 0;
+    const uploadedDelta = comparable && input.sentBytes >= previous.sent_bytes
+      ? input.sentBytes - previous.sent_bytes
+      : 0;
+    const downloadRate = elapsedSeconds > 0 ? downloadedDelta / elapsedSeconds : 0;
+    const uploadRate = elapsedSeconds > 0 ? uploadedDelta / elapsedSeconds : 0;
+    const day = localDay(new Date(input.observedAt));
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    this.raw.transaction(() => {
+      this.raw.prepare(`
+        INSERT INTO traffic_state
+          (singleton,container_id,received_bytes,sent_bytes,observed_at,download_bytes_per_second,upload_bytes_per_second)
+        VALUES (1,?,?,?,?,?,?)
+        ON CONFLICT(singleton) DO UPDATE SET
+          container_id=excluded.container_id,
+          received_bytes=excluded.received_bytes,
+          sent_bytes=excluded.sent_bytes,
+          observed_at=excluded.observed_at,
+          download_bytes_per_second=excluded.download_bytes_per_second,
+          upload_bytes_per_second=excluded.upload_bytes_per_second
+      `).run(input.containerId, input.receivedBytes, input.sentBytes, input.observedAt, downloadRate, uploadRate);
+      this.raw.prepare(`
+        INSERT INTO traffic_daily (day,downloaded_bytes,uploaded_bytes) VALUES (?,?,?)
+        ON CONFLICT(day) DO UPDATE SET
+          downloaded_bytes=traffic_daily.downloaded_bytes+excluded.downloaded_bytes,
+          uploaded_bytes=traffic_daily.uploaded_bytes+excluded.uploaded_bytes
+      `).run(day, downloadedDelta, uploadedDelta);
+      this.raw.prepare("DELETE FROM traffic_daily WHERE day<?").run(localDay(cutoff));
+    })();
+    return this.trafficSummary();
+  }
+
+  trafficSummary(): TrafficSummary {
+    const state = this.raw.prepare("SELECT * FROM traffic_state WHERE singleton=1").get() as any;
+    const today = this.raw.prepare("SELECT downloaded_bytes,uploaded_bytes FROM traffic_daily WHERE day=?")
+      .get(localDay()) as any;
+    const total = this.raw.prepare(`
+      SELECT COALESCE(SUM(downloaded_bytes),0) AS downloaded_bytes,
+             COALESCE(SUM(uploaded_bytes),0) AS uploaded_bytes
+      FROM traffic_daily
+    `).get() as any;
+    return {
+      available: Boolean(state),
+      source: "docker_stats",
+      observedAt: state?.observed_at ?? null,
+      downloadBytesPerSecond: Number(state?.download_bytes_per_second) || 0,
+      uploadBytesPerSecond: Number(state?.upload_bytes_per_second) || 0,
+      sessionDownloadedBytes: Number(state?.received_bytes) || 0,
+      sessionUploadedBytes: Number(state?.sent_bytes) || 0,
+      todayDownloadedBytes: Number(today?.downloaded_bytes) || 0,
+      todayUploadedBytes: Number(today?.uploaded_bytes) || 0,
+      trackedDownloadedBytes: Number(total?.downloaded_bytes) || 0,
+      trackedUploadedBytes: Number(total?.uploaded_bytes) || 0
+    };
   }
 
   listPorts(instanceId: string): LocalPortLabel[] {

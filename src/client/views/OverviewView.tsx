@@ -1,4 +1,4 @@
-import type { Instance, Overview, Section } from "../lib/models.js";
+import type { Instance, Overview, Section, TrafficSummary } from "../lib/models.js";
 import { useI18n } from "../lib/i18n.js";
 import { Icon } from "../components/Icon.js";
 import { copyText } from "../lib/clipboard.js";
@@ -9,9 +9,21 @@ function statusTone(value: string | undefined): string {
   return "neutral";
 }
 
+function formatBytes(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "0 B";
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  return `${new Intl.NumberFormat("en", { maximumFractionDigits: index === 0 ? 0 : 1 }).format(value / (1024 ** index))} ${units[index]}`;
+}
+
+function formatRate(value: number): string {
+  return `${formatBytes(value)}/s`;
+}
+
 export function OverviewView(props: {
   instance: Instance | null;
   overview: Overview | null;
+  traffic: TrafficSummary | null;
   activity: any[];
   loading: boolean;
   onSection: (section: Section) => void;
@@ -72,6 +84,15 @@ export function OverviewView(props: {
           <div className="card-icon"><Icon name="refresh" /></div>
           <div className="card-heading"><span>{t("updater")}</span><strong>{props.overview?.updater?.status || t("unknown")}</strong></div>
           <span className={`status-dot ${statusTone(props.overview?.updater?.status)}`} />
+        </article>
+        <article className="status-card traffic-card">
+          <div className="card-icon"><Icon name="activity" /></div>
+          <div className="card-heading">
+            <span>{t("vpnTraffic")}</span>
+            <strong>{props.traffic?.available ? `↓ ${formatRate(props.traffic.downloadBytesPerSecond)} · ↑ ${formatRate(props.traffic.uploadBytesPerSecond)}` : t("trafficUnavailable")}</strong>
+            {props.traffic?.available && <span>{t("today")}: ↓ {formatBytes(props.traffic.todayDownloadedBytes)} · ↑ {formatBytes(props.traffic.todayUploadedBytes)}</span>}
+            {props.traffic?.available && <span>{t("trackedTotal")}: ↓ {formatBytes(props.traffic.trackedDownloadedBytes)} · ↑ {formatBytes(props.traffic.trackedUploadedBytes)}</span>}
+          </div>
         </article>
       </section>
 
