@@ -2,7 +2,7 @@ name: tuniku
 
 services:
   tuniku:
-    image: ghcr.io/maroishiku/tuniku:0.3.5@sha256:94822f86c93c47eee34c42cec13856a7e58586f51363a15547c54facd8db08a6
+    image: ghcr.io/maroishiku/tuniku:0.3.6@sha256:6417d799a5e0a936611a68621bcb593e575ea546ce5ca86f63746c25c9aa4dba
     pull_policy: always
     container_name: tuniku
     hostname: tuniku
@@ -59,7 +59,7 @@ services:
     restart: unless-stopped
 
   tuniku-docker-observer:
-    image: ghcr.io/maroishiku/tuniku:0.3.5@sha256:94822f86c93c47eee34c42cec13856a7e58586f51363a15547c54facd8db08a6
+    image: ghcr.io/maroishiku/tuniku:0.3.6@sha256:6417d799a5e0a936611a68621bcb593e575ea546ce5ca86f63746c25c9aa4dba
     pull_policy: always
     container_name: tuniku-docker-observer
     command: ["dist/server/docker/observerProxy.js"]
