@@ -28,7 +28,8 @@ theme supports System, Light, and Dark mode.
 
 ## Features
 
-- Responsive overview for VPN, public IP, DNS, updater, and port-forwarding state.
+- Responsive overview for VPN, public IP and Gluetun-provided location, DNS,
+  updater, Docker-published ports, VPN-provider port forwarding, and traffic.
 - Capability detection against the connected Gluetun version.
 - Allow-listed VPN start/stop, DNS start/stop, updater start, and supported
   port-forwarding changes.
@@ -246,6 +247,12 @@ publishes no host port, strips environment values before returning metadata,
 and implements no Docker write, exec, archive, image, volume, or network route.
 Tuniku remains independent if the helper or Gluetun is absent.
 
+The Overview labels VPN-provider port forwarding separately from host ports
+published by Docker. Runtime bindings come from `NetworkSettings.Ports`; when a
+container is stopped, Tuniku also checks its configured `HostConfig.PortBindings`.
+Detection refreshes with the Overview, so adding or recreating Gluetun does not
+require a new Tuniku login.
+
 Custom deployments may omit the helper and leave `TUNIKU_DOCKER_PROXY_URL`
 unset, or point it at an equivalently restricted HTTP proxy. Never mount the
 raw Docker socket into the Tuniku application. A read-only bind flag on a Unix
@@ -266,6 +273,18 @@ overhead. Docker cannot reliably separate these applications once they share
 that namespace. Tuniku does not capture packets and does not store destinations,
 URLs, DNS queries, protocols, or payloads. Omit the optional observer if even
 aggregate traffic retention is not wanted.
+
+If sampling fails, the Overview shows whether the helper is missing, Gluetun is
+stopped, Docker rejected the stats request, or network counters were absent.
+Older Docker daemons that reject the `one-shot` option are retried with the
+compatible single-response `stream=false` request.
+
+### Public IP location
+
+Current Gluetun releases can return country, region, and city alongside
+`public_ip`. Tuniku displays those optional fields and remains compatible with
+older IP-only responses. It does not call a second IP-geolocation service, so
+showing the location creates no additional disclosure of the VPN address.
 
 ### Connect to Gluetun Control Server
 
@@ -420,8 +439,9 @@ credentials remain stored.
   `docker-compose.yml`; an image-only update cannot add the observer service or
   its internal Docker network.
 - **Traffic counters unavailable:** verify that the observer is healthy and a
-  Gluetun container exists. Counters intentionally stay optional and never
-  block Tuniku.
+  running Gluetun container exists. The Overview now shows the concrete helper,
+  container-state, or Docker Stats error. Counters intentionally stay optional
+  and never block Tuniku.
 - **`/bin/sh` not found:** the current Gluetun image is intentionally shellless;
   this does not identify the startup failure. Use Docker inspect/logs or Tuniku's
   diagnostics instead of `docker exec ... /bin/sh`.
@@ -465,7 +485,7 @@ does not own or maintain the project.
 
 ## Status and license
 
-Tuniku `0.3.4` starts independently of Gluetun and guides a new administrator
+Tuniku `0.3.5` starts independently of Gluetun and guides a new administrator
 to either generate a complete Gluetun Compose proposal or connect an existing
 Control Server. ZimaOS delivery and runtime secret management remain aligned
 with the ishiku platform.

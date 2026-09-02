@@ -41,8 +41,17 @@ test("first-run setup, Gluetun connection, control, ports, and Compose generatio
   await page.getByRole("button", { name: "Close" }).click();
 
   await expect(page.getByRole("heading", { name: "VPN is stopped" })).toBeVisible();
+  await expect(page.getByText("Berlin, Germany")).toBeVisible();
   await expect(page.getByText("Traffic counters unavailable")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("desktop-overview.png"), fullPage: true });
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await expect(page.locator(".toast")).toHaveCount(0, { timeout: 10_000 });
+  const ipCard = await page.locator(".ip-status-card").boundingBox();
+  const dnsCard = await page.locator(".status-card").nth(1).boundingBox();
+  expect(ipCard && dnsCard && ipCard.width > dnsCard.width * 1.5).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("wide-overview.png"), fullPage: false });
+  await page.setViewportSize({ width: 1280, height: 720 });
 
   await page.getByRole("button", { name: "VPN", exact: true }).first().click();
   await expect(page.getByRole("heading", { name: "VPN Control" })).toBeVisible();

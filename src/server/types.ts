@@ -50,6 +50,9 @@ export interface VpnStatus {
 
 export interface PublicIpStatus {
   publicIp: string;
+  country: string | null;
+  region: string | null;
+  city: string | null;
 }
 
 export interface PortForwardStatus {
@@ -75,6 +78,7 @@ export interface TrafficSummary {
   todayUploadedBytes: number;
   trackedDownloadedBytes: number;
   trackedUploadedBytes: number;
+  error?: string | null;
 }
 
 export interface OverviewSnapshot {

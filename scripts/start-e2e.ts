@@ -21,7 +21,12 @@ mock.get("/v1/vpn/settings", async () => ({
   server_country: "Example",
   WIREGUARD_PRIVATE_KEY: "must-never-reach-the-browser"
 }));
-mock.get("/v1/publicip/ip", async () => ({ public_ip: "203.0.113.42" }));
+mock.get("/v1/publicip/ip", async () => ({
+  public_ip: "203.0.113.42",
+  country: "Germany",
+  region: "Berlin",
+  city: "Berlin"
+}));
 mock.get("/v1/dns/status", async () => ({ status: dnsStatus }));
 mock.put("/v1/dns/status", async (request) => {
   dnsStatus = (request.body as { status: string }).status;

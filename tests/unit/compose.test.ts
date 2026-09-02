@@ -68,6 +68,7 @@ describe("Compose Assistant", () => {
     expect(compose.services.tuniku).toBeUndefined();
     expect(compose.networks.tuniku).toEqual({ external: true, name: "tuniku" });
     expect(compose.services.gluetun.networks).toEqual(["tuniku"]);
+    expect(compose.services.gluetun.labels).toEqual({ "com.ishiku.tuniku.role": "gluetun" });
     expect(compose.services.gluetun.devices).toEqual(["/dev/net/tun:/dev/net/tun"]);
     expect(compose.services.gluetun.volumes).toEqual(["gluetun_data:/gluetun"]);
     expect(compose.services.gluetun.environment).toMatchObject({

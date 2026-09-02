@@ -57,7 +57,7 @@ export function PortsView(props: {
     <>
       <div className="page-heading"><div><span className="eyebrow">Gluetun</span><h1>{t("portOverview")}</h1><p>{t("portOverviewSubtitle")}</p></div><button className="button button-filled" type="button" onClick={() => begin()}><Icon name="add" />{t("addPort")}</button></div>
       {props.detection && !props.detection.available && <div className="inline-banner warning page-banner"><Icon name="warning" /><div><strong>{t("automaticPortDetection")}</strong><span>{props.detection.error || t("connectionUnavailable")}</span></div></div>}
-      {forwarded.length > 0 && <section className="forwarded-strip"><div><Icon name="vpn" /><div><span>{t("portForwarding")}</span><strong>{forwarded.join(", ")}</strong></div></div><span className="status-pill success">{t("forwarded")}</span></section>}
+      {forwarded.length > 0 && <section className="forwarded-strip"><div><Icon name="vpn" /><div><span>{t("vpnProviderPortForwarding")}</span><strong>{forwarded.join(", ")}</strong></div></div><span className="status-pill success">{t("forwarded")}</span></section>}
       {props.ports.length ? (
         <section className="port-list">
           <div className="port-table-head"><span>{t("label")}</span><span>{t("hostPort")}</span><span>{t("containerPort")}</span><span>{t("protocol")}</span><span /></div>

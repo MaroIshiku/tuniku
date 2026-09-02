@@ -59,10 +59,10 @@
     },
     {
       "id": "DIAG-001",
-      "implementation": ["src/server/docker/observer.ts", "src/server/docker/observerProxy.ts", "src/server/routes/api.ts", "src/client/components/SettingsSheet.tsx", "docker-compose.yml", "docs/security.md", ".ishiku/decisions/docker-observer-helper.json"],
+      "implementation": ["src/server/docker/observer.ts", "src/server/docker/observerProxy.ts", "src/server/routes/api.ts", "src/client/App.tsx", "src/client/views/OverviewView.tsx", "src/client/views/PortsView.tsx", "src/client/components/SettingsSheet.tsx", "docker-compose.yml", "docs/security.md", ".ishiku/decisions/docker-observer-helper.json"],
       "tests": {
         "unit": ["tests/unit/delivery.test.ts"],
-        "integration": ["tests/integration/adapter.test.ts", "docker compose -f docker-compose.yml config --quiet"],
+        "integration": ["tests/integration/adapter.test.ts", "tests/integration/observer-proxy.test.ts", "docker compose -f docker-compose.yml config --quiet"],
         "e2e": ["tests/e2e/app.spec.ts"],
         "security": ["tests/unit/delivery.test.ts", ".ishiku/kit/scripts/check-security"]
       },
@@ -70,10 +70,10 @@
     },
     {
       "id": "TRAFFIC-001",
-      "implementation": ["src/server/docker/observer.ts", "src/server/docker/observerProxy.ts", "src/server/gluetun/state.ts", "src/server/db.ts", "src/server/routes/api.ts", "src/client/views/OverviewView.tsx", "docs/security.md", ".ishiku/decisions/docker-observer-helper.json"],
+      "implementation": ["src/server/docker/observer.ts", "src/server/docker/observerProxy.ts", "src/server/gluetun/state.ts", "src/server/db.ts", "src/server/routes/api.ts", "src/client/App.tsx", "src/client/views/OverviewView.tsx", "docs/security.md", ".ishiku/decisions/docker-observer-helper.json"],
       "tests": {
         "unit": ["tests/unit/session.test.ts", "tests/unit/delivery.test.ts"],
-        "integration": ["tests/integration/adapter.test.ts"],
+        "integration": ["tests/integration/adapter.test.ts", "tests/integration/observer-proxy.test.ts"],
         "e2e": ["tests/e2e/app.spec.ts"],
         "security": ["tests/unit/delivery.test.ts", ".ishiku/kit/scripts/check-security"]
       },
@@ -81,7 +81,7 @@
     },
     {
       "id": "UI-001",
-      "implementation": ["src/client/", "design-system/", "assets/icon-source.png", "public/assets/icons/"],
+      "implementation": ["src/client/", "src/server/gluetun/adapter.ts", "design-system/", "assets/icon-source.png", "public/assets/icons/"],
       "tests": {
         "unit": ["tests/unit/delivery.test.ts"],
         "integration": [".ishiku/design-system.lock"],

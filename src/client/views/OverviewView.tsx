@@ -1,4 +1,4 @@
-import type { Instance, Overview, Section, TrafficSummary } from "../lib/models.js";
+import type { Instance, Overview, PortDetection, PortLabel, Section, TrafficSummary } from "../lib/models.js";
 import { useI18n } from "../lib/i18n.js";
 import { Icon } from "../components/Icon.js";
 import { copyText } from "../lib/clipboard.js";
@@ -20,10 +20,19 @@ function formatRate(value: number): string {
   return `${formatBytes(value)}/s`;
 }
 
+function publicIpLocation(overview: Overview | null): string | null {
+  const publicIp = overview?.publicIp;
+  if (!publicIp) return null;
+  const values = [publicIp.city, publicIp.region, publicIp.country].filter((value): value is string => Boolean(value));
+  return [...new Set(values)].join(", ") || null;
+}
+
 export function OverviewView(props: {
   instance: Instance | null;
   overview: Overview | null;
   traffic: TrafficSummary | null;
+  ports: PortLabel[];
+  portDetection: PortDetection | null;
   activity: any[];
   loading: boolean;
   onSection: (section: Section) => void;
@@ -32,6 +41,11 @@ export function OverviewView(props: {
 }) {
   const { t, language } = useI18n();
   const vpnStatus = props.overview?.vpn?.status;
+  const location = publicIpLocation(props.overview);
+  const forwardedPorts = props.overview?.portForwarding?.ports ?? [];
+  const publishedPorts = [...new Set(props.ports
+    .filter((port) => port.sourceType === "docker" && port.hostPort)
+    .map((port) => port.hostPort as number))].sort((left, right) => left - right);
   if (!props.instance) {
     return (
       <section className="empty-state hero-empty">
@@ -66,9 +80,13 @@ export function OverviewView(props: {
       {props.overview?.error && <div className="inline-banner warning page-banner"><Icon name="warning" /><div><strong>{t("connectionUnavailable")}</strong><span>{props.overview.error.message}</span></div></div>}
 
       <section className="dashboard-grid status-grid">
-        <article className="status-card">
+        <article className="status-card ip-status-card">
           <div className="card-icon"><Icon name="globe" /></div>
-          <div className="card-heading"><span>{t("publicIp")}</span><strong className="technical-value">{props.overview?.publicIp?.publicIp || "—"}</strong></div>
+          <div className="card-heading">
+            <span>{t("publicIp")}</span>
+            <strong className="technical-value">{props.overview?.publicIp?.publicIp || "—"}</strong>
+            <span className="card-detail">{location || t("ipLocationUnavailable")}</span>
+          </div>
           {props.overview?.publicIp?.publicIp && <button className="icon-button" type="button" aria-label={`${t("copy")} ${t("publicIp")}`} onClick={() => void copyText(props.overview!.publicIp!.publicIp)}><Icon name="copy" /></button>}
         </article>
         <article className="status-card">
@@ -77,13 +95,23 @@ export function OverviewView(props: {
           <span className={`status-dot ${statusTone(props.overview?.dns?.status)}`} />
         </article>
         <article className="status-card">
-          <div className="card-icon"><Icon name="ports" /></div>
-          <div className="card-heading"><span>{t("portForwarding")}</span><strong>{props.overview?.portForwarding?.ports.length ? props.overview.portForwarding.ports.join(", ") : t("noForwardedPorts")}</strong></div>
-        </article>
-        <article className="status-card">
           <div className="card-icon"><Icon name="refresh" /></div>
           <div className="card-heading"><span>{t("updater")}</span><strong>{props.overview?.updater?.status || t("unknown")}</strong></div>
           <span className={`status-dot ${statusTone(props.overview?.updater?.status)}`} />
+        </article>
+        <article className="status-card port-status-card">
+          <div className="card-icon"><Icon name="ports" /></div>
+          <div className="card-heading">
+            <span>{t("ports")}</span>
+            <strong>{forwardedPorts.length ? `${t("vpnProviderPort")}: ${forwardedPorts.join(", ")}` : t("noVpnProviderPort")}</strong>
+            <span className="card-detail">
+              {publishedPorts.length
+                ? `${t("dockerPublishedPorts")}: ${publishedPorts.join(", ")}`
+                : props.portDetection?.available
+                  ? t("noDockerPublishedPorts")
+                  : props.portDetection?.error || t("dockerPortDetectionUnavailable")}
+            </span>
+          </div>
         </article>
         <article className="status-card traffic-card">
           <div className="card-icon"><Icon name="activity" /></div>
@@ -92,6 +120,7 @@ export function OverviewView(props: {
             <strong>{props.traffic?.available ? `↓ ${formatRate(props.traffic.downloadBytesPerSecond)} · ↑ ${formatRate(props.traffic.uploadBytesPerSecond)}` : t("trafficUnavailable")}</strong>
             {props.traffic?.available && <span>{t("today")}: ↓ {formatBytes(props.traffic.todayDownloadedBytes)} · ↑ {formatBytes(props.traffic.todayUploadedBytes)}</span>}
             {props.traffic?.available && <span>{t("trackedTotal")}: ↓ {formatBytes(props.traffic.trackedDownloadedBytes)} · ↑ {formatBytes(props.traffic.trackedUploadedBytes)}</span>}
+            {props.traffic?.error && <span className="card-detail warning-text">{props.traffic.error}</span>}
           </div>
         </article>
       </section>

@@ -2,6 +2,25 @@
 
 All notable changes to Tuniku will be documented here.
 
+## [0.3.5] - 2026-09-02
+
+### Added
+
+- Added optional country, region, and city display from Gluetun's existing
+  public-IP response without sending the VPN IP to another geolocation service.
+- Added actionable traffic-counter reasons for a missing observer, stopped
+  Gluetun container, failed Docker Stats call, or absent network counters.
+
+### Fixed
+
+- Separated VPN-provider port forwarding from Docker-published ports in the
+  Overview and refreshed Docker port detection every ten seconds.
+- Added configured Docker port-binding fallback for stopped containers and a
+  generated Gluetun role label for deterministic observer selection.
+- Added a compatible Docker Stats fallback for daemons that reject `one-shot`.
+- Rebalanced the wide Overview into two rows so long IP, port, and traffic
+  values remain readable at 1920×1080.
+
 ## [0.3.4] - 2026-09-01
 
 ### Added

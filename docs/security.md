@@ -81,7 +81,12 @@ are deleted. Tuniku does not capture destinations, URLs, DNS queries, packet
 contents, credentials, or a per-application identity. All applications sharing
 Gluetun's network namespace are necessarily combined. Counter resets and
 container replacements establish a new baseline and do not add a synthetic
-delta. Poll failures are ignored for availability purposes.
+delta. Poll failures are reported to the authenticated Overview but remain
+ignored for application and Gluetun availability purposes.
+
+Tuniku does not send the VPN public IP to an additional geolocation service.
+Optional country, region, and city display values are accepted only from the
+already configured Gluetun Control Server response and are length bounded.
 
 A read-only Unix-socket mount does not enforce read-only Docker API semantics.
 The security control is therefore the helper's small allow-listed implementation

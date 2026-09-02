@@ -62,7 +62,18 @@ function publicIpPayload(value: unknown): PublicIpStatus {
   if (!value || typeof value !== "object" || typeof (value as any).public_ip !== "string") {
     throw new GluetunError("invalid_schema", "Gluetun returned an unrecognized public IP response.");
   }
-  return { publicIp: (value as any).public_ip };
+  const optionalLocation = (name: "country" | "region" | "city"): string | null => {
+    const candidate = (value as Record<string, unknown>)[name];
+    return typeof candidate === "string" && candidate.trim() && candidate.length <= 200
+      ? candidate.trim()
+      : null;
+  };
+  return {
+    publicIp: (value as any).public_ip,
+    country: optionalLocation("country"),
+    region: optionalLocation("region"),
+    city: optionalLocation("city")
+  };
 }
 
 function portForwardPayload(value: unknown): PortForwardStatus {

@@ -78,10 +78,23 @@ export class DockerObserver {
         dispatcher: this.dispatcher,
         signal: AbortSignal.timeout(5_000)
       });
-      if (!response.ok) throw new Error(`Docker proxy returned HTTP ${response.status}.`);
       const text = await response.text();
       if (text.length > 2_097_152) throw new Error("Docker proxy response exceeds the safe size limit.");
-      return text ? JSON.parse(text) : null;
+      let value: any = null;
+      try {
+        value = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error("Docker observer returned malformed JSON.");
+      }
+      if (!response.ok) {
+        const code = typeof value?.error === "string" ? value.error : "";
+        if (code === "gluetun_not_found") throw new Error("No Gluetun container was found by the Docker observer.");
+        if (code === "gluetun_not_running") throw new Error("Gluetun is not running, so live traffic counters are unavailable.");
+        if (code === "network_counters_unavailable") throw new Error("Docker did not return network counters for the Gluetun container.");
+        if (code === "stats_failed") throw new Error("Docker could not read Gluetun traffic counters.");
+        throw new Error(`Docker observer returned HTTP ${response.status}.`);
+      }
+      return value;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(message)) {
@@ -155,25 +168,39 @@ export class DockerObserver {
         return { name, sensitive: sensitiveName.test(name) };
       });
     const ports: DockerObservation["ports"] = [];
-    const bindings = inspected?.NetworkSettings?.Ports;
-    if (bindings && typeof bindings === "object") {
-      for (const [containerKey, hostBindings] of Object.entries(bindings)) {
-        const [portText, protocolText] = containerKey.split("/");
-        const containerPort = Number(portText);
-        if (!Number.isInteger(containerPort) || !["tcp", "udp"].includes(protocolText || "")) continue;
-        if (!Array.isArray(hostBindings) || hostBindings.length === 0) {
-          ports.push({ hostAddress: null, hostPort: null, containerPort, protocol: protocolText as "tcp" | "udp" });
-          continue;
-        }
-        for (const binding of hostBindings as any[]) {
-          const hostPort = Number(binding?.HostPort);
-          ports.push({
-            hostAddress: binding?.HostIp || null,
-            hostPort: Number.isInteger(hostPort) ? hostPort : null,
-            containerPort,
-            protocol: protocolText as "tcp" | "udp"
-          });
-        }
+    const networkBindings = inspected?.NetworkSettings?.Ports && typeof inspected.NetworkSettings.Ports === "object"
+      ? inspected.NetworkSettings.Ports
+      : {};
+    const configuredBindings = inspected?.HostConfig?.PortBindings && typeof inspected.HostConfig.PortBindings === "object"
+      ? inspected.HostConfig.PortBindings
+      : {};
+    const exposedPorts = inspected?.Config?.ExposedPorts && typeof inspected.Config.ExposedPorts === "object"
+      ? inspected.Config.ExposedPorts
+      : {};
+    const containerKeys = new Set([
+      ...Object.keys(networkBindings),
+      ...Object.keys(configuredBindings),
+      ...Object.keys(exposedPorts)
+    ]);
+    for (const containerKey of containerKeys) {
+      const [portText, protocolText] = containerKey.split("/");
+      const containerPort = Number(portText);
+      if (!Number.isInteger(containerPort) || !["tcp", "udp"].includes(protocolText || "")) continue;
+      const runtime = networkBindings[containerKey];
+      const configured = configuredBindings[containerKey];
+      const hostBindings = Array.isArray(runtime) && runtime.length > 0 ? runtime : configured ?? runtime;
+      if (!Array.isArray(hostBindings) || hostBindings.length === 0) {
+        ports.push({ hostAddress: null, hostPort: null, containerPort, protocol: protocolText as "tcp" | "udp" });
+        continue;
+      }
+      for (const binding of hostBindings as any[]) {
+        const hostPort = Number(binding?.HostPort);
+        ports.push({
+          hostAddress: binding?.HostIp || null,
+          hostPort: Number.isInteger(hostPort) ? hostPort : null,
+          containerPort,
+          protocol: protocolText as "tcp" | "udp"
+        });
       }
     }
     const networkMap = inspected?.NetworkSettings?.Networks;

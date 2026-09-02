@@ -46,6 +46,13 @@ the final redacted logs, published Docker ports, and aggregate traffic counters.
 It uses Docker inspect, logs, and one-shot stats and does not call `docker exec`;
 `/bin/sh` is not present in the current Gluetun image.
 
+The Overview distinguishes a VPN-provider forwarded port from ports published
+on the Gluetun Docker service. It refreshes Docker detection every ten seconds
+while visible and can show configured bindings even when Gluetun is stopped.
+Traffic failures include an actionable reason instead of only an unavailable
+label. Country, region, and city are displayed when the connected Gluetun
+version includes them in its public-IP response.
+
 The Overview reports combined download/upload rates, today's totals, and a
 rolling 90-day total for Gluetun plus every application sharing its network
 namespace. Per-application separation is not reliable in this arrangement.

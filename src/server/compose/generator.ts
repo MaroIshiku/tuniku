@@ -334,6 +334,7 @@ function buildCompose(input: ComposeGenerationInput, profile?: GluetunProviderPr
     cap_add: ["NET_ADMIN"],
     devices: ["/dev/net/tun:/dev/net/tun"],
     environment: providerEnvironment(input, profile),
+    labels: { "com.ishiku.tuniku.role": "gluetun" },
     volumes: gluetunVolumes,
     networks: ["tuniku"],
     init: true,

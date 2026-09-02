@@ -55,6 +55,9 @@ describe("standalone delivery", () => {
     expect(source).toContain("/logs$/i");
     expect(source).toContain('url.pathname === "/gluetun/traffic"');
     expect(source).toContain("/stats?stream=false&one-shot=true");
+    expect(source).toContain("/stats?stream=false`");
+    expect(source).toContain("HostConfig: { PortBindings:");
+    expect(source).toContain('labels["com.ishiku.tuniku.role"] === "gluetun"');
     expect(source).toContain("return value ? [`${name}=`] : []");
     expect(source).not.toContain('method: "POST"');
     expect(source).not.toContain("/exec");

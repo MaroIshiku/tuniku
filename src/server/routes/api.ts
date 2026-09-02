@@ -836,7 +836,7 @@ export function registerApiRoutes(
   app.get("/api/v1/admin/traffic", async (request, reply) => {
     if (!requireSession(request, reply, db)) return;
     return {
-      traffic: db.trafficSummary(),
+      traffic: state.trafficSummary(),
       privacy: "Aggregate byte counters only. Tuniku does not record destinations, URLs, DNS queries, or packet contents."
     };
   });

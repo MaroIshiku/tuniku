@@ -68,9 +68,15 @@ export function App() {
     if (!target) return;
     setLoading(true);
     try {
-      const [response, trafficResponse] = await Promise.all([api.overview(target.id), api.traffic()]);
+      const [response, trafficResponse, portsResponse] = await Promise.all([
+        api.overview(target.id),
+        api.traffic(),
+        api.ports(target.id)
+      ]);
       setOverview(response.overview);
       setTraffic(trafficResponse.traffic);
+      setPorts(portsResponse.ports);
+      setPortDetection(portsResponse.detection);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         setUser(null);
@@ -90,9 +96,7 @@ export function App() {
       setActivity([]);
       return;
     }
-    const [portsResponse, activityResponse] = await Promise.all([api.ports(target.id), api.activity()]);
-    setPorts(portsResponse.ports);
-    setPortDetection(portsResponse.detection);
+    const activityResponse = await api.activity();
     setActivity(activityResponse.events);
   }, []);
 
@@ -141,7 +145,9 @@ export function App() {
     try {
       if (id) await api.updatePort(instance.id, id, body);
       else await api.createPort(instance.id, body);
-      setPorts((await api.ports(instance.id)).ports);
+      const response = await api.ports(instance.id);
+      setPorts(response.ports);
+      setPortDetection(response.detection);
       notify(t("success"));
     } catch (error) {
       notify(error instanceof Error ? error.message : t("error"), "error");
@@ -194,7 +200,7 @@ export function App() {
     <>
       <AppShell section={section} user={user} onSection={setSection} onSettings={() => setSettingsOpen(true)}>
         <div className="page-enter" key={section}>
-          {section === "overview" && <OverviewView instance={instance} overview={overview} traffic={traffic} activity={activity} loading={loading} onSection={setSection} onConnectExisting={() => setSettingsOpen(true)} onRefresh={() => void refreshOverview(instance)} />}
+          {section === "overview" && <OverviewView instance={instance} overview={overview} traffic={traffic} ports={ports} portDetection={portDetection} activity={activity} loading={loading} onSection={setSection} onConnectExisting={() => setSettingsOpen(true)} onRefresh={() => void refreshOverview(instance)} />}
           {section === "control" && <ControlView instance={instance} overview={overview} busy={actionBusy} onAction={handleControl} onRefresh={() => void refreshOverview(instance)} onSettings={() => setSettingsOpen(true)} />}
           {section === "ports" && <PortsView instance={instance} overview={overview} ports={ports} detection={portDetection} onSave={savePort} onDelete={deletePort} onSettings={() => setSettingsOpen(true)} notify={notify} />}
           {section === "assistant" && <AssistantView instance={instance} notify={notify} />}

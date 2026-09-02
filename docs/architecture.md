@@ -68,6 +68,11 @@ deltas by local day for 90 days. It cannot attribute traffic to individual
 applications sharing the Gluetun network namespace and does not collect packet
 or destination metadata.
 
+The public-IP adapter accepts Gluetun's optional country, region, and city
+fields in the same `/v1/publicip/ip` response. No independent geolocation API is
+queried. Docker port discovery reads runtime bindings and uses configured host
+bindings as a fallback when a stopped container has no runtime port map.
+
 The helper does not expose arbitrary Docker paths or methods. It has no route
 for `exec`, container lifecycle, images, volumes, networks, archives, or build.
 Failure of the helper returns an unavailable diagnostic response and never

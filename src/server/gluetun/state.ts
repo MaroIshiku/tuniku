@@ -1,6 +1,6 @@
 import type { TunikuDatabase } from "../db.js";
 import type { AppConfig } from "../config.js";
-import type { InstanceRecord, OverviewSnapshot, UpstreamCredential } from "../types.js";
+import type { InstanceRecord, OverviewSnapshot, TrafficSummary, UpstreamCredential } from "../types.js";
 import { decryptCredential } from "../security.js";
 import { GluetunAdapter } from "./adapter.js";
 import { DockerObserver } from "../docker/observer.js";
@@ -11,11 +11,16 @@ export class GluetunStateService {
   private timer: NodeJS.Timeout | null = null;
   private trafficTimer: NodeJS.Timeout | null = null;
   private trafficPolling = false;
+  private trafficError: string | null = null;
 
   constructor(
     private readonly db: TunikuDatabase,
     private readonly appConfig: AppConfig
-  ) {}
+  ) {
+    this.trafficError = appConfig.dockerProxyUrl
+      ? "Waiting for the first Docker traffic sample."
+      : "Automatic traffic collection is not configured. Deploy the complete current Tuniku Compose to add the internal Docker observer.";
+  }
 
   setEphemeralCredential(instanceId: string, credential: UpstreamCredential | null): void {
     if (credential && Object.keys(credential).length > 0) this.ephemeralCredentials.set(instanceId, credential);
@@ -57,6 +62,10 @@ export class GluetunStateService {
     return { ...snapshot, stale: snapshot.stale || stale };
   }
 
+  trafficSummary(): TrafficSummary {
+    return { ...this.db.trafficSummary(), error: this.trafficError };
+  }
+
   start(): void {
     if (this.timer) return;
     const poll = async () => {
@@ -78,7 +87,9 @@ export class GluetunStateService {
         const observer = new DockerObserver(this.appConfig.dockerProxyUrl, this.appConfig.allowLoopbackUpstream);
         try {
           this.db.recordTraffic(await observer.observeTraffic());
-        } catch {
+          this.trafficError = null;
+        } catch (error) {
+          this.trafficError = error instanceof Error ? error.message : "Docker traffic counters are unavailable.";
           // Traffic accounting is optional and never affects Tuniku or Gluetun availability.
         } finally {
           observer.close();

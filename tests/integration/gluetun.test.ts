@@ -22,7 +22,12 @@ async function mockGluetun() {
     return { outcome: vpnStatus };
   });
   mock.get("/v1/vpn/settings", async () => ({ provider: "mock", WIREGUARD_PRIVATE_KEY: "secret" }));
-  mock.get("/v1/publicip/ip", async () => ({ public_ip: "203.0.113.10" }));
+  mock.get("/v1/publicip/ip", async () => ({
+    public_ip: "203.0.113.10",
+    country: "Germany",
+    region: "Berlin",
+    city: "Berlin"
+  }));
   mock.get("/v1/dns/status", async () => ({ status: "running" }));
   mock.put("/v1/dns/status", async (request) => request.body);
   mock.get("/v1/updater/status", async () => ({ status: "completed" }));
@@ -102,6 +107,23 @@ describe("authenticated Gluetun flow", () => {
     expect(started.statusCode).toBe(200);
     expect(started.json().result.status).toBe("running");
     expect(started.json().overview.settings.WIREGUARD_PRIVATE_KEY).toBe("[REDACTED]");
+    expect(started.json().overview.publicIp).toEqual({
+      publicIp: "203.0.113.10",
+      country: "Germany",
+      region: "Berlin",
+      city: "Berlin"
+    });
+
+    const traffic = await app.inject({
+      method: "GET",
+      url: "/api/v1/admin/traffic",
+      headers: { cookie }
+    });
+    expect(traffic.statusCode).toBe(200);
+    expect(traffic.json().traffic).toMatchObject({
+      available: false,
+      error: expect.stringContaining("complete current Tuniku Compose")
+    });
 
     const rejectedWithoutCsrf = await app.inject({
       method: "POST",

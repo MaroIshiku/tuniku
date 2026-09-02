@@ -51,7 +51,7 @@ export interface Overview {
   lastUpdatedAt: string;
   error: { code: string; message: string } | null;
   vpn: { status: string } | null;
-  publicIp: { publicIp: string } | null;
+  publicIp: { publicIp: string; country: string | null; region: string | null; city: string | null } | null;
   dns: { status: string } | null;
   updater: { status: string } | null;
   portForwarding: { ports: number[] } | null;
@@ -90,6 +90,7 @@ export interface TrafficSummary {
   todayUploadedBytes: number;
   trackedDownloadedBytes: number;
   trackedUploadedBytes: number;
+  error?: string | null;
 }
 
 export interface ComposeResult {

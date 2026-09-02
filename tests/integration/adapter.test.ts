@@ -38,6 +38,34 @@ function instance(baseUrl: string, timeout = 2): InstanceRecord {
 }
 
 describe("Gluetun capability failures", () => {
+  it("accepts current Gluetun public-IP location metadata and older IP-only responses", async () => {
+    const currentUrl = await listen((server) => server.get("/v1/publicip/ip", async () => ({
+      public_ip: "203.0.113.10",
+      country: "Germany",
+      region: "Berlin",
+      city: "Berlin",
+      organization: "not exposed by Tuniku"
+    })));
+    const current = new GluetunAdapter(instance(currentUrl), null, true);
+    await expect(current.read("publicIp")).resolves.toEqual({
+      publicIp: "203.0.113.10",
+      country: "Germany",
+      region: "Berlin",
+      city: "Berlin"
+    });
+    current.close();
+
+    const legacyUrl = await listen((server) => server.get("/v1/publicip/ip", async () => ({ public_ip: "203.0.113.11" })));
+    const legacy = new GluetunAdapter(instance(legacyUrl), null, true);
+    await expect(legacy.read("publicIp")).resolves.toEqual({
+      publicIp: "203.0.113.11",
+      country: null,
+      region: null,
+      city: null
+    });
+    legacy.close();
+  });
+
   it("distinguishes unauthorized, unsupported, and changed schemas", async () => {
     const unauthorizedUrl = await listen((server) => server.all("*", async (_request, reply) => reply.code(401).send()));
     const unauthorized = new GluetunAdapter(instance(unauthorizedUrl), null, true);
@@ -120,6 +148,30 @@ describe("read-only Docker observation", () => {
       sentBytes: 6_789,
       observedAt: "2026-09-01T00:00:00.000Z"
     });
+    observer.close();
+  });
+
+  it("falls back to configured port bindings and explains unavailable live traffic", async () => {
+    const url = await listen((server) => {
+      server.get("/containers/json", async () => [{ Id: "abcdef1234567890", Names: ["/gluetun"], Image: "qmcgaw/gluetun:latest", State: "exited" }]);
+      server.get("/containers/abcdef1234567890/json", async () => ({
+        Id: "abcdef1234567890",
+        Name: "/gluetun",
+        Config: { Image: "qmcgaw/gluetun:latest", Env: [], ExposedPorts: { "8000/tcp": {} } },
+        HostConfig: { PortBindings: { "5800/tcp": [{ HostIp: "0.0.0.0", HostPort: "5800" }] } },
+        State: { Status: "exited", ExitCode: 0 },
+        NetworkSettings: { Ports: {}, Networks: { tuniku: {} } }
+      }));
+      server.get("/containers/abcdef1234567890/logs", async (_request, reply) => reply.type("text/plain").send("stopped"));
+      server.get("/gluetun/traffic", async (_request, reply) => reply.code(409).send({ error: "gluetun_not_running" }));
+    });
+    const observer = new DockerObserver(url, true);
+    const result = await observer.observeGluetun();
+    expect(result.ports).toEqual(expect.arrayContaining([
+      { hostAddress: "0.0.0.0", hostPort: 5800, containerPort: 5800, protocol: "tcp" },
+      { hostAddress: null, hostPort: null, containerPort: 8000, protocol: "tcp" }
+    ]));
+    await expect(observer.observeTraffic()).rejects.toThrow("Gluetun is not running");
     observer.close();
   });
 });

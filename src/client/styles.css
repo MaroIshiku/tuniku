@@ -229,6 +229,12 @@ p { margin-block-end: 0; }
 .card-heading { min-width: 0; flex: 1; display: grid; gap: var(--space-1); }
 .card-heading span { color: var(--color-on-surface-muted); font-size: var(--type-label-large-size); }
 .card-heading strong { overflow-wrap: anywhere; }
+.card-heading .card-detail {
+  font-size: var(--type-label-medium-size);
+  line-height: var(--type-label-medium-line);
+  overflow-wrap: anywhere;
+}
+.card-heading .warning-text { color: var(--color-on-warning-container); }
 .technical-value,
 .technical-card dd,
 .code-block,
@@ -775,6 +781,9 @@ p { margin-block-end: 0; }
   .hero-card { grid-template-columns: auto 1fr; }
   .hero-actions { grid-column: 2; }
   .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ip-status-card,
+  .port-status-card,
+  .traffic-card { grid-column: span 2; }
   .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .field-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .theme-grid { grid-template-columns: repeat(3, 1fr); }
@@ -824,9 +833,11 @@ p { margin-block-end: 0; }
   .toast-host { inset-bottom: var(--space-6); }
   .hero-card { grid-template-columns: auto 1fr auto; padding: var(--space-8); }
   .hero-actions { grid-column: auto; }
-  .status-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
-  .status-card { min-height: 142px; align-items: flex-start; flex-wrap: wrap; }
-  .status-card .card-heading { flex-basis: calc(100% - 64px); }
+  .status-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .status-card { min-height: 142px; align-items: center; }
+  .ip-status-card,
+  .port-status-card,
+  .traffic-card { grid-column: span 2; }
   .control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .port-table-head {
     min-height: 54px;

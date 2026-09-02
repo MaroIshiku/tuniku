@@ -1,6 +1,6 @@
 name: Tuniku
 subtitle: Gluetun Web Interface
-version: 0.3.4
+version: 0.3.5
 build_date: development
 git_sha: development
 capabilities:
