@@ -12,7 +12,7 @@ describe("standalone delivery", () => {
     const compose = parse(source);
 
     expect(source).not.toContain("${");
-    const releaseImage = "ghcr.io/maroishiku/tuniku:0.3.4@sha256:1e685d2033dbb162373a792155f1e8b9e0c629ddc1253cc16c82339b86704d9f";
+    const releaseImage = "ghcr.io/maroishiku/tuniku:0.3.5@sha256:94822f86c93c47eee34c42cec13856a7e58586f51363a15547c54facd8db08a6";
     expect(compose.services.tuniku.image).toBe(releaseImage);
     expect(compose.services["tuniku-docker-observer"].image).toBe(releaseImage);
     expect(compose.services.tuniku.ports).toEqual([{ target: 8080, published: "65001", protocol: "tcp" }]);
