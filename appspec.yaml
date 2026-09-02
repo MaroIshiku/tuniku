@@ -80,6 +80,7 @@
         "Diagnostics use Docker list, inspect, and logs operations through a dedicated internal allow-listed helper and never depend on docker exec or a shell inside Gluetun.",
         "Published Gluetun Docker ports are detected through the same helper, and a missing helper gives actionable full-Compose redeployment guidance instead of exposing a resolver error.",
         "VPN-provider port forwarding and Docker-published ports are labeled separately, port inspection falls back to configured Docker bindings for stopped containers, and detection refreshes without signing in again.",
+        "The Ports page presents VPN-provider forwarding, read-only Docker-published mappings, and editable local documentation as separate sections; local notes explicitly state that they do not change runtime configuration.",
         "The Tuniku application never mounts the Docker socket, the observer has no externally published port, and no Docker mutation route is exposed."
       ],
       "security_critical": true

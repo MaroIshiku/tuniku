@@ -60,13 +60,55 @@ test("first-run setup, Gluetun connection, control, ports, and Compose generatio
   await expect(page.getByRole("heading", { name: "VPN is running" })).toBeVisible();
 
   await page.getByRole("button", { name: "Ports", exact: true }).first().click();
+  await expect(page.getByRole("heading", { name: "VPN provider port forwarding" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Docker-published ports" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Local port notes" })).toBeVisible();
+  await expect(page.getByText("Documentation stored in Tuniku only. These entries do not change Docker, Gluetun, or Compose.")).toBeVisible();
   await expect(page.getByText("Automatic port detection unavailable")).toBeVisible();
-  await page.getByRole("button", { name: "Add local port" }).first().click();
+  await expect(page.getByText("No Docker ports published on Gluetun")).toHaveCount(0);
+  await page.getByRole("button", { name: "Add port note" }).first().click();
+  await expect(page.getByText("This note does not publish or open a port. Apply runtime changes in your Compose configuration.")).toBeVisible();
   await page.getByLabel("Label").fill("Example Web UI");
   await page.getByLabel("Host port").fill("8080");
   await page.getByLabel("Container port").fill("8080");
   await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Example Web UI")).toBeVisible();
+  await expect(page.getByText("Documentation only")).toBeVisible();
+  const portsAccessibility = await new AxeBuilder({ page }).include(".app-main").analyze();
+  expect(portsAccessibility.violations.filter((violation) => violation.impact === "critical" || violation.impact === "serious")).toEqual([]);
+  await expect(page.locator(".toast")).toHaveCount(0, { timeout: 10_000 });
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 412, height: 915 },
+    { width: 768, height: 1024 },
+    { width: 1440, height: 900 },
+    { width: 1920, height: 1080 }
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (viewport.width === 390) {
+      await page.evaluate(() => {
+        document.documentElement.setAttribute("data-mode", "dark");
+        document.documentElement.setAttribute("data-resolved-mode", "dark");
+        document.documentElement.style.colorScheme = "dark";
+      });
+      await page.screenshot({ path: testInfo.outputPath("port-sources-mobile-dark.png"), fullPage: false });
+      await page.evaluate(() => {
+        const heading = document.getElementById("manual-ports-heading");
+        if (heading) window.scrollTo(0, heading.getBoundingClientRect().top + window.scrollY - 88);
+      });
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: testInfo.outputPath("port-notes-mobile-dark.png"), fullPage: false });
+      await page.evaluate(() => {
+        document.documentElement.setAttribute("data-mode", "system");
+        document.documentElement.setAttribute("data-resolved-mode", "light");
+        document.documentElement.style.colorScheme = "light";
+      });
+    }
+    if (viewport.width === 1920) await page.screenshot({ path: testInfo.outputPath("port-sources-wide.png"), fullPage: true });
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
 
   await page.getByRole("button", { name: "Assistant", exact: true }).first().click();
   await expect(page.getByRole("heading", { name: "Compose Assistant" })).toBeVisible();

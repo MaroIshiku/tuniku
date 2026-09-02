@@ -485,7 +485,7 @@ does not own or maintain the project.
 
 ## Status and license
 
-Tuniku `0.3.5` starts independently of Gluetun and guides a new administrator
+Tuniku `0.3.6` starts independently of Gluetun and guides a new administrator
 to either generate a complete Gluetun Compose proposal or connect an existing
 Control Server. ZimaOS delivery and runtime secret management remain aligned
 with the ishiku platform.

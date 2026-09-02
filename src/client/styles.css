@@ -361,6 +361,31 @@ p { margin-block-end: 0; }
 }
 .status-pill.success { background: var(--color-success-container); color: var(--color-on-success-container); }
 .port-list { border-radius: var(--radius-lg); overflow: hidden; }
+.port-source-stack { display: grid; gap: var(--space-4); }
+.port-source-card .content-card-header > div { min-width: 0; }
+.port-source-card .content-card-header p {
+  max-width: 760px;
+  margin-top: var(--space-1);
+  color: var(--color-on-surface-muted);
+}
+.port-source-card .forwarded-strip,
+.port-source-card .port-list { box-shadow: none; }
+.port-source-card .forwarded-strip { background: var(--color-surface-soft); }
+.port-source-card .page-banner { margin-bottom: var(--space-3); }
+.port-source-empty {
+  min-height: 76px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  color: var(--color-on-surface-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.port-source-empty > svg { flex: 0 0 24px; color: var(--color-primary); }
+.port-source-empty > div { min-width: 0; display: grid; gap: var(--space-1); }
+.port-source-empty strong { color: var(--color-on-surface); }
+.port-source-empty span { overflow-wrap: anywhere; }
 .port-table-head { display: none; }
 .port-row {
   min-height: 128px;

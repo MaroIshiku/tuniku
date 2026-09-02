@@ -2,6 +2,15 @@
 
 All notable changes to Tuniku will be documented here.
 
+## [0.3.6] - 2026-09-02
+
+### Changed
+
+- Split the Ports page into separate VPN-provider forwarding,
+  Docker-published port, and local documentation sections.
+- Renamed manual port entries to port notes and clarified in both the page and
+  editor that they do not publish ports or change Docker, Gluetun, or Compose.
+
 ## [0.3.5] - 2026-09-02
 
 ### Added
