@@ -15,7 +15,7 @@ RUN npm run build \
     && mkdir -p /runtime-data \
     && chown -R 1000:1000 /runtime-data
 
-FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:774b7d020b24214835769e24c3544835526cd0288f0b094eae48e8b2c2429a79 AS runtime
+FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:7781e8b4fccf59240bd539af6738cccf8dad4be303165c3a1fa065c48699b937 AS runtime
 ARG VERSION=0.3.6
 ARG BUILD_DATE=development
 ARG GIT_SHA=development
