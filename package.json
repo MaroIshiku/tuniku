@@ -23,7 +23,8 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "playwright test",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build"
+    "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "test:managed-lifecycle": "node --import tsx scripts/verify-managed-lifecycle.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
@@ -59,5 +60,8 @@
     "argon2@0.45.1": true,
     "better-sqlite3@13.0.3": true,
     "esbuild@0.28.1": true
+  },
+  "overrides": {
+    "shell-quote": "1.11.0"
   }
 }

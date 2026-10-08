@@ -1,0 +1,9 @@
+{
+  "id": "DEC-ENV-001",
+  "date": "2026-10-06",
+  "decision": "Keep direct-value Compose as the default and add an explicit new-setup env package with a matching env_file reference and no overlapping inline environment.",
+  "rationale": "The user authorized sequential remediation of the Tuniku planning backlog, including AUD-011 through AUD-014. A deliberate package selection fixes disconnected env output while preserving DEC-004 and existing installations.",
+  "compatibility": ["No data or authentication migration.", "Existing-stack fragments and default Compose exports remain direct-value proposals.", "Old drafts remain readable; useEnvFile is optional."],
+  "rollback": "Remove the new-setup package option and its tests; preserve all pre-existing local work. Existing deployments and stored data are unchanged.",
+  "risk_class": "C"
+}

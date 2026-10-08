@@ -1,0 +1,14 @@
+{
+  "id": "DEC-DOCKER-ASSOCIATION-001",
+  "date": "2026-10-07",
+  "decision": "Require every resolved direct API address and its Control Server port to match the uniquely observed Docker container before attributing published ports or traffic. Retain separate Docker diagnostics with an explicit unverified-association warning otherwise.",
+  "rationale": "A saved remote API can differ from the single local Docker VPN container. Container-name selection alone cannot establish their relationship. Configuration/IP comparison gives a bounded check within the existing trusted Docker/DNS boundary without a database migration or credentials sent to the helper.",
+  "compatibility": [
+    "Tuniku and Control API operations stay available independently of Docker.",
+    "Internal direct HTTP uses the effective Gluetun Control-port metadata from the same-version helper.",
+    "Wildcard host bindings, TLS/path proxies, unresolved or mixed addresses and old helper metadata do not establish attribution.",
+    "Existing records and observer-wide traffic history remain intact; history is hidden until a matching current sample."
+  ],
+  "rollback": "Revert attribution checks and metadata additions as one coordinated app/helper change; preserve the database.",
+  "risk_class": "C"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "DEC-MANAGED-001",
+  "date": "2026-10-06",
+  "decision": "Implement the proposed bounded managed VPN-application stack workflow with Tuniku independent of Gluetun, explicit adoption, confirmed change plans and coordinated recreation of Gluetun and dependent applications.",
+  "authorization": "After receiving the concrete management decision proposal, the product owner answered: Mach es so einfach für den Anwender wie möglich. The bounded managed-stack option is selected to meet that usability instruction.",
+  "constraints": ["Existing export and read-only installations remain supported.", "No implicit ownership of existing services or relocation of projects.", "Keep the official Gluetun image and existing latest exception; do not introduce a process-manager image.", "A dedicated helper must use project, container, path and action allowlists; do not extend the read-only observer into a general Docker proxy.", "Mutations require authenticated CSRF-protected requests, impact confirmation, operation locking, audit, health checks and bounded rollback.", "No live NAS migration, publication, authentication migration or new runtime security exception is authorized by this implementation decision."],
+  "compatibility": ["No data migration for existing deployments.", "Managed operation is opt-in and must remain disabled until the helper is configured and tested.", "Separate existing NAS projects retain diagnostics/manual guidance until an explicit migration decision."],
+  "rollback": "Disable the optional manager and retain manual exports, existing container data and saved settings. Revert only the new manager implementation, preserving previous local work.",
+  "risk_class": "D"
+}

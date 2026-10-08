@@ -8,6 +8,7 @@ import type { AppConfig } from "./config.js";
 import { TunikuDatabase } from "./db.js";
 import { GluetunStateService } from "./gluetun/state.js";
 import { registerApiRoutes } from "./routes/api.js";
+import { z } from "zod";
 
 export async function buildApp(appConfig: AppConfig): Promise<FastifyInstance> {
   const trustProxy = appConfig.trustedProxyCount > 0
@@ -50,14 +51,17 @@ export async function buildApp(appConfig: AppConfig): Promise<FastifyInstance> {
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         frameAncestors: ["'none'"],
-        formAction: ["'self'"]
+        formAction: ["'self'"],
+        upgradeInsecureRequests: appConfig.secureCookies ? [] : null
       }
     },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    strictTransportSecurity: appConfig.secureCookies
   });
 
   app.addHook("onRequest", async (request, reply) => {
     reply.header("x-request-id", request.id);
+    if (request.url.startsWith("/api/")) reply.header("cache-control", "no-store");
   });
   app.addHook("preSerialization", async (request, reply, payload) => {
     if (
@@ -102,25 +106,37 @@ export async function buildApp(appConfig: AppConfig): Promise<FastifyInstance> {
   });
 
   app.setErrorHandler(async (error, request, reply) => {
-    app.log.error({ err: error }, "Request failed");
+    if (error instanceof z.ZodError) {
+      return reply.code(400).send({ error: { code: "validation_error", message: "The request is invalid.", requestId: request.id } });
+    }
     const known = error instanceof Error ? error : new Error("Unknown request failure.");
     const possibleStatus = "statusCode" in known ? Number((known as Error & { statusCode?: number }).statusCode) : 0;
     const status = possibleStatus >= 400 && possibleStatus < 500 ? possibleStatus : 500;
+    // Parser errors can include fragments of a secret-bearing request body.
+    app.log.error({ errorType: known.name, statusCode: status, requestId: request.id }, "Request failed");
     return reply.code(status).send({
       error: {
         code: status >= 500 ? "internal_error" : "request_error",
-        message: status >= 500 ? "The request could not be completed." : known.message,
+        message: status >= 500 ? "The request could not be completed." : status === 413 ? "The request exceeds the allowed size." : "The request is invalid.",
         requestId: request.id
       }
     });
   });
 
+  let maintenance: ReturnType<typeof setInterval> | undefined;
   app.addHook("onReady", async () => {
+    db.pruneAudit();
+    maintenance = setInterval(() => {
+      try { db.pruneSessions(); db.pruneAudit(); }
+      catch { app.log.error("Retention maintenance failed"); }
+    }, 10 * 60_000);
+    maintenance.unref();
     db.pruneSessions();
     state.start();
   });
   app.addHook("onClose", async () => {
-    state.stop();
+    clearInterval(maintenance);
+    await state.stop();
     db.close();
   });
   return app;

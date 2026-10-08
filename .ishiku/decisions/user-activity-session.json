@@ -1,0 +1,13 @@
+{
+  "id": "DEC-SESSION-ACTIVITY-001",
+  "date": "2026-10-07",
+  "decision": "Only explicit user interaction extends idle sessions; background polling does not.",
+  "authorization": "Product owner explicitly approved actual user actions only on 2026-10-07.",
+  "constraints": [
+    "Keep the existing 30 minute idle and 24 hour absolute limits. The earlier question incorrectly said seven days; correction given before implementation.",
+    "Use an authenticated CSRF-protected activity endpoint. Trusted visible-tab pointer, keyboard and wheel events are coalesced over at most15seconds without periodic heartbeats.",
+    "Expired sessions cannot be renewed. Authentication-required responses clear browser session data and unsaved sensitive forms.",
+    "No data or authentication-method migration."
+  ],
+  "risk_class": "C"
+}

@@ -13,8 +13,14 @@ jobs:
     with:
       require_all_verified: true
 
+  gluetun:
+    uses: ./.github/workflows/tuniku-upstream-discovery.yml
+
   publish:
-    needs: verify
+    needs: [verify, gluetun]
+    concurrency:
+      group: tuniku-registry-writer
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -27,6 +33,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
       - name: Resolve release metadata
         id: release
         run: |
@@ -35,6 +46,7 @@ jobs:
           created=$(git show -s --format=%cI HEAD)
           test "$GITHUB_REF_NAME" = "v$version"
           test -n "$version"
+          node -e 'const v=process.env.GITHUB_REF_NAME.slice(1);if(!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(v)||v!==require("./package.json").version)throw new Error("Release tag must match the stable package version");'
           {
             printf 'version=%s\n' "$version"
             printf 'image=%s\n' "$image"
@@ -64,7 +76,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.release.outputs.image }}:sha-${{ github.sha }}
+          tags: ${{ steps.release.outputs.image }}:release-${{ steps.release.outputs.version }}-sha-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           labels: |
             org.opencontainers.image.version=${{ steps.release.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -77,10 +89,26 @@ jobs:
           sbom: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Block known high and critical vulnerabilities
+      - name: Verify both exact architecture manifests at runtime
+        id: architectures
+        env:
+          IMAGE: ${{ steps.release.outputs.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: node scripts/verify-image-architectures.ts
+      - name: Block known high and critical vulnerabilities on amd64
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ steps.release.outputs.image }}@${{ steps.build.outputs.digest }}
+          image-ref: ${{ steps.release.outputs.image }}@${{ steps.architectures.outputs.amd64_digest }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: 1
+          timeout: 10m
+      - name: Block known high and critical vulnerabilities on arm64
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.release.outputs.image }}@${{ steps.architectures.outputs.arm64_digest }}
           scanners: vuln
           vuln-type: os,library
           severity: HIGH,CRITICAL
@@ -98,12 +126,7 @@ jobs:
           IMAGE: ${{ steps.release.outputs.image }}
           DIGEST: ${{ steps.build.outputs.digest }}
           VERSION: ${{ steps.release.outputs.version }}
-        run: |
-          docker buildx imagetools create \
-            --tag "$IMAGE:v$VERSION" \
-            --tag "$IMAGE:$VERSION" \
-            --tag "$IMAGE:latest" \
-            "$IMAGE@$DIGEST"
+        run: node scripts/promote-image.ts
       - name: Export the attached multi-platform SBOM
         env:
           IMAGE: ${{ steps.release.outputs.image }}
@@ -121,7 +144,7 @@ jobs:
           cat > release-notes.md <<EOF
           ## $GITHUB_REPOSITORY $VERSION
 
-          Verified multi-architecture image: \`$IMAGE@$DIGEST\`
+          Multi-architecture release digest: \`$IMAGE@$DIGEST\`
 
           This digest passed the repository's full ishiku verification and high/critical vulnerability gate. OCI SBOM and SLSA provenance attestations are attached to the image; the multi-platform SBOM is also attached to this release.
 
@@ -132,3 +155,14 @@ jobs:
             --verify-tag \
             --title "$GITHUB_REPOSITORY $VERSION" \
             --notes-file release-notes.md
+
+      - name: Preserve the digest promotion report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: promotion-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            promotion-report.json
+            architecture-runtime-report.json
+          if-no-files-found: warn
+          retention-days: 90

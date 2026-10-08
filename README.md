@@ -1,11 +1,17 @@
 # Tuniku
 
+For an existing installation, read [Upgrade and Compose migration](docs/upgrade.md).
+Image pulls do not replace version/digest pins or migrate saved Compose/data.
+This source contains Unreleased changes that require a tested new build.
+Both Compose files are templates: complete their setup-secret/storage inputs;
+the advanced example also needs the full provider-specific Gluetun environment.
+
 <p align="center">
   <img src="public/assets/logos/tuniku.png" alt="Tuniku" width="112" />
 </p>
 
 **Gluetun Web Interface** — a secure, self-hosted dashboard for supported Gluetun
-Control Server functions and a generation-only Docker Compose assistant.
+Control Server functions and a Docker Compose assistant. An optional, separately authenticated helper manages explicitly adopted VPN/application stacks after impact review and confirmation; see [managed stacks](docs/managed-stacks.md).
 
 ## Overview
 
@@ -369,7 +375,7 @@ Import `docker-compose.yml` in the ZimaOS interface, fill the single
 `ISHIKU_SETUP_SECRET` field, save the Tuniku stack, and deploy it. It includes
 the optional internal diagnostic helper but no Gluetun service. Add Gluetun
 later with the complete proposal generated inside Tuniku. UI terminology
-can vary by ZimaOS version. Tuniku never presses deploy or recreates containers.
+can vary by ZimaOS version. Configuration exports do not apply changes. The optional manager supports confirmed recreation of explicitly adopted existing stacks; it does not create a new stack.
 
 See [docs/zimaos.md](docs/zimaos.md).
 
@@ -393,7 +399,7 @@ Direct access through `http://<docker-host>:65001` is supported on the trusted
 local network with `HTTPS_ONLY=false`, including copy actions. Set
 `HTTPS_ONLY=true` only when a trusted reverse proxy terminates HTTPS; remote
 plain HTTP is not recommended. PWA installation still follows the browser's
-secure-context rules. Read [docs/security.md](docs/security.md) and
+secure-context rules. Tuniku requires its server and Control API for sign-in, live data and management. Its service worker caches only a small static shell; it does not cache API responses, credentials or all JavaScript/CSS, and does not provide a complete offline application. Read [docs/security.md](docs/security.md) and
 [SECURITY.md](SECURITY.md) before exposing the service.
 
 ## Updates and backup
@@ -493,3 +499,5 @@ Gluetun API availability remains
 version- and role-dependent.
 
 Licensed under the [MIT License](LICENSE).
+
+For a lost administrator password, see [Local administrator recovery](docs/local-admin-recovery.md). This source provides an offline owner-only tool; it never resets VPN credentials or encryption keys.

@@ -1,0 +1,58 @@
+# Optional overlay for an existing Tuniku installation; see docs/managed-stacks.md.
+# Supply a tested immutable TUNIKU_IMAGE and the Docker socket group ID.
+services:
+  tuniku:
+    image: ${TUNIKU_IMAGE:?Set the tested Tuniku image or digest}
+    environment:
+      TUNIKU_MANAGER_URL: http://tuniku-manager:2376
+    networks:
+      - tuniku_manager
+  tuniku-manager:
+    image: ${TUNIKU_IMAGE:?Set the tested Tuniku image or digest}
+    command: [dist/server/management/index.js]
+    user: "1000:1000"
+    group_add:
+      - ${DOCKER_SOCKET_GID:?Set the host Docker socket group ID}
+    environment:
+      TUNIKU_MANAGER_PROJECTS: ${TUNIKU_MANAGER_PROJECTS:?Set explicitly allowed Compose projects}
+      TUNIKU_MANAGER_BIND_ROOTS: /DATA/AppData,/DATA/Downloads
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+      - type: bind
+        source: /DATA/AppData/i_tuniku/Data/.secrets/manager-key
+        target: /run/secrets/tuniku_manager_key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /DATA/AppData/i_tuniku/Data/managed
+        target: /managed
+        bind:
+          create_host_path: false
+    networks:
+      - tuniku_manager
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: "268435456"
+    cpus: 0.5
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: [CMD, /nodejs/bin/node, -e, "fetch('http://127.0.0.1:2376/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+networks:
+  tuniku_manager:
+    internal: true

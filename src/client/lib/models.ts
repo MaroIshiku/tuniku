@@ -74,6 +74,7 @@ export interface PortLabel {
 }
 
 export interface PortDetection {
+  observedAt?: string;
   available: boolean;
   error: string | null;
 }
@@ -81,6 +82,9 @@ export interface PortDetection {
 export interface TrafficSummary {
   available: boolean;
   source: "docker_stats";
+  sampleQuality?: "unknown" | "baseline" | "continuous" | "gap" | "reset";
+  sampleIntervalSeconds?: number | null;
+  history?: { timeZone: string; days: Array<{ day: string; downloadedBytes: number; uploadedBytes: number }> };
   observedAt: string | null;
   downloadBytesPerSecond: number;
   uploadBytesPerSecond: number;
@@ -99,13 +103,14 @@ export interface ComposeResult {
   snippets: { compose: string; env: string; secrets: string; steps: string };
   manualSteps: string[];
   securityWarnings: string[];
-  validation: { valid: boolean; errors: string[]; warnings: string[] };
+  validation: { valid: boolean; errors: string[]; warnings: string[]; checks?: Array<{ id: string; label: string; status: "passed" | "failed" | "not_run" | "not_applicable"; detail: string }> };
   artifacts: Array<{ filename: string; content: string; mediaType: string }>;
   containsSecretValues: boolean;
   redacted: boolean;
 }
 
 export interface GluetunProviderProfile {
+  schemaReview?: { status: "matched" | "changed" | "unavailable"; reviewedAt: string | null; sourceRevision: string | null; sourceUrl: string | null; sourceSha256: string | null; scope: string[]; runtimeValidated: false };
   id: string;
   label: string;
   protocols: Array<"openvpn" | "wireguard">;
@@ -133,4 +138,58 @@ export interface ServerOptions {
   source: "refreshed" | "bundled";
   sourceRevision: string;
   updatedAt: string | null;
+  sourceUrl?: string | null;
+  retrievedAt?: string | null;
+  bundledAt?: string | null;
+  sourceSha256?: string | null;
+  runtimeComparison?: "unavailable";
 }
+
+export interface ManagedStatus {
+  enabled: boolean;
+  storage?: { plans: number; expiredUnreferenced: number; bytes: number; retainedContainers: number; limit: number };
+  prerequisites?: { projects: string[]; bindRootsConfigured: boolean; adoptionOnly: boolean; restartAlwaysSupported: boolean };
+  candidates: Array<{ id: string; name: string; image: string; state: string; project: string; role: "vpn" | "application"; network?: { kind: "vpn" | "vpn_namespace" | "other_container" | "other_network" | "unknown"; vpnId: string | null }; recovery?: boolean }>;
+  projects: Array<{ id: string; vpnId: string; clientIds: string[]; composeProject: string }>;
+  operations: Array<{ id: string; projectId: string; planId: string; status: "applying" | "succeeded" | "rolled_back" | "rollback_failed" | "interrupted"; step: string; startedAt: string; finishedAt: string | null; error: string | null; cleanupStatus?: "applying" | "completed" | "interrupted" }>;
+}
+export interface ManagedPlan {
+  id: string;
+  projectId: string;
+  expiresAt: string;
+  environmentKeys: string[];
+  removedEnvironmentKeys?: string[];
+  portsChanged: boolean;
+  portsBefore: Record<string, unknown>;
+  portsAfter: Record<string, unknown>;
+  services: Array<{ name: string; image: string; running: boolean }>;
+  interruptionRequired: boolean;
+  warnings: string[];
+}
+
+
+export interface DockerDiagnostic {
+  observedAt?: string;
+  available: boolean;
+  container: { id: string; name: string; state: string; displayState: string; health: string | null; exitCode: number | null; restartCount: number; error: string | null } | null;
+  association?: { state: "matched" | "unverified"; message: string };
+  issues: string[];
+  logsError: string | null;
+  reason?: string;
+}
+
+
+export interface ManagedServiceDiagnostic {
+  id: string; name: string | null; availability: "available" | "missing" | "unavailable" | "out_of_scope";
+  state: string | null; health: string | null; exitCode: number | null;
+  namespace: "vpn" | "attached" | "different" | "not_shared" | "unknown"; issue: string | null;
+}
+export interface ManagedDiagnostics {
+  projectId: string; observedAt: string; stale: boolean;
+  vpn: ManagedServiceDiagnostic; applications: ManagedServiceDiagnostic[];
+  configuration?: { state: "matched" | "drifted" | "unavailable"; baselineAt: string | null; baselineSource: "adoption" | "successful_apply" | "unavailable"; changedServiceIds: string[] };
+  publishedPorts?: Record<string, unknown> | null;
+}
+
+export interface ComposeDraftSummary { id: string; instanceId: string | null; title: string; taskType: string; createdAt: string; updatedAt: string; }
+export interface ComposeDraft extends ComposeDraftSummary { input: unknown; }

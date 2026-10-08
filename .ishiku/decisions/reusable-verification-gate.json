@@ -1,0 +1,12 @@
+{
+  "id": "DEC-VERIFY-003",
+  "date": "2026-10-08",
+  "authorization": "Owner requested requirement evidence and Gluetun HIGH remediation. A disposable actual GitHub release-gate run exposed strict verification being disabled by the caller-event check.",
+  "decision": "Read the explicitly passed require_all_verified input directly in the Tuniku reusable workflow. Preserve both upstream and installed managed checksums for kit-sync review.",
+  "constraints": [
+    "Release and main publish callers continue passing true and retain the full verification gate.",
+    "Ordinary source PR checks may retain explicitly unverified requirements; no publication is enabled.",
+    "No security waiver, central kit mutation, registry bypass or automatic acceptance of managed workflow conflicts."
+  ],
+  "risk_class": "C"
+}

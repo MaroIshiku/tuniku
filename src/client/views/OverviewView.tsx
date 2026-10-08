@@ -1,4 +1,4 @@
-import type { Instance, Overview, PortDetection, PortLabel, Section, TrafficSummary } from "../lib/models.js";
+import type { DockerDiagnostic, Instance, Overview, PortDetection, PortLabel, Section, TrafficSummary } from "../lib/models.js";
 import { useI18n } from "../lib/i18n.js";
 import { Icon } from "../components/Icon.js";
 import { copyText } from "../lib/clipboard.js";
@@ -30,16 +30,27 @@ function publicIpLocation(overview: Overview | null): string | null {
 export function OverviewView(props: {
   instance: Instance | null;
   overview: Overview | null;
+  overviewRequestError: string;
+  trafficRequestError: string;
   traffic: TrafficSummary | null;
   ports: PortLabel[];
   portDetection: PortDetection | null;
+  dockerDiagnostic: DockerDiagnostic | null;
+  dockerError: string;
+  dockerObservedAt: string | null;
+  onDiagnostics: () => void;
   activity: any[];
   loading: boolean;
   onSection: (section: Section) => void;
   onConnectExisting: () => void;
   onRefresh: () => void;
+  notify: (text: string, tone?: "success" | "error") => void;
 }) {
   const { t, language } = useI18n();
+  async function copyIp(): Promise<void> {
+    try { await copyText(props.overview!.publicIp!.publicIp); props.notify(t("copied")); }
+    catch (error) { props.notify(error instanceof Error ? error.message : t("error"), "error"); }
+  }
   const vpnStatus = props.overview?.vpn?.status;
   const location = publicIpLocation(props.overview);
   const forwardedPorts = props.overview?.portForwarding?.ports ?? [];
@@ -77,7 +88,7 @@ export function OverviewView(props: {
         </div>
       </section>
 
-      {props.overview?.error && <div className="inline-banner warning page-banner"><Icon name="warning" /><div><strong>{t("connectionUnavailable")}</strong><span>{props.overview.error.message}</span></div></div>}
+      {(props.overviewRequestError || props.overview?.error) && <div className="inline-banner warning page-banner" role="status"><Icon name="warning" /><div><strong>{t("connectionUnavailable")}</strong><span>{props.overviewRequestError || props.overview?.error?.message}</span></div></div>}
 
       <section className="dashboard-grid status-grid">
         <article className="status-card ip-status-card">
@@ -85,9 +96,9 @@ export function OverviewView(props: {
           <div className="card-heading">
             <span>{t("publicIp")}</span>
             <strong className="technical-value">{props.overview?.publicIp?.publicIp || "—"}</strong>
-            <span className="card-detail">{location || t("ipLocationUnavailable")}</span>
+            <span className="card-detail">{location || t("ipLocationUnavailable")}</span><span className="card-detail">Reported IP location; not proof of the selected VPN server location.</span>
           </div>
-          {props.overview?.publicIp?.publicIp && <button className="icon-button" type="button" aria-label={`${t("copy")} ${t("publicIp")}`} onClick={() => void copyText(props.overview!.publicIp!.publicIp)}><Icon name="copy" /></button>}
+          {props.overview?.publicIp?.publicIp && <button className="icon-button" type="button" aria-label={`${t("copy")} ${t("publicIp")}`} onClick={() => void copyIp()}><Icon name="copy" /></button>}
         </article>
         <article className="status-card">
           <div className="card-icon"><Icon name="dns" /></div>
@@ -109,7 +120,7 @@ export function OverviewView(props: {
                 ? `${t("dockerPublishedPorts")}: ${publishedPorts.join(", ")}`
                 : props.portDetection?.available
                   ? t("noDockerPublishedPorts")
-                  : props.portDetection?.error || t("dockerPortDetectionUnavailable")}
+                  : props.loading && !props.portDetection ? "Loading published mappings" : props.portDetection?.error || t("dockerPortDetectionUnavailable")}
             </span>
           </div>
         </article>
@@ -117,12 +128,42 @@ export function OverviewView(props: {
           <div className="card-icon"><Icon name="activity" /></div>
           <div className="card-heading">
             <span>{t("vpnTraffic")}</span>
-            <strong>{props.traffic?.available ? `↓ ${formatRate(props.traffic.downloadBytesPerSecond)} · ↑ ${formatRate(props.traffic.uploadBytesPerSecond)}` : t("trafficUnavailable")}</strong>
+            <strong>{props.traffic?.available && !props.traffic.error && !props.trafficRequestError ? `↓ ${formatRate(props.traffic.downloadBytesPerSecond)} · ↑ ${formatRate(props.traffic.uploadBytesPerSecond)}` : props.loading && !props.traffic && !props.trafficRequestError ? "Loading network counters" : t("trafficUnavailable")}</strong>
             {props.traffic?.available && <span>{t("today")}: ↓ {formatBytes(props.traffic.todayDownloadedBytes)} · ↑ {formatBytes(props.traffic.todayUploadedBytes)}</span>}
             {props.traffic?.available && <span>{t("trackedTotal")}: ↓ {formatBytes(props.traffic.trackedDownloadedBytes)} · ↑ {formatBytes(props.traffic.trackedUploadedBytes)}</span>}
-            {props.traffic?.error && <span className="card-detail warning-text">{props.traffic.error}</span>}
+            <span className="card-detail">All Docker-reported interfaces; shared applications, VPN overhead and control traffic may be included. This is not provider usage.</span>
+            {(props.trafficRequestError || props.traffic?.error) && <span className="card-detail warning-text" role="status">{props.trafficRequestError || props.traffic?.error}</span>}
           </div>
         </article>
+      </section>
+
+
+      <section className="content-card" aria-labelledby="traffic-history-heading">
+        <div className="content-card-header"><div><span className="eyebrow">Container network traffic</span><h2 id="traffic-history-heading">Daily traffic history</h2></div></div>
+        <p className="muted">Recorded aggregate byte changes across observed containers. Changing the connection does not partition this history. No destinations or packet contents are stored.</p>
+        <p className="muted">Today and the preceding 89 days{props.traffic?.history ? ` · server time zone: ${props.traffic.history.timeZone}` : ""}. Days without records are omitted, not measured as zero. Intervals crossing midnight are split by elapsed time; daily values are estimates and exclude traffic before the first comparable sample.</p>
+        {props.trafficRequestError && <p className="warning-text" role="status">History refresh failed. Displayed days are from the last successful response.</p>}
+        {props.traffic?.history?.days.length ? <details className="traffic-history">
+          <summary>Show recorded days ({props.traffic.history.days.length})</summary>
+          <table><caption>Recorded daily container network counters, newest first</caption><thead><tr><th scope="col">Date</th><th scope="col">Received</th><th scope="col">Sent</th></tr></thead><tbody>{props.traffic.history.days.map((day) => <tr key={day.day}><th scope="row"><time dateTime={day.day}>{day.day}</time></th><td>{formatBytes(day.downloadedBytes)}</td><td>{formatBytes(day.uploadedBytes)}</td></tr>)}</tbody></table>
+        </details> : <p className="muted">{props.loading && !props.traffic ? "Loading recorded days" : props.trafficRequestError && !props.traffic ? "Recorded days could not be loaded. Try Refresh." : "No daily counters have been recorded yet."}</p>}
+      </section>
+
+      <section className="content-card" aria-labelledby="docker-diagnostics-heading">
+        <div className="content-card-header"><div><span className="eyebrow">Docker</span><h2 id="docker-diagnostics-heading">Container diagnostics</h2></div><button className="button button-outlined" type="button" onClick={props.onDiagnostics}>Open diagnostics and logs</button></div>
+        <div className="technical-card"><dl>
+          <div><dt>Control API</dt><dd>{props.overview?.connected ? props.overview.stale ? "Last known reachable" : "Reachable" : props.loading && !props.overview ? "Loading" : "Unavailable"}{props.overview?.stale ? " · stale" : ""}</dd></div>
+          <div><dt>VPN process</dt><dd>{vpnStatus || "Unknown"}{props.overview?.stale ? " · stale" : ""}</dd></div>
+          <div><dt>Docker container</dt><dd>{props.dockerDiagnostic?.container ? `${props.dockerDiagnostic.container.name} · ${props.dockerDiagnostic.container.displayState || props.dockerDiagnostic.container.state}` : props.loading && !props.dockerDiagnostic ? "Loading" : props.dockerDiagnostic?.available ? "Not found" : "Unavailable"}</dd></div>
+          <div><dt>Docker healthcheck</dt><dd>{props.dockerDiagnostic?.container?.health || "Unavailable"}</dd></div>
+          <div><dt>Exit code</dt><dd>{props.dockerDiagnostic?.container?.exitCode ?? "Unavailable"}</dd></div>
+          <div><dt>Docker container restarts</dt><dd>{props.dockerDiagnostic?.container?.restartCount ?? "Unavailable"}</dd></div>
+        </dl></div>
+        <p className="muted">API reachability and a running VPN process do not prove tunnel health. Docker health reflects the configured container healthcheck. Restarting the VPN through Control does not recreate the container or increment Docker's restart count.</p>
+        {props.dockerObservedAt && <p className="muted">Last Docker observation: {new Intl.DateTimeFormat(language, { dateStyle: "short", timeStyle: "medium" }).format(new Date(props.dockerObservedAt))}</p>}
+        {props.dockerError && <p role="status" className="warning-text">{props.dockerError}</p>}
+        {props.dockerDiagnostic?.association && <p className={props.dockerDiagnostic.association.state === "matched" ? "muted" : "warning-text"}>{props.dockerDiagnostic.association.message}</p>}
+        {(props.dockerDiagnostic?.container?.error || props.dockerDiagnostic?.issues?.[0] || props.dockerDiagnostic?.logsError) && <p className="warning-text">{props.dockerDiagnostic?.container?.error || props.dockerDiagnostic?.issues?.[0] || props.dockerDiagnostic?.logsError}</p>}
       </section>
 
       <section className="content-card activity-card">

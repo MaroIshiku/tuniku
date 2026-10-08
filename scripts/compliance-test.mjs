@@ -45,4 +45,6 @@ for (const name of ["Dockerfile", "docker-compose.yml", "docker-compose.example.
   }
 }
 
+await import("./verify-requirement-evidence.mjs");
+
 process.stdout.write(`ishiku compliance checks passed for ${project.application.id} with active OVR-001.\n`);

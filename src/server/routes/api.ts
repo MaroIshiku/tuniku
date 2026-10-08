@@ -1,4 +1,12 @@
+import { bindingsOverlap } from "../compose/ports.js";
+import { storageDiagnostics } from "../storageDiagnostics.js";
+import { FieldValidationError } from "../validation.js";
+import { DockerObservationCache } from "../docker/observationCache.js";
+import { logQuery } from "../docker/logOptions.js";
+import { composeInputSchema } from "../compose/input.js";
+import { ManagerClient } from "../management/client.js";
 import crypto from "node:crypto";
+import net from "node:net";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { AppConfig } from "../config.js";
@@ -19,7 +27,6 @@ import type { SessionUser, UpstreamCredential } from "../types.js";
 import { GluetunAdapter, GluetunError, type MutationName } from "../gluetun/adapter.js";
 import type { GluetunStateService } from "../gluetun/state.js";
 import {
-  composeTasks,
   generateCompose,
   inspectCompose,
   redactedDraftInput,
@@ -34,6 +41,7 @@ const setupLimiter = new SlidingWindowRateLimiter(8, 15 * 60_000);
 const loginNetworkLimiter = new SlidingWindowRateLimiter(20, 15 * 60_000);
 const loginAccountLimiter = new SlidingWindowRateLimiter(8, 15 * 60_000);
 const connectionLimiter = new SlidingWindowRateLimiter(20, 60_000);
+const managerLimiter = new SlidingWindowRateLimiter(20, 60_000);
 const controlLimiter = new SlidingWindowRateLimiter(20, 60_000);
 const generateLimiter = new SlidingWindowRateLimiter(30, 60_000);
 const catalogRefreshLimiter = new SlidingWindowRateLimiter(5, 15 * 60_000);
@@ -68,8 +76,7 @@ function sessionFromRequest(request: FastifyRequest, db: TunikuDatabase): Sessio
     db.deleteSession(idHash);
     return null;
   }
-  db.touchSession(idHash);
-  return { ...result, lastSeenAt: new Date().toISOString(), idHash };
+  return { ...result, idHash };
 }
 
 function setSessionCookie(reply: FastifyReply, token: string, appConfig: AppConfig): void {
@@ -125,14 +132,22 @@ function requireRecentAuthentication(request: FastifyRequest, reply: FastifyRepl
 function credentialFromBody(body: any, authMode: string): UpstreamCredential | null {
   if (authMode === "api_key") return body.apiKey ? { apiKey: body.apiKey } : null;
   if (authMode === "basic") {
-    return body.username !== undefined && body.password !== undefined
+    return body.username && body.password
       ? { username: body.username, password: body.password }
       : null;
   }
   return null;
 }
 
+async function validateConnectionUrl(value: string, allowLoopback: boolean): Promise<string> {
+  try { return await validateUpstreamUrl(value, allowLoopback); }
+  catch { throw new FieldValidationError("baseUrl", "Use an allowed HTTP or HTTPS Control Server URL without credentials, query or fragment. Check the hostname and upstream network policy."); }
+}
+
 function errorResponse(error: unknown): { status: number; body: unknown } {
+  if (error instanceof FieldValidationError) {
+    return { status: 400, body: { error: { code: "validation_error", message: error.message, details: [{ path: error.path, message: error.message }] } } };
+  }
   if (error instanceof GluetunError) {
     return { status: error.statusCode, body: { error: { code: `gluetun_${error.code}`, message: error.message } } };
   }
@@ -166,44 +181,7 @@ const instanceSchema = z.object({
   saveCredential: z.boolean().default(false)
 });
 
-const composeInputSchema = z.object({
-  taskType: z.enum(composeTasks),
-  provider: z.string().max(80).optional(),
-  vpnType: z.enum(["wireguard", "openvpn"]).optional(),
-  countries: z.string().max(500).optional(),
-  regions: z.string().max(500).optional(),
-  cities: z.string().max(500).optional(),
-  hostnames: z.string().max(2_000).optional(),
-  serverNames: z.string().max(2_000).optional(),
-  categories: z.string().max(500).optional(),
-  isps: z.string().max(500).optional(),
-  providerOptions: z.record(z.string().regex(/^[A-Z][A-Z0-9_]*$/), z.string().max(128)).optional(),
-  authMode: z.enum(["none", "api_key", "basic"]).optional(),
-  apiKey: z.string().max(4096).optional(),
-  basicUsername: z.string().max(256).optional(),
-  basicPassword: z.string().max(4096).optional(),
-  wireguardPrivateKey: z.string().max(4096).optional(),
-  wireguardAddresses: z.string().max(1024).optional(),
-  wireguardPresharedKey: z.string().max(4096).optional(),
-  wireguardPublicKey: z.string().max(4096).optional(),
-  wireguardEndpointIp: z.string().max(64).optional(),
-  wireguardEndpointPort: z.number().int().min(1).max(65_535).optional(),
-  openvpnUser: z.string().max(4096).optional(),
-  openvpnPassword: z.string().max(4096).optional(),
-  openvpnCertificate: z.string().max(65_536).optional(),
-  openvpnKey: z.string().max(65_536).optional(),
-  openvpnEncryptedKey: z.string().max(65_536).optional(),
-  openvpnKeyPassphrase: z.string().max(4096).optional(),
-  customOpenvpnConfigPath: z.string().max(1024).optional(),
-  appName: z.string().max(120).optional(),
-  appImage: z.string().max(500).optional(),
-  hostAddress: z.string().max(255).optional(),
-  hostPort: z.number().int().min(1).max(65_535).optional(),
-  containerPort: z.number().int().min(1).max(65_535).optional(),
-  protocol: z.enum(["tcp", "udp"]).optional(),
-  pastedCompose: z.string().max(1_048_576).optional(),
-  includeSecrets: z.boolean().optional()
-}).strict();
+
 
 export function registerApiRoutes(
   app: FastifyInstance,
@@ -216,6 +194,16 @@ export function registerApiRoutes(
 ): void {
   const { db, appConfig, state, startedAt } = dependencies;
   const serverCatalog = new ServerCatalog(appConfig.dataPath);
+  const dockerCache = new DockerObservationCache();
+  app.addHook("onClose", () => dockerCache.close());
+  const observeMetadata = (instance: { id: string; baseUrl: string } | null, force = false) => dockerCache.get(
+    JSON.stringify([instance?.id ?? null, instance?.baseUrl ?? null]),
+    async () => {
+      const observer = new DockerObserver(appConfig.dockerProxyUrl!, appConfig.allowLoopbackUpstream);
+      try { return await observer.observeGluetun(instance?.baseUrl, false); }
+      finally { observer.close(); }
+    }, force
+  );
   const audit = (
     request: FastifyRequest,
     input: Omit<Parameters<TunikuDatabase["audit"]>[0], "id" | "requestId">
@@ -249,12 +237,12 @@ export function registerApiRoutes(
         return reply.code(503).send({ error: { code: "setup_unconfigured", message: "The setup secret is not configured." } });
       }
       const body = z.object({
-        setupSecret: z.string(),
-        displayName: z.string(),
-        username: z.string(),
-        email: z.string().optional().default(""),
-        password: z.string(),
-        passwordConfirm: z.string()
+        setupSecret: z.string().max(4096),
+        displayName: z.string().max(100),
+        username: z.string().max(64),
+        email: z.string().max(254).optional().default(""),
+        password: z.string().max(4096),
+        passwordConfirm: z.string().max(4096)
       }).parse(request.body);
       const errors = validateAdminInput({ ...body, configuredSecret: appConfig.registrationSecret });
       if (errors.length) {
@@ -289,7 +277,7 @@ export function registerApiRoutes(
       ) {
         return reply.code(429).send({ error: { code: "rate_limited", message: "Too many sign-in attempts. Try again later." } });
       }
-      const user = db.findUserByUsername(body.username);
+      const user = db.findUserByUsername(body.username.trim());
       if (!user || !(await verifyPassword(user.passwordHash, body.password))) {
         audit(request, { userId: user?.id ?? null, instanceId: null, type: "login", result: "rejected", metadata: {} });
         return reply.code(401).send({ error: { code: "invalid_credentials", message: "Username or password is incorrect." } });
@@ -314,6 +302,14 @@ export function registerApiRoutes(
     db.deleteSession(session.idHash);
     reply.clearCookie(SESSION_COOKIE, { path: "/" });
     audit(request, { userId: session.user.id, instanceId: null, type: "logout", result: "success", metadata: {} });
+    return { ok: true };
+  });
+
+  app.post("/api/v1/auth/activity", async (request, reply) => {
+    const session = requireSession(request, reply, db);
+    if (!session || !requireCsrf(request, reply, session)) return;
+    // Bound writes without letting ordinary status reads extend a session.
+    if (Date.parse(session.lastSeenAt) <= Date.now() - 1_000) db.touchSession(session.idHash);
     return { ok: true };
   });
 
@@ -384,13 +380,18 @@ export function registerApiRoutes(
     try {
       const id = z.string().uuid().parse((request.params as any).instanceId);
       const body = instanceSchema.parse(request.body);
-      const baseUrl = await validateUpstreamUrl(body.baseUrl, appConfig.allowLoopbackUpstream);
+      const baseUrl = await validateConnectionUrl(body.baseUrl, appConfig.allowLoopbackUpstream);
       const credential = credentialFromBody(body, body.authMode);
       const existing = db.getInstance(id);
-      let encryptedCredential: string | null | undefined;
-      if (body.saveCredential) {
-        if (!credential && (!existing?.hasStoredCredential || existing.authMode !== body.authMode)) {
-          throw new Error("Enter the selected Gluetun credential before saving it.");
+      const sameConnection = existing?.baseUrl === baseUrl && existing.authMode === body.authMode;
+      const currentCredential = sameConnection && existing ? state.credentialFor(existing) : null;
+      // Credentials are scoped to their destination and authentication mode.
+      let encryptedCredential: string | null | undefined = sameConnection ? undefined : null;
+      if (body.authMode === "none") encryptedCredential = null;
+      else if (!body.saveCredential) encryptedCredential = null;
+      else if (body.saveCredential) {
+        if (!credential && (!existing?.hasStoredCredential || !sameConnection)) {
+          throw new FieldValidationError(body.authMode === "api_key" ? "apiKey" : "password", "Enter the selected Gluetun credential before saving it.");
         }
         if (credential) {
           encryptedCredential = encryptCredential(credential, appConfig.encryptionKey);
@@ -405,7 +406,9 @@ export function registerApiRoutes(
         requestTimeoutSeconds: body.requestTimeoutSeconds,
         ...(encryptedCredential === undefined ? {} : { encryptedCredential })
       });
-      state.setEphemeralCredential(id, body.saveCredential ? null : credential);
+      state.setEphemeralCredential(id, body.saveCredential || body.authMode === "none" ? null : credential ?? currentCredential);
+      state.invalidate(id);
+      dockerCache.invalidate();
       audit(request, {
         userId: session.user.id,
         instanceId: id,
@@ -427,21 +430,31 @@ export function registerApiRoutes(
     try {
       const id = z.string().uuid().parse((request.params as any).instanceId);
       const body = z.object({
+        configuration: instanceSchema.optional(),
         apiKey: z.string().max(4096).optional(),
         username: z.string().max(256).optional(),
         password: z.string().max(4096).optional()
       }).parse(request.body ?? {});
-      const instance = db.getInstance(id);
-      if (!instance) return reply.code(404).send({ error: { code: "not_found", message: "Gluetun instance not found." } });
-      const transient = credentialFromBody(body, instance.authMode);
-      const adapter = new GluetunAdapter(instance, transient ?? state.credentialFor(instance), appConfig.allowLoopbackUpstream);
+      const existing = db.getInstance(id);
+      if (!existing && !body.configuration) return reply.code(404).send({ error: { code: "not_found", message: "Gluetun instance not found." } });
+      const candidate = body.configuration;
+      const baseUrl = candidate ? await validateConnectionUrl(candidate.baseUrl, appConfig.allowLoopbackUpstream) : existing!.baseUrl;
+      const instance = candidate ? {
+        id, displayName: candidate.displayName, baseUrl, authMode: candidate.authMode,
+        tlsVerify: candidate.tlsVerify, requestTimeoutSeconds: candidate.requestTimeoutSeconds,
+        hasStoredCredential: false, capabilityCache: null, lastConnectedAt: null,
+        createdAt: existing?.createdAt ?? new Date().toISOString(), updatedAt: existing?.updatedAt ?? new Date().toISOString()
+      } : existing!;
+      const transient = credentialFromBody(candidate ?? body, instance.authMode);
+      const sameConnection = existing?.baseUrl === baseUrl && existing.authMode === instance.authMode;
+      const adapter = new GluetunAdapter(instance, transient ?? (sameConnection ? state.credentialFor(existing!) : null), appConfig.allowLoopbackUpstream);
       try {
         const capabilities = await adapter.probe();
         const states = Object.values(capabilities);
         const reachable = states.some((capability) => capability.state !== "unreachable");
-        const authenticationAccepted = reachable && !states.some((capability) => capability.state === "unauthorized");
-        if (authenticationAccepted) db.updateCapabilities(id, capabilities);
-        audit(request, { userId: session.user.id, instanceId: id, type: "connection_test", result: authenticationAccepted ? "success" : "failed", metadata: { capabilities, reachable, authenticationAccepted } });
+        const authenticationAccepted = states.some((capability) => capability.state === "available") && !states.some((capability) => capability.state === "unauthorized");
+        if (authenticationAccepted && !candidate) db.updateCapabilities(id, capabilities);
+        audit(request, { userId: session.user.id, instanceId: existing ? id : null, type: "connection_test", result: authenticationAccepted ? "success" : "failed", metadata: { capabilities, reachable, authenticationAccepted, preview: Boolean(candidate) } });
         return { reachable, authenticationAccepted, capabilities, version: null };
       } finally {
         adapter.close();
@@ -458,6 +471,8 @@ export function registerApiRoutes(
     const id = (request.params as any).instanceId as string;
     db.clearCredential(id);
     state.setEphemeralCredential(id, null);
+    state.invalidate(id);
+    dockerCache.invalidate();
     audit(request, { userId: session.user.id, instanceId: id, type: "credential_deleted", result: "success", metadata: {} });
     return { ok: true };
   });
@@ -468,7 +483,8 @@ export function registerApiRoutes(
     const instance = db.getInstance(id);
     if (!instance) return reply.code(404).send({ error: { code: "not_found", message: "Gluetun instance not found." } });
     const cached = state.current(id);
-    return { overview: cached ?? await state.refresh(instance) };
+    const refresh = z.object({ refresh: z.enum(["true", "false"]).default("false") }).parse(request.query);
+    return { overview: refresh.refresh === "true" ? await state.refresh(instance) : cached ?? await state.refresh(instance) };
   });
 
   app.get("/api/v1/instances/:instanceId/capabilities", async (request, reply) => {
@@ -526,6 +542,8 @@ export function registerApiRoutes(
           const capabilities = instance.capabilityCache ?? await adapter.probe();
           if (capabilities[capabilityName].state !== "available") throw new GluetunError("unsupported", "The connected Gluetun instance does not expose this capability.", 409);
           const result = await adapter.mutate(endpoint.operation, { status: endpoint.status });
+          state.invalidate(instance.id);
+          dockerCache.invalidate();
           audit(request, { userId: session.user.id, instanceId: instance.id, type: endpoint.path.replace("/", "_"), result: "success", metadata: { requestedStatus: endpoint.status } });
           const overview = await state.refresh(instance);
           return { result, overview };
@@ -552,6 +570,8 @@ export function registerApiRoutes(
         const capabilities = instance.capabilityCache ?? await adapter.probe();
         if (capabilities.portForwarding.state !== "available") throw new GluetunError("unsupported", "Runtime port forwarding is unavailable.", 409);
         const result = await adapter.mutate("portForwarding", { ports: body.ports });
+        state.invalidate(instance.id);
+        dockerCache.invalidate();
         audit(request, { userId: session.user.id, instanceId: instance.id, type: "port_forwarding_change", result: "success", metadata: { ports: body.ports } });
         return { result, overview: await state.refresh(instance) };
       } finally {
@@ -570,17 +590,15 @@ export function registerApiRoutes(
     if (!appConfig.dockerProxyUrl) {
       return { ports: manualPorts, detection: { available: false, error: "Automatic Docker port detection is not configured." } };
     }
-    const observer = new DockerObserver(appConfig.dockerProxyUrl, appConfig.allowLoopbackUpstream);
+    const query = z.object({ force: z.enum(["true", "false"]).optional() }).strict().safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: { code: "invalid_query", message: "Choose a valid port refresh query." } });
     try {
-      const observation = await observer.observeGluetun();
-      const timestamp = new Date().toISOString();
-      const detectedPorts = observation.ports
-        .filter((detected) => !manualPorts.some((manual) =>
-          manual.hostAddress === detected.hostAddress &&
-          manual.hostPort === detected.hostPort &&
-          manual.containerPort === detected.containerPort &&
-          manual.protocol === detected.protocol
-        ))
+      const instance = db.getInstance(instanceId);
+      if (!instance) return reply.code(404).send({ error: { code: "not_found", message: "The instance does not exist." } });
+      const observation = await observeMetadata(instance, query.data.force === "true");
+      const timestamp = observation.observedAt!;
+      const detectedPorts = (observation.association?.state === "matched" ? observation.ports : [])
+        .filter((detected) => detected.hostPort !== null)
         .map((detected) => ({
           id: `docker-${detected.hostAddress || "any"}-${detected.hostPort || "none"}-${detected.containerPort}-${detected.protocol}`,
           instanceId,
@@ -597,8 +615,9 @@ export function registerApiRoutes(
       return {
         ports: [...detectedPorts, ...manualPorts],
         detection: {
-          available: Boolean(observation.container),
-          error: observation.container ? null : observation.issues[0] || "No Gluetun container was found."
+          observedAt: observation.observedAt,
+          available: Boolean(observation.container) && observation.association?.state === "matched",
+          error: observation.association?.state === "unverified" ? observation.association.message : observation.container ? null : observation.issues[0] || "No Gluetun container was found."
         }
       };
     } catch (error) {
@@ -606,14 +625,12 @@ export function registerApiRoutes(
         ports: manualPorts,
         detection: { available: false, error: error instanceof Error ? error.message : "Automatic Docker port detection is unavailable." }
       };
-    } finally {
-      observer.close();
     }
   });
 
   const portSchema = z.object({
     label: z.string().trim().min(1).max(100),
-    hostAddress: z.string().trim().max(100).nullable().optional().default(null),
+    hostAddress: z.string().trim().max(100).refine((value) => Boolean(net.isIP(value)), "Enter a valid IPv4 or IPv6 host address.").nullable().optional().default(null),
     hostPort: z.number().int().min(1).max(65_535).nullable().optional().default(null),
     containerPort: z.number().int().min(1).max(65_535),
     protocol: z.enum(["tcp", "udp"]),
@@ -625,9 +642,10 @@ export function registerApiRoutes(
     if (!session || !requireCsrf(request, reply, session)) return;
     try {
       const instanceId = (request.params as any).instanceId as string;
+      if (!db.getInstance(instanceId)) return reply.code(404).send({ error: { code: "not_found", message: "Gluetun instance not found." } });
       const body = portSchema.parse(request.body);
-      const collisions = body.hostPort ? db.listPorts(instanceId).filter((port) => port.hostPort === body.hostPort && port.protocol === body.protocol) : [];
-      if (collisions.length) throw new Error("A local port label already uses this host port and protocol.");
+      const collisions = body.hostPort ? db.listPorts(instanceId).filter((port) => port.hostPort && bindingsOverlap({ address: port.hostAddress ?? "", first: port.hostPort, last: port.hostPort, protocol: port.protocol }, { address: body.hostAddress ?? "", first: body.hostPort!, last: body.hostPort!, protocol: body.protocol })) : [];
+      if (collisions.length) throw new FieldValidationError("hostPort", "A local port note overlaps this host address, port and protocol. Review the existing note or choose a different mapping.");
       const port = db.savePort({ id: crypto.randomUUID(), instanceId, ...body });
       audit(request, { userId: session.user.id, instanceId, type: "port_label_created", result: "success", metadata: { label: port.label, hostPort: port.hostPort, containerPort: port.containerPort, protocol: port.protocol } });
       return reply.code(201).send({ port });
@@ -643,11 +661,12 @@ export function registerApiRoutes(
     try {
       const instanceId = (request.params as any).instanceId as string;
       const id = z.string().uuid().parse((request.params as any).labelId);
+      if (!db.listPorts(instanceId).some((port) => port.id === id)) return reply.code(404).send({ error: { code: "not_found", message: "Port label not found." } });
       const body = portSchema.parse(request.body);
       const collisions = body.hostPort
-        ? db.listPorts(instanceId).filter((port) => port.id !== id && port.hostPort === body.hostPort && port.protocol === body.protocol)
+        ? db.listPorts(instanceId).filter((port) => port.id !== id && port.hostPort && bindingsOverlap({ address: port.hostAddress ?? "", first: port.hostPort, last: port.hostPort, protocol: port.protocol }, { address: body.hostAddress ?? "", first: body.hostPort!, last: body.hostPort!, protocol: body.protocol }))
         : [];
-      if (collisions.length) throw new Error("A local port label already uses this host port and protocol.");
+      if (collisions.length) throw new FieldValidationError("hostPort", "A local port note overlaps this host address, port and protocol. Review the existing note or choose a different mapping.");
       const port = db.savePort({ id, instanceId, ...body });
       audit(request, { userId: session.user.id, instanceId, type: "port_label_updated", result: "success", metadata: { label: port.label } });
       return { port };
@@ -683,6 +702,42 @@ export function registerApiRoutes(
     return { providers: gluetunProviderProfiles, gluetunVersion: "latest", gluetunImage: "qmcgaw/gluetun:latest" };
   });
 
+  app.get("/api/v1/management", async (request, reply) => {
+    if (!requireSession(request, reply, db)) return;
+    if (!appConfig.managerUrl) return { enabled: false, candidates: [], projects: [], operations: [] };
+    const client = new ManagerClient(appConfig.managerUrl, appConfig.managerKey, appConfig.allowLoopbackUpstream);
+    try { return { enabled: true, ...redactValue(await client.request("status")) as Record<string, unknown> }; }
+    catch { return reply.code(503).send({ error: { code: "manager_unavailable", message: "Managed changes are unavailable. Check the optional helper deployment, its project allowlist and Docker socket access." } }); }
+    finally { await client.close(); }
+  });
+  for (const action of ["adopt", "plan", "apply", "diagnostics", "settings", "export", "prune", "recovery-review", "recovery-complete", "cleanup-review", "cleanup"] as const) {
+    app.post(`/api/v1/management/${action}`, async (request, reply) => {
+      const session = requireSession(request, reply, db);
+      if (!session || !requireCsrf(request, reply, session)) return;
+      if (!managerLimiter.consume(`${session.user.id}:${action}`)) return reply.code(429).send({ error: { code: "rate_limited", message: "Too many managed changes. Wait before retrying." } });
+      if (!appConfig.managerUrl) return reply.code(409).send({ error: { code: "manager_disabled", message: "Enable the optional managed deployment before applying changes." } });
+      const body = action === "prune" ? z.object({ confirmed: z.literal(true) }).strict().parse(request.body)
+        : action === "export" ? z.object({ projectId: z.string().uuid(), source: z.string().max(200_000) }).strict().parse(request.body)
+        : action === "recovery-review" || action === "cleanup-review" ? z.object({ operationId: z.string().uuid() }).strict().parse(request.body)
+        : action === "recovery-complete" || action === "cleanup" ? z.object({ operationId: z.string().uuid(), fingerprint: z.string().uuid(), confirmed: z.literal(true) }).strict().parse(request.body)
+        : action === "diagnostics" || action === "settings" ? z.object({ projectId: z.string().uuid() }).strict().parse(request.body) : action === "adopt"
+        ? z.object({ vpnId: z.string().regex(/^[a-f0-9]{64}$/), clientIds: z.array(z.string().regex(/^[a-f0-9]{64}$/)).max(20), confirmed: z.literal(true) }).strict().parse(request.body)
+        : action === "plan" ? z.object({ projectId: z.string().uuid(), input: composeInputSchema }).strict().parse(request.body)
+        : z.object({ planId: z.string().uuid(), confirmed: z.literal(true) }).strict().parse(request.body);
+      const client = new ManagerClient(appConfig.managerUrl, appConfig.managerKey, appConfig.allowLoopbackUpstream);
+      const identity = "projectId" in body ? { projectId: body.projectId } : "planId" in body ? { planId: body.planId } : "vpnId" in body ? { vpnId: body.vpnId } : "operationId" in body ? { operationId: body.operationId } : {};
+      if ((action === "apply" || action === "cleanup")) dockerCache.invalidate();
+      try {
+        const result = await client.request(action, body);
+        audit(request, { userId: session.user.id, instanceId: null, type: `managed_${action}`, result: "success", metadata: { action, ...identity, ...(result.operation?.id ? { operationId: result.operation.id } : {}) } });
+        return reply.code(action === "apply" ? 202 : 200).send(redactValue(result));
+      } catch (error) {
+        audit(request, { userId: session.user.id, instanceId: null, type: `managed_${action}`, result: "failed", metadata: { action, ...identity } });
+        return reply.code(409).send({ error: { code: "managed_change_failed", message: error instanceof Error ? redactText(error.message) : "The managed operation failed." } });
+      } finally { if ((action === "apply" || action === "cleanup")) dockerCache.invalidate(); await client.close(); }
+    });
+  }
+
   app.get("/api/v1/compose/providers/:providerId/server-options", async (request, reply) => {
     if (!requireSession(request, reply, db)) return;
     const providerId = z.string().max(80).parse((request.params as any).providerId);
@@ -692,12 +747,14 @@ export function registerApiRoutes(
       vpnType: z.enum(["openvpn", "wireguard"]),
       field: z.enum(serverFilterKeys),
       q: z.string().max(500).default(""),
+      countries: z.string().max(500).optional(), regions: z.string().max(500).optional(), cities: z.string().max(500).optional(),
+      hostnames: z.string().max(2000).optional(), names: z.string().max(2000).optional(), categories: z.string().max(500).optional(), isps: z.string().max(500).optional(),
       limit: z.coerce.number().int().min(1).max(100).default(50)
     }).parse(request.query);
     if (!profile.protocols.includes(query.vpnType) || !profile.serverFilters.includes(query.field)) {
       return reply.code(400).send({ error: { code: "unsupported_server_filter", message: "This filter is not supported for the selected provider and protocol." } });
     }
-    const result = serverCatalog.query(profile.id, query.vpnType, query.field, query.q, query.limit);
+    const result = serverCatalog.query(profile.id, query.vpnType, query.field, query.q, query.limit, query);
     return result ? { options: result } : reply.code(404).send({ error: { code: "server_catalog_unavailable", message: "No server catalog is available for this provider." } });
   });
 
@@ -744,6 +801,27 @@ export function registerApiRoutes(
       const taskType = body.input.taskType;
       const input = body.input as ComposeGenerationInput;
       const result = generateCompose(input, serverCatalog);
+      if (taskType === "publish_app_port") {
+        const check: import("../compose/generator.js").ComposeValidationCheck = { id: "selected_ports", label: "Selected Docker port configuration", status: "not_run", detail: "No matching Docker observation is available. Other containers and host processes have not been checked; this proposal does not prove the host port is free." };
+        result.validation.checks.splice(3, 0, check);
+        const instance = body.instanceId ? db.getInstance(body.instanceId) : null;
+        if (body.instanceId && !instance) return reply.code(404).send({ error: { code: "not_found", message: "The selected connection no longer exists. Choose it again before generating." } });
+        if (result.validation.valid && instance && appConfig.dockerProxyUrl) {
+          try {
+            const observation = await observeMetadata(instance, true);
+            if (observation.association?.state === "matched" && db.getInstance(instance.id)?.baseUrl === instance.baseUrl) {
+              const proposed = { address: input.hostAddress ?? "", first: input.hostPort!, last: input.hostPort!, protocol: input.protocol ?? "tcp", target: input.containerPort! };
+              const conflicts = observation.ports.some(port => port.hostPort && port.containerPort !== proposed.target && bindingsOverlap(proposed, { address: port.hostAddress ?? "", first: port.hostPort, last: port.hostPort, protocol: port.protocol }));
+              if (conflicts) throw new FieldValidationError("hostPort", "The selected Gluetun Docker configuration already maps this host address, port and protocol to a different container port. Choose another host port or review the existing mapping.");
+              check.status = "passed";
+              check.detail = `No conflicting mapping in the selected Gluetun configuration observed at ${observation.observedAt ?? "an unavailable time"}. Docker state: ${observation.container?.state ?? "unknown"}. Other containers and host processes were not checked; this is not a host-listener or free-port guarantee.`;
+            }
+          } catch (failure) {
+            if (failure instanceof FieldValidationError) throw failure;
+            check.detail = "Docker port inspection failed. Other containers and host processes have not been checked. Review host port occupancy manually before applying.";
+          }
+        }
+      }
       if (body.saveDraft) {
         const redacted = generateCompose({ ...input, includeSecrets: false }, serverCatalog);
         db.saveDraft({
@@ -766,7 +844,35 @@ export function registerApiRoutes(
 
   app.get("/api/v1/compose/drafts", async (request, reply) => {
     if (!requireSession(request, reply, db)) return;
-    return { drafts: db.listDrafts() };
+    const query = z.object({ summary: z.enum(["true", "false"]).optional(), offset: z.coerce.number().int().min(0).max(1_000_000).default(0) }).strict().parse(request.query);
+    if (query.summary === "true") {
+      const rows = db.draftSummaries(query.offset);
+      return { drafts: redactValue(rows.slice(0, 50)), hasMore: rows.length > 50 };
+    }
+    return { drafts: db.listDrafts().map((value) => {
+      const draft = value as Record<string, unknown>;
+      return { ...draft, input: redactValue(draft.input), output: redactText(String(draft.output ?? "")), title: redactText(String(draft.title ?? "")) };
+    }) };
+  });
+
+  app.get("/api/v1/compose/drafts/:draftId", async (request, reply) => {
+    if (!requireSession(request, reply, db)) return;
+    const id = z.string().uuid().parse((request.params as { draftId: string }).draftId);
+    const draft = db.getDraft(id);
+    if (!draft) return reply.code(404).send({ error: { code: "draft_not_found", message: "This draft no longer exists. Refresh the saved drafts list." } });
+    try {
+      const values = JSON.parse(String(draft.rawInput));
+      if (!values || typeof values !== "object" || Array.isArray(values)) throw new Error();
+      for (const field of ["hostPort", "containerPort", "wireguardEndpointPort"]) {
+        if (typeof values[field] === "string" && /^\d+$/.test(values[field])) values[field] = Number(values[field]);
+      }
+      const parsed = composeInputSchema.strip().safeParse({ ...values, taskType: draft.taskType, includeSecrets: false });
+      if (!parsed.success) throw new Error();
+      const { rawInput: _rawInput, ...summary } = draft;
+      return { draft: { ...redactValue(summary) as Record<string, unknown>, input: { ...redactedDraftInput(parsed.data as ComposeGenerationInput), includeSecrets: false } } };
+    } catch {
+      return reply.code(409).send({ error: { code: "draft_unsupported", message: "This draft has unreadable or unsupported settings. Keep the original record and start a new draft." } });
+    }
   });
 
   app.post("/api/v1/compose/drafts", async (request, reply) => {
@@ -778,13 +884,21 @@ export function registerApiRoutes(
   app.delete("/api/v1/compose/drafts/:draftId", async (request, reply) => {
     const session = requireSession(request, reply, db);
     if (!session || !requireCsrf(request, reply, session)) return;
-    return { deleted: db.deleteDraft((request.params as any).draftId as string) };
+    return db.raw.transaction(() => {
+      const deleted = db.deleteDraft((request.params as any).draftId as string);
+      audit(request, { userId: session.user.id, instanceId: null, type: "draft_deleted", result: deleted ? "success" : "not_found", metadata: { count: Number(deleted) } });
+      return { deleted };
+    }).immediate();
   });
 
   app.delete("/api/v1/compose/drafts", async (request, reply) => {
     const session = requireSession(request, reply, db);
     if (!session || !requireCsrf(request, reply, session)) return;
-    return { deleted: db.clearDrafts() };
+    return db.raw.transaction(() => {
+      const deleted = db.clearDrafts();
+      audit(request, { userId: session.user.id, instanceId: null, type: "drafts_cleared", result: "success", metadata: { count: deleted } });
+      return { deleted };
+    }).immediate();
   });
 
   app.get("/api/v1/activity", async (request, reply) => {
@@ -802,10 +916,12 @@ export function registerApiRoutes(
     const instance = db.listInstances()[0] ?? null;
     return {
       tuniku: { status: "running", uptimeSeconds: Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000) },
-      database: { status: db.isReady() ? "ready" : "unavailable", migrationVersion: 4 },
+      database: { status: db.isReady() ? "ready" : "unavailable", migrationVersion: 4, journalMode: db.raw.pragma("journal_mode", { simple: true }), storage: storageDiagnostics(appConfig.databasePath) },
+      transport: { mode: appConfig.secureCookies ? "https_proxy" : "local_http", observedProtocol: request.protocol, trustedProxyCount: appConfig.trustedProxyCount },
       setup: { completed: db.adminCount() > 0 },
       gluetun: {
         configured: Boolean(instance),
+        accessState: instance ? state.accessState(instance) : "not_configured",
         lastConnectedAt: instance?.lastConnectedAt ?? null,
         capabilities: instance?.capabilityCache ?? null
       },
@@ -820,7 +936,13 @@ export function registerApiRoutes(
     }
     const observer = new DockerObserver(appConfig.dockerProxyUrl, appConfig.allowLoopbackUpstream);
     try {
-      return { observation: await observer.observeGluetun() };
+      const options = z.object({ tail: z.coerce.number().int().min(1).max(1000).optional(), since: z.coerce.number().int().nonnegative().optional(), until: z.coerce.number().int().nonnegative().optional(), includeLogs: z.enum(["true", "false"]).optional(), force: z.enum(["true", "false"]).optional() }).strict().safeParse(request.query);
+      if (!options.success) return reply.code(400).send({ error: { code: "invalid_log_query", message: "Choose a valid log range and a line limit between 1 and 1000." } });
+      try { logQuery(options.data); } catch { return reply.code(400).send({ error: { code: "invalid_log_query", message: "Choose a valid past log time range." } }); }
+      const instance = db.listInstances()[0] ?? null;
+      if (options.data.includeLogs === "false") return { observation: await observeMetadata(instance, options.data.force === "true") };
+      const observation = await observer.observeGluetun(instance?.baseUrl, true, options.data);
+      return { observation: { ...observation, observedAt: new Date().toISOString() } };
     } catch (error) {
       return reply.code(502).send({
         error: {
@@ -852,6 +974,7 @@ export function registerApiRoutes(
       logLevel: appConfig.logLevel,
       setupCompleted: db.adminCount() > 0,
       gluetunOrigin: instance ? new URL(instance.baseUrl).origin : null,
+      accessState: instance ? state.accessState(instance) : "not_configured",
       capabilities: instance?.capabilityCache ?? null
     });
   });

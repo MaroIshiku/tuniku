@@ -1,0 +1,13 @@
+{
+  "id": "DEC-RELEASE-CHANNEL-001",
+  "decision": "Main builds may continue updating latest.",
+  "constraints": [
+    "Coordinate main and release registry writes, separate candidate tags and prevent older source commits from replacing newer latest.",
+    "Promote the checked digest without rebuilding; keep verification gates.",
+    "No publication is authorized by this decision.",
+    "The managed release workflow is locally adapted for this approved Tuniku channel policy. Manifest and kit lock retain both upstream and installed SHA256 provenance; all checksum checks and release gates remain enforced. A future kit sync must review the intentional workflow conflict."
+  ],
+  "date": "2026-10-07",
+  "authorization": "Explicit product-owner answer on 2026-10-07.",
+  "risk_class": "C"
+}

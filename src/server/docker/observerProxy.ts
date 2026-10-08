@@ -1,3 +1,6 @@
+import { gluetunStorage } from "./storage.js";
+import { logQuery } from "./logOptions.js";
+import { aggregateNetworkCounters } from "./trafficCounters.js";
 import http from "node:http";
 
 const socketPath = process.env.DOCKER_SOCKET_PATH || "/var/run/docker.sock";
@@ -30,7 +33,7 @@ async function gluetunContainer(): Promise<any | null> {
   if (response.status !== 200) throw new Error(`Docker returned HTTP ${response.status}.`);
   const containers = JSON.parse(response.body.toString("utf8"));
   if (!Array.isArray(containers)) throw new Error("Docker returned an invalid container list.");
-  const scored = containers.map((container: any) => {
+  const scored = containers.filter((container: any) => !(["exited", "created"].includes(String(container.State)) && (container.Names ?? []).some((name: string) => /-tuniku-backup-[a-f0-9]{8}$/.test(name)))).map((container: any) => {
     const names = Array.isArray(container?.Names) ? container.Names.map((name: unknown) => String(name).replace(/^\//, "")) : [];
     const labels = container?.Labels && typeof container.Labels === "object" ? container.Labels : {};
     const image = String(container?.Image || "");
@@ -39,15 +42,13 @@ async function gluetunContainer(): Promise<any | null> {
     if (labels["com.docker.compose.service"] === "gluetun") score += 500;
     if (names.includes("gluetun")) score += 300;
     if (/(?:^|\/)gluetun(?:[:@]|$)/i.test(image)) score += 200;
-    if (String(container?.State || "").toLowerCase() === "running") score += 20;
+    if (score > 0 && String(container?.State || "").toLowerCase() === "running") score += 20;
     return { container, score };
   }).filter(({ score }: { score: number }) => score > 0);
-  scored.sort((left: { score: number }, right: { score: number }) => right.score - left.score);
-  return scored[0]?.container ?? null;
-}
-
-function safeByteCounter(value: unknown): number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  const explicit = scored.filter(({ container }: { container: any }) => container.Labels?.["com.ishiku.tuniku.role"] === "gluetun");
+  const candidates = explicit.length ? explicit : scored;
+  if (candidates.length > 1) throw Object.assign(new Error("Ambiguous Gluetun association."), { code: "GLUETUN_AMBIGUOUS" });
+  return candidates[0]?.container ?? null;
 }
 
 function sendJson(response: http.ServerResponse, status: number, value: unknown): void {
@@ -61,12 +62,18 @@ const server = http.createServer(async (request, response) => {
     const url = new URL(request.url || "/", "http://observer.local");
     if (request.method !== "GET") return sendJson(response, 405, { error: "method_not_allowed" });
     if (url.pathname === "/health") return sendJson(response, 200, { status: "ok" });
+    if (url.pathname === "/readyz") {
+      const ping = await dockerRequest("/_ping");
+      if (ping.status !== 200 || ping.body.toString().trim() !== "OK") return sendJson(response, 503, { error: "docker_unavailable" });
+      return sendJson(response, 200, { status: "ready" });
+    }
     if (url.pathname === "/containers/json" && url.searchParams.get("all") === "1") {
       const container = await gluetunContainer();
       return sendJson(response, 200, container ? [{
         Id: container.Id,
         Names: container.Names,
         Image: container.Image,
+        Labels: { "com.ishiku.tuniku.role": "gluetun" },
         State: container.State
       }] : []);
     }
@@ -82,18 +89,12 @@ const server = http.createServer(async (request, response) => {
       }
       if (statsResponse.status !== 200) return sendJson(response, statsResponse.status, { error: "stats_failed" });
       const stats = JSON.parse(statsResponse.body.toString("utf8"));
-      const networks = stats?.networks && typeof stats.networks === "object"
-        ? Object.values(stats.networks)
-        : stats?.network && typeof stats.network === "object"
-          ? [stats.network]
-          : [];
-      if (networks.length === 0) return sendJson(response, 422, { error: "network_counters_unavailable" });
-      const receivedBytes = networks.reduce((total: number, network: any) => total + safeByteCounter(network?.rx_bytes), 0);
-      const sentBytes = networks.reduce((total: number, network: any) => total + safeByteCounter(network?.tx_bytes), 0);
+      let counters: { receivedBytes: number; sentBytes: number };
+      try { counters = aggregateNetworkCounters(stats); }
+      catch { return sendJson(response, 422, { error: "network_counters_unavailable" }); }
       return sendJson(response, 200, {
         containerId: String(container.Id),
-        receivedBytes,
-        sentBytes,
+        ...counters,
         observedAt: new Date().toISOString()
       });
     }
@@ -104,7 +105,10 @@ const server = http.createServer(async (request, response) => {
     const requestedId = (inspectMatch ?? logsMatch)?.[1] ?? "";
     if (!container?.Id || !String(container.Id).startsWith(requestedId)) return sendJson(response, 404, { error: "gluetun_not_found" });
     if (logsMatch) {
-      const logs = await dockerRequest(`/containers/${encodeURIComponent(container.Id)}/logs?stdout=1&stderr=1&tail=200&timestamps=1`);
+      let query: string;
+      try { query = logQuery(Object.fromEntries(["tail", "since", "until"].filter((key) => url.searchParams.has(key)).map((key) => [key, Number(url.searchParams.get(key))]))); }
+      catch { return sendJson(response, 400, { error: "invalid_log_query" }); }
+      const logs = await dockerRequest(`/containers/${encodeURIComponent(container.Id)}/logs?${query}`);
       response.writeHead(logs.status, { "content-type": logs.headers["content-type"] || "application/octet-stream", "content-length": logs.body.length });
       response.end(logs.body);
       return;
@@ -119,7 +123,12 @@ const server = http.createServer(async (request, response) => {
       if (["VPN_SERVICE_PROVIDER", "VPN_TYPE"].includes(name)) return [entry];
       return value ? [`${name}=`] : [];
     }) : [];
+    const controlAddress = (inspected?.Config?.Env ?? []).find((entry: string) => entry.startsWith("HTTP_CONTROL_SERVER_ADDRESS="))?.slice("HTTP_CONTROL_SERVER_ADDRESS=".length) ?? ":8000";
+    const portMatch = String(controlAddress).match(/:(\d+)$/);
+    const controlPort = portMatch ? Number(portMatch[1]) : null;
     return sendJson(response, 200, {
+      Storage: gluetunStorage(inspected),
+      ControlServer: { port: controlPort && controlPort <= 65535 ? controlPort : null },
       Id: inspected?.Id,
       Name: inspected?.Name,
       Config: { Image: inspected?.Config?.Image, Env: safeEnvironment, ExposedPorts: inspected?.Config?.ExposedPorts },
@@ -129,7 +138,9 @@ const server = http.createServer(async (request, response) => {
       NetworkSettings: { Ports: inspected?.NetworkSettings?.Ports, Networks: inspected?.NetworkSettings?.Networks }
     });
   } catch (error) {
-    return sendJson(response, 502, { error: error instanceof Error ? error.message : "docker_observation_failed" });
+    const code = (error as NodeJS.ErrnoException)?.code;
+    const reason = code === "GLUETUN_AMBIGUOUS" ? "gluetun_ambiguous" : code === "ENOENT" ? "docker_socket_missing" : ["EACCES", "EPERM"].includes(code ?? "") ? "docker_socket_permission_denied" : "docker_unavailable";
+    return sendJson(response, request.url === "/readyz" ? 503 : code === "GLUETUN_AMBIGUOUS" ? 409 : 502, { error: reason });
   }
 });
 

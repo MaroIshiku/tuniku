@@ -32,6 +32,14 @@ function extractChoices(servers) {
   return choices;
 }
 
+function extractRows(servers) {
+  return servers.map((server) => Object.fromEntries(Object.entries(keys).flatMap(([target, source]) => {
+    const raw = server[source];
+    const values = (Array.isArray(raw) ? raw : [raw]).filter((value) => typeof value === "string" && value.length > 0 && value.length <= 500);
+    return values.length ? [[target, values]] : [];
+  })));
+}
+
 for (const provider of Object.keys(manifest).filter((key) => key !== "version").sort()) {
   const document = JSON.parse(fs.readFileSync(path.join(sourceDirectory, `${provider}.json`), "utf8"));
   const servers = Array.isArray(document.servers) ? document.servers : [];
@@ -40,6 +48,10 @@ for (const provider of Object.keys(manifest).filter((key) => key !== "version").
     protocols: {
       openvpn: extractChoices(servers.filter((server) => server.vpn === "openvpn")),
       wireguard: extractChoices(servers.filter((server) => server.vpn === "wireguard"))
+    },
+    rows: {
+      openvpn: extractRows(servers.filter((server) => server.vpn === "openvpn")),
+      wireguard: extractRows(servers.filter((server) => server.vpn === "wireguard"))
     }
   };
 }

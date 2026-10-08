@@ -54,7 +54,7 @@ describe("Compose Assistant", () => {
       taskType: "new_gluetun_setup",
       provider: "protonvpn",
       vpnType: "wireguard",
-      wireguardPrivateKey: "do-not-persist",
+      wireguardPrivateKey: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
       authMode: "api_key",
       apiKey: "control-api-key",
       includeSecrets: false
@@ -99,13 +99,13 @@ describe("Compose Assistant", () => {
       taskType: "new_gluetun_setup",
       provider: "protonvpn",
       vpnType: "wireguard",
-      wireguardPrivateKey: "private-key",
+      wireguardPrivateKey: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
       authMode: "api_key",
       apiKey: "control-key",
       includeSecrets: true
     });
     const compose = YAML.parse(result.snippets.compose);
-    expect(compose.services.gluetun.environment.WIREGUARD_PRIVATE_KEY).toBe("private-key");
+    expect(compose.services.gluetun.environment.WIREGUARD_PRIVATE_KEY).toBe("AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=");
     expect(compose.services.gluetun.environment.HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE).toContain("control-key");
     expect(result.redacted).toBe(false);
     expect(result.snippets.compose).not.toContain("${");

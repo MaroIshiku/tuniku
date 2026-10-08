@@ -1,0 +1,15 @@
+{
+  "id": "DEC-LOCAL-RECOVERY-001",
+  "date": "2026-10-07",
+  "decision": "Implement offline local administrator password recovery only; defer TOTP and recovery codes.",
+  "authorization": "Product owner selected: Nur lokale Admin-Recovery; TOTP später. Concrete proposal in local planning was reviewed before implementation.",
+  "constraints": [
+    "No public recovery endpoint, universal password or new sign-in method.",
+    "Interactive hidden password input only; require existing private database and owner-only local storage, stopped-service and backup confirmation.",
+    "Preserve administrator identity, VPN settings, encrypted credentials, downloads, and encryption keys; atomically replace the selected password and revoke its sessions.",
+    "Recovery never creates a database or performs schema migration; record a secret-free audit event.",
+    "No live NAS account mutation or deployment is authorized by this decision.",
+    "TOTP remains a documented coverage gap; this decision does not waive applicable release security gates."
+  ],
+  "risk_class": "D"
+}

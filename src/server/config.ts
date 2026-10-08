@@ -74,7 +74,7 @@ export function loadConfig(environment: Environment = process.env) {
     ["/run/secrets/ishiku_setup_secret", "/run/secrets/tuniku_registration_secret"]
   );
 
-  const httpsOnly = (environment.HTTPS_ONLY || environment.HTTPSONLY || environment.TUNIKU_SECURE_COOKIES) === "true";
+  const httpsOnly = (environment.HTTPS_ONLY || environment.HTTPSONLY || environment.TUNIKU_SECURE_COOKIES || "false").trim().toLowerCase() === "true";
 
   return {
     host: environment.TUNIKU_HOST || "0.0.0.0",
@@ -86,6 +86,13 @@ export function loadConfig(environment: Environment = process.env) {
     secureCookies: httpsOnly,
     allowLoopbackUpstream: environment.TUNIKU_ALLOW_LOOPBACK_UPSTREAM === "true",
     dockerProxyUrl: environment.TUNIKU_DOCKER_PROXY_URL?.trim() || null,
+    managerUrl: environment.TUNIKU_MANAGER_URL?.trim() || null,
+    managerKey: readOrCreatePersistentSecret({
+      environment,
+      fileEnvs: [], fallbackEnvs: [], defaultFiles: [],
+      persistentFile: path.join(runtimeSecretPath, "manager-key"), label: "manager key",
+      generate: () => crypto.randomBytes(48).toString("base64url")
+    }),
     registrationSecret: registrationSecret && registrationSecret.length >= 32 ? registrationSecret : null,
     sessionSecret: readOrCreatePersistentSecret({
       environment,

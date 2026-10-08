@@ -56,19 +56,29 @@ describe("Docker observer helper process", () => {
     const containerId = "abcdef1234567890";
     let oneShotRequested = false;
     let compatibleStatsRequested = false;
+    let onlyUnrelatedContainers = false;
+    let ambiguous = false;
+    const requests: string[] = [];
     const docker = http.createServer((request, response) => {
+      requests.push(`${request.method} ${request.url}`);
+      if (request.url === "/_ping") { response.writeHead(200, { connection: "close" }); response.end("OK"); return; }
       const send = (status: number, value: unknown) => {
         const body = JSON.stringify(value);
-        response.writeHead(status, { "content-type": "application/json", "content-length": Buffer.byteLength(body) });
+        response.writeHead(status, { "content-type": "application/json", "content-length": Buffer.byteLength(body), connection: "close" });
         response.end(body);
       };
       if (request.url === "/containers/json?all=1") {
+        if (ambiguous) return send(200, [
+          { Id: containerId, Names: ["/vpn"], Image: "qmcgaw/gluetun:latest", State: "running", Labels: { "com.ishiku.tuniku.role": "gluetun" } },
+          { Id: "4444444444444444", Names: ["/gluetun"], Image: "qmcgaw/gluetun:latest", State: "running", Labels: { "com.ishiku.tuniku.role": "gluetun" } }
+        ]);
+        if (onlyUnrelatedContainers) return send(200, [{ Id: "2222222222222222", Names: ["/unrelated-service"], Image: "example/app:latest", State: "running" }]);
         return send(200, [
           { Id: "1111111111111111", Names: ["/old-gluetun"], Image: "qmcgaw/gluetun:latest", State: "exited" },
           {
             Id: containerId,
-            Names: ["/vpn"],
-            Image: "qmcgaw/gluetun:latest",
+            Names: ["/individually-named-vpn"],
+            Image: `sha256:${"c".repeat(64)}`,
             State: "running",
             Labels: { "com.ishiku.tuniku.role": "gluetun" }
           }
@@ -86,7 +96,8 @@ describe("Docker observer helper process", () => {
         return send(200, {
           Id: containerId,
           Name: "/vpn",
-          Config: { Image: "qmcgaw/gluetun:latest", Env: [], ExposedPorts: { "8000/tcp": {} } },
+          Mounts: [{ Type: "bind", Source: "/tmp/synthetic-private-host-path", Destination: "/gluetun", RW: true }],
+          Config: { Image: "qmcgaw/gluetun:latest", Env: ["HTTP_CONTROL_SERVER_ADDRESS=:8123", "OPENVPN_PASSWORD=synthetic-do-not-expose"], ExposedPorts: { "8000/tcp": {} } },
           HostConfig: { PortBindings: { "5800/tcp": [{ HostIp: "0.0.0.0", HostPort: "5800" }] } },
           State: { Status: "running", ExitCode: 0 },
           NetworkSettings: { Ports: {}, Networks: { tuniku: {} } }
@@ -108,6 +119,8 @@ describe("Docker observer helper process", () => {
     child.stderr?.on("data", (chunk) => { stderr += String(chunk); });
     const observerUrl = `http://127.0.0.1:${port}`;
     await waitForObserver(observerUrl, child, () => stderr);
+    expect((await fetch(`${observerUrl}/health`)).status).toBe(200);
+    expect((await fetch(`${observerUrl}/readyz`)).status).toBe(200);
 
     const trafficResponse = await fetch(`${observerUrl}/gluetun/traffic`);
     expect(trafficResponse.status).toBe(200);
@@ -120,11 +133,53 @@ describe("Docker observer helper process", () => {
     expect(compatibleStatsRequested).toBe(true);
 
     const listResponse = await fetch(`${observerUrl}/containers/json?all=1`);
-    expect(await listResponse.json()).toEqual([expect.objectContaining({ Id: containerId, Names: ["/vpn"] })]);
+    expect(await listResponse.json()).toEqual([expect.objectContaining({ Id: containerId, Names: ["/individually-named-vpn"], Image: `sha256:${"c".repeat(64)}` })]);
     const inspectResponse = await fetch(`${observerUrl}/containers/${containerId}/json`);
-    expect(await inspectResponse.json()).toMatchObject({
+    const inspected = await inspectResponse.json();
+    expect(JSON.stringify(inspected)).not.toContain("synthetic-private-host-path");
+    expect(inspected).not.toHaveProperty("Mounts");
+    expect(inspected).toMatchObject({
+      Storage: { state: "temporary", writable: null },
+      ControlServer: { port: 8123 },
       Config: { ExposedPorts: { "8000/tcp": {} } },
       HostConfig: { PortBindings: { "5800/tcp": [{ HostIp: "0.0.0.0", HostPort: "5800" }] } }
     });
+    const beforeDenied = requests.length;
+    expect((await fetch(`${observerUrl}/containers/${containerId}/restart`, { method: "POST" })).status).toBe(405);
+    expect((await fetch(`${observerUrl}/containers/${containerId}/exec`)).status).toBe(404);
+    expect((await fetch(`${observerUrl}/images/json`)).status).toBe(404);
+    expect(requests).toHaveLength(beforeDenied);
+    ambiguous = true;
+    const beforeAmbiguous = requests.length;
+    const conflict = await fetch(`${observerUrl}/containers/json?all=1`);
+    expect(conflict.status).toBe(409);
+    expect(await conflict.json()).toEqual({ error: "gluetun_ambiguous" });
+    expect((await fetch(`${observerUrl}/containers/${containerId}/json`)).status).toBe(409);
+    expect(requests.slice(beforeAmbiguous)).toEqual(["GET /containers/json?all=1", "GET /containers/json?all=1"]);
+    expect((await fetch(`${observerUrl}/readyz`)).status).toBe(200);
+    ambiguous = false;
+    onlyUnrelatedContainers = true;
+    expect(await (await fetch(`${observerUrl}/containers/json?all=1`)).json()).toEqual([]);
+    expect((await fetch(`${observerUrl}/gluetun/traffic`)).status).toBe(404);
+    expect((await fetch(`${observerUrl}/containers/2222222222222222/json`)).status).toBe(404);
+    expect(requests.every((request) => request.startsWith("GET "))).toBe(true);
+    expect(requests.some((request) => request.includes("/containers/2222222222222222/"))).toBe(false);
+    fs.chmodSync(socketPath, 0o000);
+    const deniedReady = await fetch(`${observerUrl}/readyz`);
+    expect(deniedReady.status).toBe(503);
+    expect(await deniedReady.json()).toEqual({ error: "docker_socket_permission_denied" });
+    expect((await fetch(`${observerUrl}/health`)).status).toBe(200);
+    fs.chmodSync(socketPath, 0o600);
+    expect((await fetch(`${observerUrl}/readyz`)).status).toBe(200);
+    await new Promise<void>((resolve) => docker.close(() => resolve()));
+    servers.splice(servers.indexOf(docker), 1);
+    if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
+    expect((await fetch(`${observerUrl}/health`)).status).toBe(200);
+    const notReady = await fetch(`${observerUrl}/readyz`);
+    expect(notReady.status).toBe(503);
+    expect(await notReady.json()).toEqual({ error: "docker_socket_missing" });
+    const unavailable = await fetch(`${observerUrl}/containers/json?all=1`);
+    expect(unavailable.status).toBe(502);
+    expect(await unavailable.json()).toEqual({ error: "docker_socket_missing" });
   });
 });

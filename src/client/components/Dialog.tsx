@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
+import { useModal } from "../lib/useModal.js";
 import { Icon } from "./Icon.js";
 import { useI18n } from "../lib/i18n.js";
 
@@ -12,20 +13,14 @@ export function Dialog(props: {
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  useEffect(() => {
-    if (!props.open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") props.onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [props.open, props.onClose]);
+  const ref = useModal(props.open, props.onClose);
+  const titleId = useId();
   if (!props.open) return null;
   return (
     <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && props.onClose()}>
-      <section className="dialog-card" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+      <section ref={ref} tabIndex={-1} className="dialog-card" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="dialog-heading">
-          <h2 id="dialog-title">{props.title}</h2>
+          <h2 id={titleId}>{props.title}</h2>
           <button className="icon-button" type="button" aria-label={t("close")} onClick={props.onClose}><Icon name="close" /></button>
         </div>
         <div className="dialog-content">{props.children}</div>

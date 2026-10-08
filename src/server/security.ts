@@ -1,9 +1,11 @@
 import crypto from "node:crypto";
 import dns from "node:dns/promises";
+import net from "node:net";
+import type { LookupFunction } from "node:net";
 import argon2 from "argon2";
 import type { UpstreamCredential } from "./types.js";
 
-const sensitiveKey = /(password|token|secret|private[_-]?key|api[_-]?key|authorization|credential|openvpn_user|wireguard)/i;
+const sensitiveKey = /(password|passphrase|token|secret|private[_-]?key|preshared[_-]?key|api[_-]?key|authorization|credential|openvpn[_-]?(?:user|cert|key|encrypted)|wireguard|http_control_server_auth)/i;
 const knownWeakPasswords = new Set(["changeme", "admin", "password", "passwort", "123456", "ishiku", "tuniku"]);
 
 export function timingSafeEqualText(left: string, right: string): boolean {
@@ -70,6 +72,11 @@ export function sha256(value: string): string {
 
 export function redactValue(value: unknown, key = ""): unknown {
   if (sensitiveKey.test(key)) return "[REDACTED]";
+  if (typeof value === "string") {
+    const assignment = value.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)=/);
+    if (assignment && sensitiveKey.test(assignment[1]!)) return `${assignment[1]}=[REDACTED]`;
+    return redactText(value);
+  }
   if (Array.isArray(value)) return value.map((entry) => redactValue(entry));
   if (value && typeof value === "object") {
     return Object.fromEntries(
@@ -84,6 +91,12 @@ export function redactValue(value: unknown, key = ""): unknown {
 
 export function redactText(input: string): string {
   return input
+    .replace(/([a-z][a-z0-9+.-]*:\/\/)[^\s/<>"']*@/gi, "$1[REDACTED]@")
+    .replace(/-----BEGIN [^-]*(?:PRIVATE KEY|CERTIFICATE)-----[\s\S]*?-----END [^-]+-----/g, "[REDACTED]")
+    .replace(/^.*(?:[A-Z0-9_]*(?:PASSWORD|TOKEN|SECRET|PRIVATE_KEY|PRESHARED_KEY|API_KEY|AUTH|OPENVPN_USER|OPENVPN_KEY|OPENVPN_CERT)[A-Z0-9_]*\s*[=:]).*$/gim, (line) => {
+      const match = line.match(/^(.*?(?:PASSWORD|TOKEN|SECRET|PRIVATE_KEY|PRESHARED_KEY|API_KEY|AUTH|OPENVPN_USER|OPENVPN_KEY|OPENVPN_CERT)[A-Z0-9_]*\s*[=:]\s*)/i);
+      return match ? `${match[1]}[REDACTED]` : "[REDACTED]";
+    })
     .replace(
       /(^|\n)(\s*(?:[A-Z0-9_]*(?:PASSWORD|TOKEN|SECRET|PRIVATE_KEY|API_KEY|AUTH)[A-Z0-9_]*?)\s*[:=]\s*)([^\n]+)/gi,
       "$1$2[REDACTED]"
@@ -137,9 +150,39 @@ function isBlockedIpv4(address: string, allowLoopback: boolean): boolean {
 
 function isBlockedIpv6(address: string, allowLoopback: boolean): boolean {
   const normalized = address.toLowerCase().split("%")[0] ?? "";
+  const mapped = normalized.match(/^::ffff:([a-f0-9]{1,4}):([a-f0-9]{1,4})$/);
+  if (mapped) {
+    const high = Number.parseInt(mapped[1]!, 16), low = Number.parseInt(mapped[2]!, 16);
+    return isBlockedIpv4(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`, allowLoopback);
+  }
+  if (normalized.startsWith("::ffff:")) return isBlockedIpv4(normalized.slice(7), allowLoopback);
+  if (normalized.startsWith("ff")) return true;
   if (normalized === "::" || normalized.startsWith("fe8") || normalized.startsWith("fe9") || normalized.startsWith("fea") || normalized.startsWith("feb")) return true;
   if (!allowLoopback && normalized === "::1") return true;
   return false;
+}
+
+function assertAddress(address: string, family: number, allowLoopback: boolean): void {
+  if (family === 4 ? isBlockedIpv4(address, allowLoopback) : isBlockedIpv6(address, allowLoopback)) {
+    throw new Error("The configured host resolves to a blocked destination.");
+  }
+}
+
+// Validate the addresses actually handed to the socket, including subsequent
+// resolutions; validating only before fetch leaves a DNS-rebinding window.
+export function safeLookup(allowLoopback: boolean): LookupFunction {
+  return (hostname, options, callback) => {
+    void dns.lookup(hostname, { all: true, verbatim: true }).then((addresses) => {
+      if (!addresses.length) throw new Error("The configured host could not be resolved.");
+      addresses.forEach(({ address, family }) => assertAddress(address, family, allowLoopback));
+      if (options.all) callback(null, addresses);
+      else {
+        const selected = addresses.find((entry) => !options.family || entry.family === options.family);
+        if (!selected) throw new Error("No address is available for the requested IP family.");
+        callback(null, selected.address, selected.family);
+      }
+    }).catch((error: Error) => callback(error, "", 4));
+  };
 }
 
 export async function validateUpstreamUrl(input: string, allowLoopback: boolean): Promise<string> {
@@ -152,16 +195,15 @@ export async function validateUpstreamUrl(input: string, allowLoopback: boolean)
   if (!["http:", "https:"].includes(url.protocol)) throw new Error("Only HTTP and HTTPS URLs are supported.");
   if (url.username || url.password) throw new Error("Credentials must not be embedded in the URL.");
   if (url.search || url.hash) throw new Error("The base URL must not contain a query or fragment.");
-  if (["metadata.google.internal", "metadata.aws.internal"].includes(url.hostname.toLowerCase())) {
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  if (["metadata.google.internal", "metadata.aws.internal"].includes(hostname.toLowerCase().replace(/\.$/, ""))) {
     throw new Error("Cloud metadata destinations are not allowed.");
   }
-  const addresses = await dns.lookup(url.hostname, { all: true, verbatim: true });
+  const family = net.isIP(hostname);
+  const addresses = family ? [{ address: hostname, family }] : await dns.lookup(hostname, { all: true, verbatim: true });
   if (addresses.length === 0) throw new Error("The configured host could not be resolved.");
   for (const result of addresses) {
-    const blocked = result.family === 4
-      ? isBlockedIpv4(result.address, allowLoopback)
-      : isBlockedIpv6(result.address, allowLoopback);
-    if (blocked) throw new Error("The configured host resolves to a blocked destination.");
+    assertAddress(result.address, result.family, allowLoopback);
   }
   url.pathname = url.pathname.replace(/\/+$/, "");
   return url.toString().replace(/\/$/, "");
@@ -169,14 +211,24 @@ export async function validateUpstreamUrl(input: string, allowLoopback: boolean)
 
 export class SlidingWindowRateLimiter {
   private readonly attempts = new Map<string, number[]>();
+  private lastCleanup = 0;
 
   constructor(
     private readonly maxAttempts: number,
-    private readonly windowMs: number
+    private readonly windowMs: number,
+    private readonly maxKeys = 10_000
   ) {}
 
   consume(key: string): boolean {
     const now = Date.now();
+    if (now - this.lastCleanup >= Math.min(this.windowMs, 60_000) || this.attempts.size >= this.maxKeys) {
+      for (const [candidate, timestamps] of this.attempts) {
+        if (now - (timestamps.at(-1) ?? 0) >= this.windowMs) this.attempts.delete(candidate);
+      }
+      this.lastCleanup = now;
+    }
+    // Saturation must not evict a blocked key and reset its attempt budget.
+    if (!this.attempts.has(key) && this.attempts.size >= this.maxKeys) return false;
     const active = (this.attempts.get(key) ?? []).filter((timestamp) => now - timestamp < this.windowMs);
     if (active.length >= this.maxAttempts) {
       this.attempts.set(key, active);

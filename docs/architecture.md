@@ -14,11 +14,10 @@ browser -> Tuniku UI -> Tuniku REST API -> Gluetun adapter -> Control Server
                          +-- provider schema + official server catalog
                          +-- generation-only Compose Assistant
                          +-- fixed client -> internal observer -> Docker socket
+                         +-- optional confirmed manager -> adopted containers
 ```
 
-Tuniku has no code path for Docker container creation, restart, update, delete,
-network mutation, volume mutation, image mutation, or `exec`. It never mounts a
-host Compose file and never writes one. The web application does not mount the
+The default deployment has no Docker mutation path. The optional separate manager implements confirmed, bounded container recreation for explicitly adopted projects; see [managed stacks](managed-stacks.md). Neither mode exposes arbitrary Docker operations, image updates, volume deletion or `exec`. Tuniku never mounts or writes a host Compose file. The web application does not mount the
 Docker socket. The primary deployment's separate observer helper mounts it and
 accepts only fixed GET routes for Gluetun list, inspect, bounded logs, and
 aggregate one-shot stats.
@@ -37,8 +36,7 @@ Control Server runtime settings. Tuniku therefore collects them in the
 authenticated Compose Assistant and produces reviewable standalone Compose
 text. The generated Compose contains direct values and does not require an env
 file; a separate env export is optional. Applying that proposal remains a
-manual ZimaOS operation; Tuniku does not gain Docker mutation or host-file
-access.
+manual ZimaOS operation for new deployments. The optional manager can apply a separate reviewed plan to adopted existing projects without host-file access.
 
 ## Provider data bootstrap
 
@@ -129,3 +127,20 @@ browser requests cached state every 10 seconds while visible and every 60
 seconds in the background. Data older than 45 seconds is marked stale. When the
 observer is configured, a separate optional 10-second poll records aggregate
 Gluetun network counters; failures do not affect either service's health.
+
+
+The Overview separates Control API reachability, reported VPN-process state and
+Docker container state/health. None alone proves a leak-free tunnel. **Open
+diagnostics and logs** opens Settings at the diagnostic heading with keyboard
+focus. Docker container restart counts do not count VPN-process restarts through
+the Control API. Metadata polling does not read logs; users explicitly refresh
+bounded log windows, filter loaded lines locally and export redacted text. A
+failed diagnostic refresh keeps last-known details visibly marked as outdated.
+
+### Observation scheduling
+
+Overview reads cached API status and persisted traffic every ten seconds (sixty seconds for a hidden page); Docker metadata and published ports are requested no more often than every thirty seconds. Manual Refresh requests fresh metadata. Authenticated metadata/port endpoints share an app-local, eight-entry cache with in-flight request coalescing, ten-second success TTL and two-second failure backoff. Cached responses keep the original observation timestamp. No secret values or logs enter the cache. Browser API responses retain Cache-Control: no-store.
+
+Connection saves, credential removal, completed Control mutations and managed apply attempts invalidate the cache and reject pre-change in-flight results. External container changes become visible at the next fresh observation; cached metadata is observational, never a mutation precondition. Traffic sampling independently verifies current association and full container identity every ten seconds and never uses this cache. Logs are loaded explicitly with their bounded time/line filters and bypass the cache.
+
+Browser API calls have a 45-second deadline covering fetch and the response body. Caller cancellation also interrupts the network request. Superseded Overview requests are aborted, connection/sign-out changes discard older data, and server suggestions retain a 250ms debounce with cancellation and result guards. Timed-out mutations are not retried automatically: the operator checks current state before repeating a change. These UI deadlines do not undo an operation already accepted by the server.

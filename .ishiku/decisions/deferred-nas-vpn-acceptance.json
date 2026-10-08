@@ -1,0 +1,12 @@
+{
+  "id": "DEC-VERIFY-002",
+  "date": "2026-10-08",
+  "authorization": "Owner explicitly requested NAS/VPN tests to be omitted for now while fixing requirement evidence and Gluetun HIGH findings.",
+  "decision": "Defer real NAS reboot, VPN connectivity/outage/leak and personal installation acceptance; use isolated synthetic evidence for the specified software behavior.",
+  "constraints": [
+    "No actual NAS/VPN pass claim, real data or live installation changes.",
+    "This deferral does not waive HIGH/CRITICAL vulnerability scans, compatibility checks or release evidence.",
+    "Production acceptance remains deferred and must be completed before claiming that installation verified."
+  ],
+  "risk_class": "C"
+}

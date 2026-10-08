@@ -1,0 +1,47 @@
+{
+  "id": "DEC-SEC-GLUETUN-002",
+  "approved": true,
+  "owner": "MaroIshiku",
+  "authorization": "Owner explicitly answered: Ja, diese begrenzte Ausnahme freigeben. The presented question limited approval to four known HIGH findings in the exact official Gluetun images until 22.10.2026, with strict Tuniku/new-finding gates.",
+  "validFrom": "2026-10-08T00:00:00+02:00",
+  "validUntil": "2026-10-22T23:59:59+02:00",
+  "architectures": {
+    "amd64": "sha256:f73e5025afde6c0542044426d4823794ca083e717e65afe5501dc34693ea7588",
+    "arm64": "sha256:eeeaeca301e6dda861eafd2ac08a6b6e1e6df125d29c1d74484617423b428782"
+  },
+  "findings": [
+    {
+      "VulnerabilityID": "CVE-2026-103111",
+      "PkgName": "pcre2",
+      "InstalledVersion": "10.48-r0",
+      "Severity": "HIGH"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-56854",
+      "PkgName": "golang.org/x/crypto",
+      "InstalledVersion": "v0.52.0",
+      "Severity": "HIGH"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-46600",
+      "PkgName": "golang.org/x/net",
+      "InstalledVersion": "v0.55.0",
+      "Severity": "HIGH"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-56852",
+      "PkgName": "golang.org/x/text",
+      "InstalledVersion": "v0.38.0",
+      "Severity": "HIGH"
+    }
+  ],
+  "controls": [
+    "Keep both architecture scans and preserve raw findings.",
+    "Reject CRITICAL, any new HIGH, changed package versions/images or expired exception.",
+    "Tuniku images must remain zero HIGH/CRITICAL on both architectures.",
+    "Keep non-root/read-only application isolation, authenticated bounded observer/manager, confirmation and generated configuration review.",
+    "Keep full build, source evidence, per-architecture lifecycle, SBOM/provenance, digest-only promotion and rollback checks.",
+    "Do not claim CVEs fixed, skipped NAS/VPN tests passed or actual production installation verified."
+  ],
+  "risk_class": "D"
+}

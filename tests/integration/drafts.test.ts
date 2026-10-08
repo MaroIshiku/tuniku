@@ -1,0 +1,54 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import crypto from "node:crypto";
+import { expect, it } from "vitest";
+import { buildApp } from "../../src/server/app.js";
+import { config } from "../../src/server/config.js";
+import { TunikuDatabase } from "../../src/server/db.js";
+
+it("lists bounded summaries and reopens redacted settings, including legacy ports, without trusting cached output", async () => {
+  const dataPath = fs.mkdtempSync(path.join(os.tmpdir(), "tuniku-drafts-")), databasePath = path.join(dataPath, "test.db");
+  const app = await buildApp({ ...config, dataPath, databasePath, logLevel: "silent", registrationSecret: "synthetic-draft-setup", sessionSecret: "synthetic-draft-session-secret-over-32", encryptionKey: "2".repeat(64), dockerProxyUrl: null, managerUrl: null });
+  const db = new TunikuDatabase(databasePath);
+  try {
+    expect((await app.inject({ url: "/api/v1/compose/drafts?summary=true" })).statusCode).toBe(401);
+    const register = await app.inject({ method: "POST", url: "/api/v1/auth/register-first-admin", payload: { setupSecret: "synthetic-draft-setup", displayName: "Synthetic Admin", username: "draft-admin", password: "synthetic-draft-admin-password", passwordConfirm: "synthetic-draft-admin-password" } });
+    const headers = { cookie: register.headers["set-cookie"] as string, "x-csrf-token": register.json().csrfToken };
+    const generated = await app.inject({ method: "POST", url: "/api/v1/compose/generate", headers, payload: { saveDraft: true, title: "Synthetic saved draft", input: { taskType: "configure_control_auth", authMode: "api_key", apiKey: "synthetic-never-return-api-key", includeSecrets: true } } });
+    expect(generated.statusCode).toBe(200);
+    const summaries = await app.inject({ url: "/api/v1/compose/drafts?summary=true", headers });
+    expect(summaries.json().drafts).toHaveLength(1); const id = summaries.json().drafts[0].id;
+    expect(summaries.body).not.toContain("synthetic-never-return-api-key"); expect(summaries.json().drafts[0]).not.toHaveProperty("input"); expect(summaries.json().drafts[0]).not.toHaveProperty("output");
+    expect((await app.inject({ url: `/api/v1/compose/drafts/${id}` })).statusCode).toBe(401);
+    const opened = await app.inject({ url: `/api/v1/compose/drafts/${id}`, headers });
+    expect(opened.statusCode).toBe(200); expect(opened.json().draft.input.apiKey).toBe("[REDACTED]"); expect(opened.json().draft.input.includeSecrets).toBe(false); expect(opened.body).not.toContain("synthetic-never-return-api-key");
+    const legacyId = crypto.randomUUID();
+    db.saveDraft({ id: legacyId, instanceId: null, title: "Legacy", taskType: "publish_app_port", nonSecretInput: { taskType: "publish_app_port", hostPort: "5800", containerPort: "5800", apiKey: "synthetic-legacy-secret", unknown: "synthetic-unknown-secret" }, redactedOutput: "synthetic-stale-unsafe-output", containsSecretValues: true });
+    const legacy = await app.inject({ url: `/api/v1/compose/drafts/${legacyId}`, headers });
+    expect(legacy.statusCode).toBe(200); expect(legacy.json().draft.input.hostPort).toBe(5800); expect(legacy.json().draft.input).not.toHaveProperty("unknown"); expect(legacy.body).not.toContain("synthetic-legacy-secret"); expect(legacy.body).not.toContain("synthetic-stale-unsafe-output");
+    db.raw.prepare("UPDATE compose_drafts SET non_secret_input_json=? WHERE id=?").run("invalid JSON", legacyId);
+    expect((await app.inject({ url: `/api/v1/compose/drafts/${legacyId}`, headers })).statusCode).toBe(409);
+    expect(db.getDraft(legacyId)?.rawInput).toBe("invalid JSON");
+    for (let index = 0; index < 52; index++) db.saveDraft({ id: crypto.randomUUID(), instanceId: null, title: `Page ${index}`, taskType: "enable_control_server", nonSecretInput: {}, redactedOutput: "not returned", containsSecretValues: false });
+    const firstPage = (await app.inject({ url: "/api/v1/compose/drafts?summary=true", headers })).json();
+    const secondPage = (await app.inject({ url: "/api/v1/compose/drafts?summary=true&offset=50", headers })).json();
+    expect(firstPage.drafts).toHaveLength(50); expect(firstPage.hasMore).toBe(true); expect(secondPage.drafts).toHaveLength(4); expect(secondPage.hasMore).toBe(false);
+    expect(new Set([...firstPage.drafts, ...secondPage.drafts].map((draft) => draft.id)).size).toBe(54);
+    expect((await app.inject({ url: `/api/v1/compose/drafts/${crypto.randomUUID()}`, headers })).statusCode).toBe(404);
+    expect((await app.inject({ method: "DELETE", url: `/api/v1/compose/drafts/${id}`, headers: { cookie: headers.cookie } })).statusCode).toBe(403);
+    db.raw.exec("CREATE TRIGGER synthetic_audit_failure BEFORE INSERT ON audit_events BEGIN SELECT RAISE(ABORT, 'synthetic audit unavailable'); END");
+    expect((await app.inject({ method: "DELETE", url: `/api/v1/compose/drafts/${id}`, headers })).statusCode).toBe(500);
+    expect(db.getDraft(id)).not.toBeNull();
+    expect((await app.inject({ method: "DELETE", url: "/api/v1/compose/drafts", headers })).statusCode).toBe(500);
+    expect(db.draftUsage().count).toBe(54);
+    db.raw.exec("DROP TRIGGER synthetic_audit_failure");
+    expect((await app.inject({ method: "DELETE", url: `/api/v1/compose/drafts/${id}`, headers })).json().deleted).toBe(true);
+    expect(db.getDraft(id)).toBeNull();
+    expect((await app.inject({ method: "DELETE", url: "/api/v1/compose/drafts", headers: { cookie: headers.cookie } })).statusCode).toBe(403);
+    expect(db.draftUsage().count).toBe(53);
+    expect((await app.inject({ method: "DELETE", url: "/api/v1/compose/drafts", headers })).json().deleted).toBe(53);
+    expect(db.recentAudit(1)).toMatchObject([{ eventType: "drafts_cleared", metadata: { count: 53 } }]);
+    expect(db.raw.pragma("user_version", { simple: true })).toBe(4);
+  } finally { db.close(); await app.close(); fs.rmSync(dataPath, { recursive: true, force: true }); }
+});

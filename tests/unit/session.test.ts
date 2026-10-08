@@ -51,6 +51,9 @@ describe("privacy-preserving traffic accounting", () => {
       trackedUploadedBytes: 1_000
     });
     expect(db.raw.pragma("user_version", { simple: true })).toBe(4);
+    const before = db.trafficSummary();
+    expect(db.recordTraffic({ containerId: "container-a", receivedBytes: 1, sentBytes: 1, observedAt: firstAt })).toEqual(before);
+    expect(db.recordTraffic({ containerId: "container-b", receivedBytes: 999, sentBytes: 999, observedAt: before.observedAt! })).toEqual(before);
     db.close();
   });
 });

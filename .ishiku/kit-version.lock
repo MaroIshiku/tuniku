@@ -32,8 +32,8 @@
     ".agents/skills/ishiku-test-engineer/SKILL.md": "bc06757065eb9d992b6836e22e2ea1645a285cfd6b769a1d54083605b4b93469",
     ".agents/skills/ishiku-upstream-maintenance/agents/openai.yaml": "f6b69bb16a8955284adc4587b1eb16460ab0c993ae919df769726238935480bb",
     ".agents/skills/ishiku-upstream-maintenance/SKILL.md": "db8985e0b4aeca8b7a75f81a2f81de1f1abf82d394fdd770b0628c86d7829100",
-    ".github/workflows/ishiku-pull-request-verify.yml": "87e0ea5002f38cc379e04e941dcdeb4a5e041f0d5eaddc906368ad40eb7c7912",
-    ".github/workflows/ishiku-release-release.yml": "eae440da7188dbc2bcb252b701356bcfdeea2a9b376ba975e0fcd4e46028c767",
+    ".github/workflows/ishiku-pull-request-verify.yml": "f7ab975cc36677783bc9411e897b1b228aa9e7f139ead7c429e16cf87f00ff1d",
+    ".github/workflows/ishiku-release-release.yml": "adf129cb4d5cb6dd2af2a08af76e9b642c90ce4e8e51c3825f35f4a4269cbe40",
     ".github/workflows/ishiku-upstream-update-upstream-update.yml": "a2d6630c1c13ee2e073f50b5ece4706369032db83969b10a5073580372978916",
     ".ishiku/kit/platform.yaml": "c91fcfff614fdbcf9d2be37a1accdfb983cc64e5e341bc838a720e5143ff31df",
     ".ishiku/kit/policies/architecture.md": "2fcf85b24b459c7bbb903bd363a409ab6f316fad3d4b05fb7ab0078ff4a775a6",
@@ -66,5 +66,19 @@
     ".ishiku/kit/scripts/ishiku.mjs": "8017cb37a096b459927ed5fadb8d5dae223643206417143b8bb151528c445666",
     ".ishiku/kit/scripts/verify-app": "d9e838b9de14f441754e930055764036e29d68a8ff1cbb2889b2d778427e3814",
     ".ishiku/kit/version.yaml": "17bccb16f95f08585e310dac30e61f694630563dffca4bac4d5d8ee88895cb25"
-  }
+  },
+  "local_adaptations": [
+    {
+      "path": ".github/workflows/ishiku-release-release.yml",
+      "upstream_sha256": "eae440da7188dbc2bcb252b701356bcfdeea2a9b376ba975e0fcd4e46028c767",
+      "installed_sha256": "adf129cb4d5cb6dd2af2a08af76e9b642c90ce4e8e51c3825f35f4a4269cbe40",
+      "decision": ".ishiku/decisions/main-latest-channel.json"
+    },
+    {
+      "path": ".github/workflows/ishiku-pull-request-verify.yml",
+      "upstream_sha256": "87e0ea5002f38cc379e04e941dcdeb4a5e041f0d5eaddc906368ad40eb7c7912",
+      "installed_sha256": "f7ab975cc36677783bc9411e897b1b228aa9e7f139ead7c429e16cf87f00ff1d",
+      "decision": ".ishiku/decisions/reusable-verification-gate.json"
+    }
+  ]
 }

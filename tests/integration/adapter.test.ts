@@ -38,6 +38,27 @@ function instance(baseUrl: string, timeout = 2): InstanceRecord {
 }
 
 describe("Gluetun capability failures", () => {
+  it("does not forward credentials to redirects and isolates optional endpoint failures", async () => {
+    let redirected = 0;
+    const target = await listen((server) => server.get("/*", async () => { redirected++; return { status: "running" }; }));
+    const redirect = await listen((server) => server.get("/v1/vpn/status", async (_request, reply) => reply.redirect(`${target}/stolen`)));
+    const adapter = new GluetunAdapter({ ...instance(redirect), authMode: "api_key" }, { apiKey: "synthetic-api-key" }, true);
+    await expect(adapter.read("vpn")).rejects.toMatchObject({ code: "unreachable" });
+    expect(redirected).toBe(0);
+    adapter.close();
+    let vpnReads = 0;
+    const partial = await listen((server) => {
+      server.get("/v1/vpn/status", async () => { vpnReads++; return { status: "running" }; });
+      server.get("/v1/portforward", async () => ({ unexpected: true }));
+    });
+    const partialAdapter = new GluetunAdapter(instance(partial), null, true);
+    const overview = await partialAdapter.overview();
+    expect(vpnReads).toBe(1);
+    expect(overview.vpn).toEqual({ status: "running" });
+    expect(overview.capabilities.portForwarding.state).toBe("invalid_schema");
+    expect(overview.connected).toBe(true);
+    partialAdapter.close();
+  });
   it("accepts current Gluetun public-IP location metadata and older IP-only responses", async () => {
     const currentUrl = await listen((server) => server.get("/v1/publicip/ip", async () => ({
       public_ip: "203.0.113.10",
@@ -106,6 +127,27 @@ describe("Gluetun capability failures", () => {
 });
 
 describe("read-only Docker observation", () => {
+  it("checks association before traffic and rejects a replacement during sampling", async () => {
+    let statsReads = 0, logsReads = 0, changed = false;
+    const id = "abcdef1234567890";
+    const url = await listen((server) => {
+      server.get("/containers/json", async () => [{ Id: id, Names: ["/gluetun"], Image: "qmcgaw/gluetun:latest", State: "running" }]);
+      server.get(`/containers/${id}/json`, async () => ({ Id: id, Name: "/gluetun", ControlServer: { port: 8000 }, Config: { Env: [] }, State: { Status: "running" }, NetworkSettings: { Networks: { tuniku: { IPAddress: "127.0.0.1" } } } }));
+      server.get(`/containers/${id}/logs`, async () => { logsReads++; return ""; });
+      server.get("/gluetun/traffic", async () => { statsReads++; return { containerId: changed ? "1111111111111111" : id, observedAt: new Date().toISOString(), receivedBytes: 100, sentBytes: 50 }; });
+    });
+    const observer = new DockerObserver(url, true);
+    try {
+      await expect(observer.observeTraffic("http://127.0.0.2:8000")).rejects.toThrow("could not be associated");
+      expect(statsReads).toBe(0); expect(logsReads).toBe(0);
+      await expect(observer.observeTraffic("http://127.0.0.1:8000")).resolves.toMatchObject({ containerId: id });
+      expect(logsReads).toBe(0);
+      changed = true;
+      await expect(observer.observeTraffic("http://127.0.0.1:8000")).rejects.toThrow("changed during traffic");
+      expect((await observer.observeGluetun("http://127.0.0.2:8000")).association?.state).toBe("unverified");
+    } finally { observer.close(); }
+  });
+
   it("returns safe metadata without environment values", async () => {
     const url = await listen((server) => {
       server.get("/containers/json", async () => [{ Id: "abcdef1234567890", Names: ["/gluetun"], Image: "qmcgaw/gluetun:latest", State: "exited" }]);

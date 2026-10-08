@@ -1,5 +1,10 @@
+import { gluetunStorage, readStorageSummary, type GluetunStorage } from "./storage.js";
+import { logQuery, type DockerLogOptions } from "./logOptions.js";
+import net from "node:net";
+import { matchDockerEndpoint, type DockerAssociation } from "./association.js";
 import { Agent, fetch } from "undici";
-import { redactText, validateUpstreamUrl } from "../security.js";
+import { redactText, safeLookup, validateUpstreamUrl } from "../security.js";
+import { readBoundedBody } from "../http.js";
 import { getProviderProfile } from "../compose/providers.js";
 import type { TrafficCounterSnapshot } from "../types.js";
 
@@ -20,7 +25,10 @@ function stripAnsi(value: string): string {
 }
 
 export interface DockerObservation {
+  observedAt?: string;
   available: boolean;
+  association?: DockerAssociation;
+  storage?: GluetunStorage;
   container: {
     id: string;
     name: string;
@@ -49,12 +57,12 @@ export interface DockerObservation {
 }
 
 export class DockerObserver {
-  private readonly dispatcher = new Agent();
+  private readonly dispatcher: Agent;
 
   constructor(
     private readonly baseUrl: string,
     private readonly allowLoopback: boolean
-  ) {}
+  ) { this.dispatcher = new Agent({ connect: { lookup: safeLookup(allowLoopback) } }); }
 
   close(): void {
     void this.dispatcher.close();
@@ -74,11 +82,12 @@ export class DockerObserver {
       const baseUrl = await validateUpstreamUrl(this.baseUrl, this.allowLoopback);
       const response = await fetch(`${baseUrl}${path}`, {
         method: "GET",
+        redirect: "error",
         headers: { accept: "application/json" },
         dispatcher: this.dispatcher,
         signal: AbortSignal.timeout(5_000)
       });
-      const text = await response.text();
+      const text = (await readBoundedBody(response, 2_097_152)).toString("utf8");
       if (text.length > 2_097_152) throw new Error("Docker proxy response exceeds the safe size limit.");
       let value: any = null;
       try {
@@ -92,6 +101,10 @@ export class DockerObserver {
         if (code === "gluetun_not_running") throw new Error("Gluetun is not running, so live traffic counters are unavailable.");
         if (code === "network_counters_unavailable") throw new Error("Docker did not return network counters for the Gluetun container.");
         if (code === "stats_failed") throw new Error("Docker could not read Gluetun traffic counters.");
+        if (code === "gluetun_ambiguous") throw new Error("Multiple Gluetun containers match the observer. Assign com.ishiku.tuniku.role=gluetun to exactly one intended VPN container before using Docker diagnostics.");
+        if (code === "docker_socket_missing") throw new Error("The observer is running but its Docker socket is missing. Check the host socket path and redeploy the observer mount.");
+        if (code === "docker_socket_permission_denied") throw new Error("The observer cannot access the Docker socket. Check its runtime user, socket permissions and supplementary group.");
+        if (code === "docker_unavailable") throw new Error("The observer is running but Docker is unavailable. Check the Docker service and the observer's socket access.");
         throw new Error(`Docker observer returned HTTP ${response.status}.`);
       }
       return value;
@@ -107,7 +120,9 @@ export class DockerObserver {
     }
   }
 
-  async observeTraffic(): Promise<TrafficCounterSnapshot> {
+  async observeTraffic(expectedBaseUrl?: string): Promise<TrafficCounterSnapshot> {
+    const observation = expectedBaseUrl ? await this.observeGluetun(expectedBaseUrl, false) : null;
+    if (expectedBaseUrl && (!observation?.container || observation.association?.state !== "matched")) throw new Error(observation?.association?.message ?? "No associated Gluetun container is available for traffic accounting.");
     const value = await this.get("/gluetun/traffic");
     if (
       !value ||
@@ -118,6 +133,7 @@ export class DockerObserver {
     ) {
       throw new Error("Docker observer returned an unrecognized traffic response.");
     }
+    if (observation?.container && value.containerId !== observation.container.id) throw new Error("The Docker container changed during traffic collection. Retry after refreshing its association.");
     return value as TrafficCounterSnapshot;
   }
 
@@ -125,11 +141,12 @@ export class DockerObserver {
     const baseUrl = await validateUpstreamUrl(this.baseUrl, this.allowLoopback);
     const response = await fetch(`${baseUrl}${path}`, {
       method: "GET",
+      redirect: "error",
       dispatcher: this.dispatcher,
       signal: AbortSignal.timeout(5_000)
     });
     if (!response.ok) throw new Error(`Docker proxy returned HTTP ${response.status} for container logs.`);
-    const bytes = new Uint8Array(await response.arrayBuffer());
+    const bytes = await readBoundedBody(response, 524_288);
     if (bytes.byteLength > 524_288) throw new Error("Docker log response exceeds the 512 KiB safety limit.");
     return bytes;
   }
@@ -150,17 +167,33 @@ export class DockerObserver {
     return chunks.join("");
   }
 
-  async observeGluetun(): Promise<DockerObservation> {
+  async observeGluetun(expectedBaseUrl?: string, includeLogs = true, logOptions: DockerLogOptions = {}): Promise<DockerObservation> {
     const containers = await this.get("/containers/json?all=1");
     if (!Array.isArray(containers)) throw new Error("Docker proxy returned an unrecognized container list.");
     const match = containers.find((container: any) => {
       const names = Array.isArray(container?.Names) ? container.Names.join(" ") : "";
-      return /gluetun/i.test(`${names} ${container?.Image || ""}`);
+      return container?.Labels?.["com.ishiku.tuniku.role"] === "gluetun" || /gluetun/i.test(`${names} ${container?.Image || ""}`);
     });
     if (!match?.Id) {
       return { available: true, container: null, ports: [], environment: [], networks: [], logs: null, logsError: null, issues: ["No Gluetun container was found."] };
     }
     const inspected = await this.get(`/containers/${encodeURIComponent(match.Id)}/json`);
+    if (inspected?.Id !== match.Id) throw new Error("The Docker container identity changed during inspection.");
+    let association: DockerAssociation | undefined;
+    if (expectedBaseUrl) {
+      try {
+        const endpoint = new URL(expectedBaseUrl);
+        const hostname = endpoint.hostname.replace(/^\[|\]$/g, "");
+        const addresses = net.isIP(hostname) ? [hostname] : await new Promise<string[]>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error("Endpoint lookup timed out.")), 3_000);
+          safeLookup(this.allowLoopback)(hostname, { all: true }, (error: Error | null, values: any) => {
+            clearTimeout(timeout);
+            if (error) reject(error); else resolve(Array.isArray(values) ? values.map((entry: any) => entry.address) : []);
+          });
+        });
+        association = matchDockerEndpoint(endpoint, addresses, inspected);
+      } catch { association = { state: "unverified", message: "The saved Control API address could not be resolved or associated with this Docker container. Docker ports and traffic are not attributed to the API instance." }; }
+    }
     const environmentEntries: string[] = Array.isArray(inspected?.Config?.Env) ? inspected.Config.Env : [];
     const environment = environmentEntries
       .map((entry: string) => {
@@ -216,7 +249,9 @@ export class DockerObserver {
       SERVER_COUNTRIES: "countries", SERVER_REGIONS: "regions", SERVER_CITIES: "cities",
       SERVER_HOSTNAMES: "hostnames", SERVER_NAMES: "names", SERVER_CATEGORIES: "categories", ISP: "isps"
     };
+    const storage = inspected.Storage ? readStorageSummary(inspected.Storage) : gluetunStorage(inspected);
     const issues: string[] = [];
+    if (!["volume", "bind"].includes(storage.state) || storage.writable === false) issues.push(storage.message);
     if (!networks.includes("tuniku")) issues.push("Gluetun is not attached to the external tuniku network, so Tuniku cannot reach its Control Server by container name.");
     if (!profile) issues.push(provider ? `VPN_SERVICE_PROVIDER=${provider} is not accepted by the current Tuniku provider schema.` : "VPN_SERVICE_PROVIDER is missing.");
     if (profile && !profile.protocols.includes(vpnType as any)) issues.push(`${profile.label} does not support VPN_TYPE=${vpnType} in the current Gluetun latest image.`);
@@ -234,7 +269,7 @@ export class DockerObserver {
     let logs: string | null = null;
     let logsError: string | null = null;
     try {
-      const bytes = await this.getBytes(`/containers/${encodeURIComponent(match.Id)}/logs?stdout=1&stderr=1&tail=200&timestamps=1`);
+      const bytes = includeLogs ? await this.getBytes(`/containers/${encodeURIComponent(match.Id)}/logs?${logQuery(logOptions)}`) : new Uint8Array();
       logs = redactText(stripAnsi(this.decodeLogs(bytes)).trim()).slice(-262_144) || null;
       if (logs && /TUN device.*(?:permission denied|not available)/i.test(logs)) {
         issues.push("Docker cannot use /dev/net/tun. Verify that the device exists and that the Gluetun service has /dev/net/tun plus NET_ADMIN access.");
@@ -253,8 +288,10 @@ export class DockerObserver {
     }
     return {
       available: true,
+      storage,
+      ...(association ? { association } : {}),
       container: {
-        id: String(inspected?.Id || match.Id).slice(0, 12),
+        id: String(inspected?.Id || match.Id),
         name: String(inspected?.Name || "").replace(/^\//, ""),
         image: String(inspected?.Config?.Image || match.Image || ""),
         state: stateName,
@@ -263,7 +300,7 @@ export class DockerObserver {
         exitCode: Number.isInteger(exitCode) ? exitCode : null,
         startedAt: state.StartedAt ? String(state.StartedAt) : null,
         finishedAt: state.FinishedAt ? String(state.FinishedAt) : null,
-        error: state.Error ? String(state.Error) : null,
+        error: state.Error ? redactText(String(state.Error)) : null,
         oomKilled: Boolean(state.OOMKilled),
         restartCount: Number(inspected?.RestartCount) || 0
       },
