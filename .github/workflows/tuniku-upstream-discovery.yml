@@ -39,7 +39,7 @@ jobs:
           vuln-type: os,library
           severity: HIGH,CRITICAL
           ignore-unfixed: false
-          exit-code: 1
+          exit-code: 0
           timeout: 10m
           format: json
           output: .ishiku/reports/gluetun-latest-amd64-trivy.json
@@ -54,10 +54,16 @@ jobs:
           vuln-type: os,library
           severity: HIGH,CRITICAL
           ignore-unfixed: false
-          exit-code: 1
+          exit-code: 0
           timeout: 10m
           format: json
           output: .ishiku/reports/gluetun-latest-arm64-trivy.json
+      - name: Enforce bounded Gluetun amd64 release policy
+        if: always() && steps.sources.outcome == 'success'
+        run: node scripts/gluetun-scan-policy.mjs .ishiku/reports/gluetun-latest-amd64-trivy.json amd64 ${{ steps.sources.outputs.gluetun_amd64_digest }}
+      - name: Enforce bounded Gluetun arm64 release policy
+        if: always() && steps.sources.outcome == 'success'
+        run: node scripts/gluetun-scan-policy.mjs .ishiku/reports/gluetun-latest-arm64-trivy.json arm64 ${{ steps.sources.outputs.gluetun_arm64_digest }}
       - name: Preserve source discovery evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -66,5 +72,6 @@ jobs:
           path: |
             .ishiku/reports/tuniku-upstream-discovery.json
             .ishiku/reports/gluetun-latest-*-trivy.json
+            .ishiku/reports/gluetun-release-policy-*.json
           if-no-files-found: error
           retention-days: 30

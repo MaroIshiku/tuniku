@@ -1,19 +1,18 @@
 {
   "schemaVersion": 1,
-  "testedSourceRevision": "beb280237a2c4972d7a1102f3df2073f9f25ff80",
   "decision": ".ishiku/decisions/deferred-nas-vpn-acceptance.json",
   "checks": [
     {
       "id": "application",
       "command": "npm ci && npm run check",
-      "completedAt": "2026-10-08T09:57:49.471414+00:00",
+      "completedAt": "2026-10-08T10:10:34.786413+00:00",
       "outcome": "PASS",
       "exitCode": 0,
-      "scope": "Independent clone; fresh locked npm ci, lint, typecheck, 169 unit/integration tests in 49 files and build, including strict reusable release-input regression.",
-      "artifactSha256": "bd33c6a2097d0674883a238b6cf261e2209443cf48f9947c36be93fd5d489786",
+      "scope": "Independent-clone lint, typecheck, tests and build including bounded CVE-exception and reusable gate regression cases.",
+      "artifactSha256": "478bd67307e3378e2b33c0375e1efbcd4b386f547ca2fe8141106f9c8d7706ba",
       "metrics": {
-        "testsPassed": 169,
-        "testFiles": 49
+        "testsPassed": 175,
+        "testFiles": 50
       }
     },
     {
@@ -143,6 +142,33 @@
       "exitCode": 0,
       "scope": "Executed independent-clone project command. The containing strict full run had twelve then-open TRACE failures and exit 1; no full-gate PASS claim.",
       "artifactSha256": "3069b5f861c4ffdbf49007e7c46772b94f15348d6999ab16757fbeaf49b966be"
+    },
+    {
+      "id": "oci-readiness",
+      "command": "Validate local OCI child/config digests, SPDX/SLSA attestations and runtime-filesystem equivalence",
+      "completedAt": "2026-10-08T09:53:53.566413+00:00",
+      "outcome": "PASS",
+      "exitCode": 0,
+      "scope": "Actual local OCI inspector assertions passed for both architectures; matches tested immutable runtime filesystems. Not a registry publication receipt.",
+      "artifactSha256": "68299ceac7eea750a44ff90415a4a5151d3cbb652169d8b9997f3fee74830007"
+    },
+    {
+      "id": "strict-negative-gate",
+      "command": "Validate actual GitHub strict-gate artifact and true caller flag",
+      "completedAt": "2026-10-08T10:02:57.104414+00:00",
+      "outcome": "PASS",
+      "exitCode": 0,
+      "scope": "Actual GitHub caller input true, all four app commands passed; missing REL trace and unapproved upstream findings correctly rejected. Artifact assertion command passed; workflow itself intentionally failed, publish skipped.",
+      "artifactSha256": "5c9d510a4b36536c11702654650b773783bc0c5cfecda0f836d0d32a0bbbcae0"
+    },
+    {
+      "id": "approved-upstream-policy",
+      "command": "node scripts/gluetun-scan-policy.mjs <exact scan> <architecture> <digest>",
+      "completedAt": "2026-10-08T10:12:39.402038+00:00",
+      "outcome": "PASS",
+      "exitCode": 0,
+      "scope": "Both actual GitHub architecture scans passed only under the explicit current OVR-002 identities. Raw HIGH findings remain visible; exception not a fix.",
+      "artifactSha256": "4c65b03fadd78eabb607508d69aee8801a8d395e8e9f35be5955084d69dcc687"
     }
   ],
   "requirements": [
@@ -261,6 +287,7 @@
         "tests/unit/delivery.test.ts": "6600cb53e6bd89971e8ca1691f6a476037f6cf8f6c1f101e90193921290cc5c5",
         "tests/unit/docker-association.test.ts": "f8c1a78d5aa28e5e918591d7c7f86d0c77990cb9dccdacba63a6ef64e9c0dfcd",
         "tests/unit/docker-logs.test.ts": "866630b0b64b019e8d950f0e1cbc5f4c50103acd784c0e13be02d6a0a63cc8d5",
+        "tests/unit/gluetun-scan-policy.test.ts": "061c58d0743c84e3c2dea49298f77dc548918b7d48d8100f435a3574fcb4731c",
         "tests/unit/gluetun-storage.test.ts": "1e7ae3a4d712cae5241d3bf7008d574605456c8ffb5cf14618617730f3153b81",
         "tests/unit/image-architectures.test.ts": "933522ca9231a183064fb2609eec82375c408ef5f68ae4c3697c6da863714141",
         "tests/unit/managed-export.test.ts": "2217f0cc19dd6f6bc8380d4b4c94076648f977df9b8fa19c7062f726b7f88e0a",
@@ -280,7 +307,7 @@
         "tests/unit/storage.test.ts": "556ec28285d849ba4809f92e5e5c3d09875e571cfd709b6ea63fde0acc2b4b66",
         "tests/unit/traffic-quality.test.ts": "d99628f1ac624375e144da6297cb3b364593094245d893cc6b1866c9bf3931e5",
         "tests/unit/upstream-discovery.test.ts": "5e8a6440994d82b4b8fd8981e6afe7f2d0111e04bb1cd0f9a57ccbdb283f6f58",
-        "tests/unit/upstream-release-gate.test.ts": "e9fe5f609fe92ee5c4ec6f8058d3d87fabff8241e14520bc4f7906800dbe3907",
+        "tests/unit/upstream-release-gate.test.ts": "b86f5234f47f73d932b3fd5f295c557d3375f084abde316ed4d9ae38e21d5f7b",
         "tests/unit/wireguard-import.test.ts": "580102da9de9f02a9fa43dbc4ec0b1f73cf8454715596fcb40bc8a170e53fe92"
       },
       "limitations": [
@@ -699,16 +726,59 @@
       "limitations": [
         "Synthetic fixtures and bounded local Docker checks; real NAS/VPN acceptance explicitly deferred."
       ]
-    }
-  ],
-  "unverified": [
+    },
     {
       "id": "REL-001",
-      "reason": "Full release execution, immutable multiarch candidate with SBOM/provenance and matching child scan evidence remains required; upstream official images still have HIGH findings. No registry-promotion or release pass claim."
+      "status": "PASS",
+      "checks": [
+        "application",
+        "oci-readiness",
+        "strict-negative-gate",
+        "approved-upstream-policy",
+        "image-runtime"
+      ],
+      "limitations": [
+        "Release control behavior and prepublication artifacts are verified; real publication receipt remains pending until workflow completion. NAS/VPN acceptance explicitly deferred."
+      ],
+      "acceptanceSha256": "827754aa646ec6e03ccb32e16d56f9d95e587d3a827ce3d285eb00b4bb907f66",
+      "mappingSha256": "7ce4d1c2079a474cdf0f3c1ee4f57e3d4d87d9ea1db4f66cdfaad766c7bd68e2",
+      "files": {
+        ".github/workflows/ci.yml": "2a3b583f9277038204ac3249a9d50829b9f0211944ff7234d6c67d7ccdac5c99",
+        ".github/workflows/container.yml": "a5e381876c0679b2e50a2fca8bb9d629a3d8d782b0656fa3b88b765a8354d5f1",
+        ".github/workflows/ishiku-release-release.yml": "adf129cb4d5cb6dd2af2a08af76e9b642c90ce4e8e51c3825f35f4a4269cbe40",
+        ".github/workflows/tuniku-upstream-discovery.yml": "300f387109dae8c0f03a65a798adc6f4a505eac86ff0b5a02a48f3f39391358f",
+        ".ishiku/decisions/gluetun-high-exception.json": "f52051bf05a5d9ab2ec2315af599364441d4d13dd98ee1ed5b898d89852fd651",
+        ".ishiku/decisions/main-latest-channel.json": "0c66a00799f4283a49520fb34d45c6d5342a3d9fdd013bb46038bdd5adfa1a6b",
+        ".ishiku/kit/scripts/check-release": "43febac2f607084a58c8a277bd78e28aed30f4142032e9bf67766325c6ddd765",
+        ".ishiku/kit/scripts/check-security": "9cf52298ca01c2b6c7b60fed44fd521f9e321a6641f215c13f1151d44e67962f",
+        ".ishiku/overrides/gluetun-known-high.json": "7017b7321846ce96ca5b6acb4aac01450cfbae417e9f472b14e7f70c96616880",
+        ".ishiku/overrides/gluetun-latest.json": "4f53a3552bead85ee324350d858ade5ff5c6102ea15ae35184768a2d05adea05",
+        "docs/releases.md": "04f96676e01acad760cc5a529e249aa3946f3fd56c01599d15ca971f55625884",
+        "scripts/compliance-test.mjs": "580bea3b9cd8800deaa10c187c1b53ac494c38a3063edc8a6b8222cafcdc8897",
+        "scripts/discover-upstreams.ts": "4250bdd1d3f19f92bbbff3517442c9ac8e7242c30fec694a11a462c06b80c05c",
+        "scripts/gluetun-scan-policy.mjs": "d308e116f8516aad01791b2f72eb82aef71e203207465c951af63f2c9afa9270",
+        "scripts/image-architectures.ts": "65e5c600819ef9d92f621d97982d720c382375b7d89db43753242afc96e1068c",
+        "scripts/promote-image.ts": "2c60e6aacd1d99e85d407804582a84eefcad1811630c6b0b4a8d71ca6ca95d59",
+        "scripts/release-policy.ts": "8f9b05aa6e7c56564fee7615176799d3674080213d4fc87d123f82f75aed28c5",
+        "scripts/verify-container-lifecycle.ts": "e81ac49e70c5237ca7f8575549fbe259faab047d9d0960548752ab36cb9b378e",
+        "scripts/verify-image-architectures.ts": "80df736ff6be0c0e75e021307f575c192a6573e3514c4cbfa73d8032c5a9ce5b",
+        "src/server/maintenance/upstreamDiscovery.ts": "dee56a1f994d0c4a06daca10324b09b5f6ba47cbda8e3fb8989d39f6d354ca99",
+        "tests/integration/image-architecture-gate.test.ts": "c33ef0a885597a4928b348898898882ab22dc7f9aae6e6fe1d3e262e1a53af09",
+        "tests/integration/release-promotion.test.ts": "383f0c1748b9946450e7720346bca6ee25090ffca62a629a8a88d0e36cd85fc7",
+        "tests/unit/delivery.test.ts": "6600cb53e6bd89971e8ca1691f6a476037f6cf8f6c1f101e90193921290cc5c5",
+        "tests/unit/gluetun-scan-policy.test.ts": "061c58d0743c84e3c2dea49298f77dc548918b7d48d8100f435a3574fcb4731c",
+        "tests/unit/image-architectures.test.ts": "933522ca9231a183064fb2609eec82375c408ef5f68ae4c3697c6da863714141",
+        "tests/unit/release-policy.test.ts": "d8700fd0e4531ab193a33930aec35650c59c7b3278ccab1adf47885a0253db77",
+        "tests/unit/upstream-discovery.test.ts": "5e8a6440994d82b4b8fd8981e6afe7f2d0111e04bb1cd0f9a57ccbdb283f6f58",
+        "tests/unit/upstream-release-gate.test.ts": "b86f5234f47f73d932b3fd5f295c557d3375f084abde316ed4d9ae38e21d5f7b"
+      }
     }
   ],
+  "unverified": [],
   "githubRuns": [
     "https://github.com/MaroIshiku/tuniku/actions/runs/37749343948",
     "https://github.com/MaroIshiku/tuniku/actions/runs/37749344086"
-  ]
+  ],
+  "runtimeSourceRevision": "beb280237a2c4972d7a1102f3df2073f9f25ff80",
+  "sourceIdentity": "Per-requirement file/acceptance/mapping hashes bind current evidence. Application tests include the current gate/exception changes; runtime source remains unchanged."
 }

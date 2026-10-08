@@ -1,0 +1,13 @@
+{
+  "id": "OVR-002",
+  "reason": "Owner explicitly authorized latest publication with a time-bounded exception for only four already disclosed Gluetun HIGH findings, retaining the official image for compatibility.",
+  "policy": "dependencies.known_high_release_gate",
+  "security_assessment": "Only DEC-SEC-GLUETUN-002 exact child digests, CVE/package/version/HIGH identities may pass until 2026-10-22. Raw architecture scans remain preserved; unknown HIGH, CRITICAL, changed digests, malformed reports and expired authorization fail closed. Tuniku remains subject to zero HIGH/CRITICAL scans and full isolated runtime, authentication, provenance and rollback gates. No CVE is claimed fixed and no live VPN/NAS deployment is performed.",
+  "owner": "MaroIshiku",
+  "review_date": "2026-10-22",
+  "tests": [
+    "tests/unit/gluetun-scan-policy.test.ts",
+    "node scripts/gluetun-scan-policy.mjs <scan> <architecture> <exact digest>",
+    "node .ishiku/kit/scripts/verify-app . --full"
+  ]
+}

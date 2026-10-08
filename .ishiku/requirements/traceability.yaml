@@ -344,7 +344,10 @@
         "scripts/verify-container-lifecycle.ts",
         "src/server/maintenance/upstreamDiscovery.ts",
         "scripts/discover-upstreams.ts",
-        ".github/workflows/tuniku-upstream-discovery.yml"
+        ".github/workflows/tuniku-upstream-discovery.yml",
+        "scripts/gluetun-scan-policy.mjs",
+        ".ishiku/decisions/gluetun-high-exception.json",
+        ".ishiku/overrides/gluetun-known-high.json"
       ],
       "tests": {
         "unit": [
@@ -352,7 +355,8 @@
           "tests/unit/release-policy.test.ts",
           "tests/unit/image-architectures.test.ts",
           "tests/unit/upstream-discovery.test.ts",
-          "tests/unit/upstream-release-gate.test.ts"
+          "tests/unit/upstream-release-gate.test.ts",
+          "tests/unit/gluetun-scan-policy.test.ts"
         ],
         "integration": [
           ".ishiku/kit/scripts/check-release",
@@ -362,10 +366,11 @@
         ],
         "e2e": [],
         "security": [
-          ".ishiku/kit/scripts/check-security"
+          ".ishiku/kit/scripts/check-security",
+          "tests/unit/gluetun-scan-policy.test.ts"
         ]
       },
-      "status": "implemented"
+      "status": "verified"
     },
     {
       "id": "MGMT-001",

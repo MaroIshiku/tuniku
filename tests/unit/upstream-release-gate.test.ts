@@ -14,7 +14,7 @@ it("requires the Gluetun security gate before either channel can write candidate
   }
 });
 
-it("scans both discovered immutable architectures independently and fails on high findings without write access", () => {
+it("scans both discovered immutable architectures independently and applies a bounded approved policy to raw high findings without write access", () => {
   const gate = workflow("tuniku-upstream-discovery");
   expect(Object.hasOwn(gate.on, "workflow_call")).toBe(true);
   expect(gate.permissions).toEqual({ contents: "read" });
@@ -29,7 +29,8 @@ it("scans both discovered immutable architectures independently and fails on hig
     expect(scan.with["image-ref"]).toBe(`qmcgaw/gluetun@\${{ steps.sources.outputs.gluetun_${architecture}_digest }}`);
     expect(scan.with.severity).toBe("HIGH,CRITICAL");
     expect(scan.with["ignore-unfixed"]).toBe(false);
-    expect(scan.with["exit-code"]).toBe(1);
+    expect(scan.with["exit-code"]).toBe(0);
+    expect(steps.some((step: { run?: string }) => step.run?.includes(`scripts/gluetun-scan-policy.mjs .ishiku/reports/gluetun-latest-${architecture}-trivy.json ${architecture}`))).toBe(true);
     expect(scan["continue-on-error"]).toBeUndefined();
   }
   expect(gate.jobs.discover["continue-on-error"]).toBeUndefined();
