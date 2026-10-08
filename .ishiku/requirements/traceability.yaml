@@ -22,7 +22,7 @@
           "tests/unit/security.test.ts"
         ]
       },
-      "status": "implemented"
+      "status": "verified"
     },
     {
       "id": "SETUP-001",
@@ -58,7 +58,7 @@
           ".ishiku/kit/scripts/check-security"
         ]
       },
-      "status": "implemented"
+      "status": "verified"
     },
     {
       "id": "AUTH-001",
@@ -93,7 +93,7 @@
           ".ishiku/kit/scripts/check-security"
         ]
       },
-      "status": "implemented"
+      "status": "verified"
     },
     {
       "id": "BOOTSTRAP-001",
@@ -125,7 +125,7 @@
           ".ishiku/kit/scripts/check-security"
         ]
       },
-      "status": "implemented"
+      "status": "verified"
     },
     {
       "id": "ASSISTANT-001",
@@ -180,7 +180,7 @@
           ".ishiku/kit/scripts/check-security"
         ]
       },
-      "status": "implemented"
+      "status": "verified"
     },
     {
       "id": "DIAG-001",
@@ -225,7 +225,7 @@
           ".ishiku/kit/scripts/check-security"
         ]
       },
-      "status": "implemented"
+      "status": "verified"
     },
     {
       "id": "TRAFFIC-001",
@@ -267,7 +267,7 @@
           ".ishiku/kit/scripts/check-security"
         ]
       },
-      "status": "implemented"
+      "status": "verified"
     },
     {
       "id": "UI-001",
@@ -295,7 +295,7 @@
         ],
         "security": []
       },
-      "status": "implemented"
+      "status": "verified"
     },
     {
       "id": "OPS-001",
@@ -325,7 +325,7 @@
           ".ishiku/kit/scripts/check-security"
         ]
       },
-      "status": "implemented"
+      "status": "verified"
     },
     {
       "id": "REL-001",
@@ -400,7 +400,7 @@
           ".ishiku/kit/scripts/check-security"
         ]
       },
-      "status": "implemented"
+      "status": "verified"
     },
     {
       "id": "RETENTION-001",
@@ -429,7 +429,7 @@
           "tests/integration/drafts.test.ts"
         ]
       },
-      "status": "implemented"
+      "status": "verified"
     }
   ]
 }
