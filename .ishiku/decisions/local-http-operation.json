@@ -1,0 +1,17 @@
+{
+  "id": "DEC-HTTP-001",
+  "date": "2026-10-07",
+  "decision": "Keep direct trusted-LAN HTTP available by default with HTTPS_ONLY=false. HTTPS reverse-proxy operation is an explicit opt-in using HTTPS_ONLY=true.",
+  "authorization": "Product owner explicitly requested local operation without HTTPS on 2026-10-07. Existing SETUP-001 already specifies this local deployment profile.",
+  "constraints": [
+    "Keep authentication, HttpOnly cookies, SameSite protection, CSRF and revocable sessions in both modes.",
+    "HTTP mode does not send HSTS or a CSP directive that upgrades local resources to HTTPS.",
+    "The HTTPS option configures browser/session policy and does not provide TLS termination."
+  ],
+  "evidence": [
+    "tests/integration/http.test.ts",
+    "tests/unit/config.test.ts",
+    "tests/e2e/app.spec.ts"
+  ],
+  "risk_class": "C"
+}

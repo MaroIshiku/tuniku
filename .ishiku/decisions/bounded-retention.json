@@ -1,0 +1,12 @@
+{
+  "id": "DEC-RETENTION-001",
+  "decision": "Automatically retain audit events for 90 days and at most the newest 10000 entries; never automatically delete drafts.",
+  "constraints": [
+    "Reject new draft saves above 1000 records or 25 MiB of serialized input/output UTF-8 bytes; preserve existing over-limit drafts.",
+    "Manual draft deletion requires UI confirmation and atomic secret-free audit.",
+    "Preserve accounts, keys, credentials and schema version."
+  ],
+  "date": "2026-10-07",
+  "authorization": "Explicit product-owner answer on 2026-10-07.",
+  "risk_class": "C"
+}

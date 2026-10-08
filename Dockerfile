@@ -13,9 +13,10 @@ COPY src ./src
 RUN npm run build \
     && npm prune --omit=dev \
     && mkdir -p /runtime-data \
+    && chmod 0700 /runtime-data \
     && chown -R 1000:1000 /runtime-data
 
-FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:774b7d020b24214835769e24c3544835526cd0288f0b094eae48e8b2c2429a79 AS runtime
+FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:9eeb7f5887d0e239e78264b06f7f11d2e14be534050481803a9e4728fcdd278e AS runtime
 ARG VERSION=0.3.6
 ARG BUILD_DATE=development
 ARG GIT_SHA=development
@@ -40,5 +41,5 @@ USER 1000:1000
 EXPOSE 8080
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+  CMD ["/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:8080/readyz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 CMD ["dist/server/index.js"]

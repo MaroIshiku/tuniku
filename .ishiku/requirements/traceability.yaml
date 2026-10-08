@@ -4,113 +4,432 @@
   "requirements": [
     {
       "id": "CORE-001",
-      "implementation": ["src/server/", "src/client/"],
+      "implementation": [
+        "src/server/",
+        "src/client/"
+      ],
       "tests": {
-        "unit": ["tests/unit/"],
-        "integration": ["tests/integration/"],
-        "e2e": ["tests/e2e/app.spec.ts"],
-        "security": ["tests/unit/security.test.ts"]
+        "unit": [
+          "tests/unit/"
+        ],
+        "integration": [
+          "tests/integration/"
+        ],
+        "e2e": [
+          "tests/e2e/app.spec.ts"
+        ],
+        "security": [
+          "tests/unit/security.test.ts"
+        ]
       },
-      "status": "verified"
+      "status": "implemented"
     },
     {
       "id": "SETUP-001",
-      "implementation": ["src/server/config.ts", "docker-compose.yml", "docker-compose.example.yml", ".env.example", "docs/zimaos.md"],
+      "implementation": [
+        "src/server/config.ts",
+        "docker-compose.yml",
+        "docker-compose.example.yml",
+        ".env.example",
+        "docs/zimaos.md",
+        ".ishiku/decisions/local-http-operation.json",
+        "src/server/storageDiagnostics.ts",
+        "docs/upgrade.md"
+      ],
       "tests": {
-        "unit": ["tests/unit/config.test.ts", "tests/unit/delivery.test.ts", "tests/unit/compose.test.ts"],
-        "integration": ["docker compose -f docker-compose.yml config --quiet", "docker compose -f docker-compose.example.yml config --quiet"],
-        "e2e": ["tests/e2e/app.spec.ts"],
-        "security": ["tests/unit/config.test.ts", ".ishiku/kit/scripts/check-security"]
+        "unit": [
+          "tests/unit/config.test.ts",
+          "tests/unit/delivery.test.ts",
+          "tests/unit/compose.test.ts",
+          "tests/unit/storage.test.ts"
+        ],
+        "integration": [
+          "docker compose -f docker-compose.yml config --quiet",
+          "docker compose -f docker-compose.example.yml config --quiet",
+          "tests/integration/http.test.ts",
+          "tests/integration/credential-restart.test.ts",
+          "scripts/verify-container-lifecycle.ts"
+        ],
+        "e2e": [
+          "tests/e2e/app.spec.ts"
+        ],
+        "security": [
+          "tests/unit/config.test.ts",
+          ".ishiku/kit/scripts/check-security"
+        ]
       },
-      "status": "verified"
+      "status": "implemented"
     },
     {
       "id": "AUTH-001",
-      "implementation": ["src/server/security.ts", "src/server/db.ts", "src/server/routes/api.ts", "src/client/components/SettingsSheet.tsx"],
+      "implementation": [
+        "src/server/security.ts",
+        "src/server/db.ts",
+        "src/server/routes/api.ts",
+        "src/client/components/SettingsSheet.tsx",
+        "src/client/lib/useSessionActivity.ts",
+        ".ishiku/decisions/user-activity-session.json",
+        "src/server/recover-admin.ts",
+        "src/server/recovery/localAdmin.ts",
+        "docs/local-admin-recovery.md",
+        ".ishiku/decisions/local-admin-recovery.json"
+      ],
       "tests": {
-        "unit": ["tests/unit/security.test.ts"],
-        "integration": ["tests/integration/gluetun.test.ts"],
-        "e2e": ["tests/e2e/app.spec.ts"],
-        "security": ["tests/unit/security.test.ts", ".ishiku/kit/scripts/check-security"]
+        "unit": [
+          "tests/unit/security.test.ts",
+          "tests/unit/state.test.ts"
+        ],
+        "integration": [
+          "tests/integration/gluetun.test.ts",
+          "tests/integration/credentials.test.ts",
+          "tests/integration/session-activity.test.ts",
+          "tests/integration/local-recovery.test.ts"
+        ],
+        "e2e": [
+          "tests/e2e/app.spec.ts"
+        ],
+        "security": [
+          "tests/unit/security.test.ts",
+          ".ishiku/kit/scripts/check-security"
+        ]
       },
-      "status": "verified"
+      "status": "implemented"
     },
     {
       "id": "BOOTSTRAP-001",
-      "implementation": ["docker-compose.yml", "docker-compose.example.yml", "src/client/views/OverviewView.tsx", "src/server/compose/generator.ts", "src/server/compose/serverCatalog.ts", "docs/architecture.md", "docs/zimaos.md", ".ishiku/decisions/first-run-without-gluetun.json", ".ishiku/decisions/provider-catalog-bootstrap.json"],
+      "implementation": [
+        "docker-compose.yml",
+        "docker-compose.example.yml",
+        "src/client/views/OverviewView.tsx",
+        "src/server/compose/generator.ts",
+        "src/server/compose/serverCatalog.ts",
+        "docs/architecture.md",
+        "docs/zimaos.md",
+        ".ishiku/decisions/first-run-without-gluetun.json",
+        ".ishiku/decisions/provider-catalog-bootstrap.json"
+      ],
       "tests": {
-        "unit": ["tests/unit/delivery.test.ts", "tests/unit/compose.test.ts"],
-        "integration": ["docker compose -f docker-compose.yml config --services", "docker compose -f docker-compose.example.yml config --services"],
-        "e2e": ["tests/e2e/app.spec.ts"],
-        "security": ["tests/unit/delivery.test.ts", ".ishiku/kit/scripts/check-security"]
+        "unit": [
+          "tests/unit/delivery.test.ts",
+          "tests/unit/compose.test.ts"
+        ],
+        "integration": [
+          "docker compose -f docker-compose.yml config --services",
+          "docker compose -f docker-compose.example.yml config --services"
+        ],
+        "e2e": [
+          "tests/e2e/app.spec.ts"
+        ],
+        "security": [
+          "tests/unit/delivery.test.ts",
+          ".ishiku/kit/scripts/check-security"
+        ]
       },
-      "status": "verified"
+      "status": "implemented"
     },
     {
       "id": "ASSISTANT-001",
-      "implementation": ["src/server/compose/providers.ts", "src/server/compose/serverCatalog.ts", "src/server/compose/server-catalog.json", "src/server/compose/generator.ts", "src/server/routes/api.ts", "src/client/views/AssistantView.tsx", "src/client/styles.css", "docs/compose-assistant.md", ".ishiku/decisions/gluetun-addon-secret-output.json", ".ishiku/decisions/provider-catalog-bootstrap.json"],
+      "implementation": [
+        "src/server/compose/providers.ts",
+        "src/server/compose/serverCatalog.ts",
+        "src/server/compose/server-catalog.json",
+        "src/server/compose/generator.ts",
+        "src/server/routes/api.ts",
+        "src/client/views/AssistantView.tsx",
+        "src/client/styles.css",
+        "docs/compose-assistant.md",
+        ".ishiku/decisions/gluetun-addon-secret-output.json",
+        ".ishiku/decisions/provider-catalog-bootstrap.json",
+        "src/client/lib/wireguardImport.ts",
+        "src/server/compose/ports.ts",
+        "src/client/lib/composeDraft.ts",
+        "src/client/components/SavedDraftsPanel.tsx",
+        "src/server/validation.ts",
+        "src/client/lib/fieldErrors.ts",
+        "src/client/components/ErrorField.tsx",
+        "src/client/components/SettingsSheet.tsx",
+        "src/client/components/SetupWorkflow.tsx",
+        "src/client/lib/controlSuggestion.ts",
+        "src/server/compose/storageValidation.ts",
+        "src/server/compose/migrationReview.ts",
+        "scripts/review-compose-migration.ts"
+      ],
       "tests": {
-        "unit": ["tests/unit/compose.test.ts", "tests/unit/server-catalog.test.ts"],
-        "integration": [],
-        "e2e": ["tests/e2e/app.spec.ts"],
-        "security": ["tests/unit/compose.test.ts", ".ishiku/kit/scripts/check-security"]
+        "unit": [
+          "tests/unit/compose.test.ts",
+          "tests/unit/server-catalog.test.ts",
+          "tests/unit/audit-regressions.test.ts",
+          "tests/unit/wireguard-import.test.ts",
+          "tests/unit/ports.test.ts",
+          "tests/unit/compose-draft.test.ts",
+          "tests/unit/compose-validation.test.ts",
+          "tests/unit/control-suggestion.test.ts",
+          "tests/unit/compose-names.test.ts",
+          "tests/unit/compose-migration.test.ts"
+        ],
+        "integration": [
+          "tests/integration/drafts.test.ts",
+          "tests/integration/field-validation.test.ts",
+          "scripts/verify-compose-artifacts.ts"
+        ],
+        "e2e": [
+          "tests/e2e/app.spec.ts"
+        ],
+        "security": [
+          "tests/unit/compose.test.ts",
+          ".ishiku/kit/scripts/check-security"
+        ]
       },
-      "status": "verified"
+      "status": "implemented"
     },
     {
       "id": "DIAG-001",
-      "implementation": ["src/server/docker/observer.ts", "src/server/docker/observerProxy.ts", "src/server/routes/api.ts", "src/client/App.tsx", "src/client/views/OverviewView.tsx", "src/client/views/PortsView.tsx", "src/client/components/SettingsSheet.tsx", "docker-compose.yml", "docs/security.md", ".ishiku/decisions/docker-observer-helper.json"],
+      "implementation": [
+        "src/server/docker/observer.ts",
+        "src/server/docker/observerProxy.ts",
+        "src/server/routes/api.ts",
+        "src/client/App.tsx",
+        "src/client/views/OverviewView.tsx",
+        "src/client/views/PortsView.tsx",
+        "src/client/components/SettingsSheet.tsx",
+        "docker-compose.yml",
+        "docs/security.md",
+        ".ishiku/decisions/docker-observer-helper.json",
+        "src/server/docker/association.ts",
+        "src/server/docker/logOptions.ts",
+        "src/server/docker/observationCache.ts",
+        "src/server/docker/storage.ts",
+        "docs/gluetun-storage.md"
+      ],
       "tests": {
-        "unit": ["tests/unit/delivery.test.ts"],
-        "integration": ["tests/integration/adapter.test.ts", "tests/integration/observer-proxy.test.ts", "docker compose -f docker-compose.yml config --quiet"],
-        "e2e": ["tests/e2e/app.spec.ts"],
-        "security": ["tests/unit/delivery.test.ts", ".ishiku/kit/scripts/check-security"]
+        "unit": [
+          "tests/unit/delivery.test.ts",
+          "tests/unit/state.test.ts",
+          "tests/unit/docker-association.test.ts",
+          "tests/unit/docker-logs.test.ts",
+          "tests/unit/observation-cache.test.ts",
+          "tests/unit/gluetun-storage.test.ts"
+        ],
+        "integration": [
+          "tests/integration/adapter.test.ts",
+          "tests/integration/observer-proxy.test.ts",
+          "docker compose -f docker-compose.yml config --quiet",
+          "tests/integration/docker-association.test.ts",
+          "tests/integration/observer-proxy.test.ts"
+        ],
+        "e2e": [
+          "tests/e2e/app.spec.ts"
+        ],
+        "security": [
+          "tests/unit/delivery.test.ts",
+          ".ishiku/kit/scripts/check-security"
+        ]
       },
-      "status": "verified"
+      "status": "implemented"
     },
     {
       "id": "TRAFFIC-001",
-      "implementation": ["src/server/docker/observer.ts", "src/server/docker/observerProxy.ts", "src/server/gluetun/state.ts", "src/server/db.ts", "src/server/routes/api.ts", "src/client/App.tsx", "src/client/views/OverviewView.tsx", "docs/security.md", ".ishiku/decisions/docker-observer-helper.json"],
+      "implementation": [
+        "src/server/docker/observer.ts",
+        "src/server/docker/observerProxy.ts",
+        "src/server/gluetun/state.ts",
+        "src/server/db.ts",
+        "src/server/routes/api.ts",
+        "src/client/App.tsx",
+        "src/client/views/OverviewView.tsx",
+        "docs/security.md",
+        ".ishiku/decisions/docker-observer-helper.json",
+        "src/server/docker/association.ts",
+        "src/server/docker/logOptions.ts",
+        "src/server/docker/trafficCounters.ts",
+        "src/server/traffic/daily.ts"
+      ],
       "tests": {
-        "unit": ["tests/unit/session.test.ts", "tests/unit/delivery.test.ts"],
-        "integration": ["tests/integration/adapter.test.ts", "tests/integration/observer-proxy.test.ts"],
-        "e2e": ["tests/e2e/app.spec.ts"],
-        "security": ["tests/unit/delivery.test.ts", ".ishiku/kit/scripts/check-security"]
+        "unit": [
+          "tests/unit/session.test.ts",
+          "tests/unit/delivery.test.ts",
+          "tests/unit/state.test.ts",
+          "tests/unit/docker-association.test.ts",
+          "tests/unit/docker-logs.test.ts",
+          "tests/unit/traffic-quality.test.ts"
+        ],
+        "integration": [
+          "tests/integration/adapter.test.ts",
+          "tests/integration/observer-proxy.test.ts",
+          "tests/integration/docker-association.test.ts",
+          "tests/integration/http.test.ts"
+        ],
+        "e2e": [
+          "tests/e2e/app.spec.ts"
+        ],
+        "security": [
+          "tests/unit/delivery.test.ts",
+          ".ishiku/kit/scripts/check-security"
+        ]
       },
-      "status": "verified"
+      "status": "implemented"
     },
     {
       "id": "UI-001",
-      "implementation": ["src/client/", "src/server/gluetun/adapter.ts", "design-system/", "assets/icon-source.png", "public/assets/icons/"],
+      "implementation": [
+        "src/client/",
+        "src/server/gluetun/adapter.ts",
+        "design-system/",
+        "assets/icon-source.png",
+        "public/assets/icons/",
+        "src/client/main.tsx",
+        "public/sw.js",
+        "README.md",
+        "src/client/lib/api.ts"
+      ],
       "tests": {
-        "unit": ["tests/unit/delivery.test.ts"],
-        "integration": [".ishiku/design-system.lock"],
-        "e2e": ["tests/e2e/app.spec.ts"],
+        "unit": [
+          "tests/unit/delivery.test.ts",
+          "tests/unit/client-request.test.ts"
+        ],
+        "integration": [
+          ".ishiku/design-system.lock"
+        ],
+        "e2e": [
+          "tests/e2e/app.spec.ts"
+        ],
         "security": []
       },
-      "status": "verified"
+      "status": "implemented"
     },
     {
       "id": "OPS-001",
-      "implementation": ["Dockerfile", "docker-compose.yml", "docker-compose.example.yml", ".env.example", "README.md"],
+      "implementation": [
+        "Dockerfile",
+        "docker-compose.yml",
+        "docker-compose.example.yml",
+        ".env.example",
+        "README.md",
+        "scripts/verify-published-upgrade.ts"
+      ],
       "tests": {
-        "unit": ["tests/unit/delivery.test.ts"],
-        "integration": ["docker compose -f docker-compose.yml config --quiet", "docker compose -f docker-compose.example.yml config --quiet", ".ishiku/reports/ops-001-verification.json"],
-        "e2e": ["tests/e2e/app.spec.ts"],
-        "security": [".ishiku/kit/scripts/check-security"]
+        "unit": [
+          "tests/unit/delivery.test.ts",
+          "tests/unit/database-migration.test.ts"
+        ],
+        "integration": [
+          "docker compose -f docker-compose.yml config --quiet",
+          "docker compose -f docker-compose.example.yml config --quiet",
+          ".ishiku/reports/ops-001-verification.json",
+          "scripts/verify-published-upgrade.ts"
+        ],
+        "e2e": [
+          "tests/e2e/app.spec.ts"
+        ],
+        "security": [
+          ".ishiku/kit/scripts/check-security"
+        ]
       },
-      "status": "verified"
+      "status": "implemented"
     },
     {
       "id": "REL-001",
-      "implementation": [".github/workflows/ci.yml", ".github/workflows/container.yml", ".github/workflows/ishiku-release-release.yml", "scripts/compliance-test.mjs", ".ishiku/overrides/gluetun-latest.json"],
+      "implementation": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/container.yml",
+        ".github/workflows/ishiku-release-release.yml",
+        "scripts/compliance-test.mjs",
+        ".ishiku/overrides/gluetun-latest.json",
+        "scripts/promote-image.ts",
+        "scripts/release-policy.ts",
+        "docs/releases.md",
+        ".ishiku/decisions/main-latest-channel.json",
+        "scripts/image-architectures.ts",
+        "scripts/verify-image-architectures.ts",
+        "scripts/verify-container-lifecycle.ts",
+        "src/server/maintenance/upstreamDiscovery.ts",
+        "scripts/discover-upstreams.ts",
+        ".github/workflows/tuniku-upstream-discovery.yml"
+      ],
       "tests": {
-        "unit": ["tests/unit/delivery.test.ts"],
-        "integration": [".ishiku/kit/scripts/check-release"],
+        "unit": [
+          "tests/unit/delivery.test.ts",
+          "tests/unit/release-policy.test.ts",
+          "tests/unit/image-architectures.test.ts",
+          "tests/unit/upstream-discovery.test.ts",
+          "tests/unit/upstream-release-gate.test.ts"
+        ],
+        "integration": [
+          ".ishiku/kit/scripts/check-release",
+          "tests/integration/release-promotion.test.ts",
+          "tests/integration/image-architecture-gate.test.ts",
+          "scripts/verify-container-lifecycle.ts"
+        ],
         "e2e": [],
-        "security": [".ishiku/kit/scripts/check-security"]
+        "security": [
+          ".ishiku/kit/scripts/check-security"
+        ]
       },
-      "status": "verified"
+      "status": "implemented"
+    },
+    {
+      "id": "MGMT-001",
+      "implementation": [
+        "src/server/management/",
+        "src/server/routes/api.ts",
+        "src/client/components/ManagedStackPanel.tsx",
+        "docker-compose.managed.yml",
+        "docs/managed-stacks.md",
+        ".ishiku/decisions/managed-stack-direction.json",
+        "src/server/management/inventory.ts",
+        "src/server/management/settings.ts",
+        "src/server/management/export.ts"
+      ],
+      "tests": {
+        "unit": [
+          "tests/unit/management.test.ts",
+          "tests/unit/ports.test.ts",
+          "tests/unit/managed-inventory.test.ts",
+          "tests/unit/managed-export.test.ts"
+        ],
+        "integration": [
+          "tests/integration/management.test.ts",
+          "scripts/verify-managed-lifecycle.ts"
+        ],
+        "e2e": [
+          "tests/e2e/app.spec.ts"
+        ],
+        "security": [
+          "tests/unit/management.test.ts",
+          "tests/integration/management.test.ts",
+          ".ishiku/kit/scripts/check-security"
+        ]
+      },
+      "status": "implemented"
+    },
+    {
+      "id": "RETENTION-001",
+      "implementation": [
+        "src/server/db.ts",
+        "src/server/app.ts",
+        "src/server/routes/api.ts",
+        "src/client/components/SavedDraftsPanel.tsx",
+        "src/client/components/SettingsSheet.tsx",
+        ".ishiku/decisions/bounded-retention.json",
+        "docs/security.md"
+      ],
+      "tests": {
+        "unit": [
+          "tests/unit/retention.test.ts",
+          "tests/unit/security.test.ts"
+        ],
+        "integration": [
+          "tests/integration/drafts.test.ts"
+        ],
+        "e2e": [
+          "tests/e2e/app.spec.ts"
+        ],
+        "security": [
+          "tests/unit/retention.test.ts",
+          "tests/integration/drafts.test.ts"
+        ]
+      },
+      "status": "implemented"
     }
   ]
 }

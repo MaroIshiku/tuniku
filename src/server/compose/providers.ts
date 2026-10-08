@@ -1,3 +1,4 @@
+import { providerSchemaReview, type ProviderSchemaReview } from "./providerSchemaReview.js";
 import type { ServerFilterKey } from "./serverCatalog.js";
 
 export type VpnProtocol = "openvpn" | "wireguard";
@@ -13,6 +14,7 @@ export interface ProviderOption {
 }
 
 export interface GluetunProviderProfile {
+  schemaReview?: ProviderSchemaReview;
   id: string;
   label: string;
   protocols: VpnProtocol[];
@@ -42,14 +44,15 @@ const wireguardPort: ProviderOption = {
   env: "WIREGUARD_ENDPOINT_PORT", label: "WireGuard endpoint port", kind: "number", protocols: ["wireguard"],
   description: "Optional provider endpoint port from the official walkthrough."
 };
+const constrainedWireguardPort = (ports: number[]): ProviderOption => ({ ...wireguardPort, kind: "select", choices: ports.map(String), description: "Choose a WireGuard endpoint port supported by this provider, or keep Gluetun's default." });
 const enabled = (env: string, label: string, enabledValue = "on"): ProviderOption => ({
   env, label, kind: "boolean", enabledValue,
   description: `Set ${env}=${enabledValue}; leave disabled to use Gluetun's default.`
 });
 
-// Synchronized with the provider constants in qmcgaw/gluetun:latest and the
-// official provider walkthroughs on 2026-08-31. Perfect Privacy is deliberately
-// absent because the current Gluetun executable no longer accepts it.
+// Baseline provider constants were recorded on 2026-08-31. Separate hashed
+// documentation review provenance is attached below; refreshing server values
+// does not update these rules or establish runtime compatibility.
 export const gluetunProviderProfiles: GluetunProviderProfile[] = [
   { id: "airvpn", label: "AirVPN", protocols: ["wireguard", "openvpn"], guidance: "Export the AirVPN material for the selected protocol.", docsUrl: providerDocs("airvpn"), openvpnCredentials: "none", openvpnCertificate: "client_key", wireguardAddresses: true, wireguardPresharedKey: true, customConfiguration: false, serverFilters: ["countries", "regions", "cities", "names", "hostnames"], options: [openvpnProtocol] },
   { id: "cyberghost", label: "CyberGhost", protocols: ["openvpn"], guidance: "Create a manual OpenVPN connection and use its credentials and certificate material.", docsUrl: providerDocs("cyberghost"), openvpnCredentials: "required", openvpnCertificate: "client_key", wireguardAddresses: false, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["countries", "hostnames"], options: [openvpnProtocol] },
@@ -58,7 +61,7 @@ export const gluetunProviderProfiles: GluetunProviderProfile[] = [
   { id: "giganews", label: "Giganews", protocols: ["openvpn"], guidance: "Use the OpenVPN credentials issued for your Giganews/VyprVPN account.", docsUrl: providerDocs("giganews"), openvpnCredentials: "required", openvpnCertificate: "none", wireguardAddresses: false, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["regions", "hostnames"], options: [] },
   { id: "hidemyass", label: "HideMyAss", protocols: ["openvpn"], guidance: "Use your manual OpenVPN username and password.", docsUrl: providerDocs("hidemyass"), openvpnCredentials: "required", openvpnCertificate: "none", wireguardAddresses: false, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["countries", "regions", "cities", "hostnames"], options: [openvpnProtocol] },
   { id: "ipvanish", label: "IPVanish", protocols: ["openvpn"], guidance: "Use the OpenVPN credentials from your IPVanish account.", docsUrl: providerDocs("ipvanish"), openvpnCredentials: "required", openvpnCertificate: "none", wireguardAddresses: false, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["countries", "cities", "hostnames"], options: [] },
-  { id: "ivpn", label: "IVPN", protocols: ["wireguard", "openvpn"], guidance: "Use your IVPN account ID; a password is required only for non-account-ID OpenVPN usernames.", docsUrl: providerDocs("ivpn"), openvpnCredentials: "optional", openvpnCertificate: "none", wireguardAddresses: true, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["countries", "cities", "hostnames", "isps"], options: [openvpnProtocol, wireguardPort] },
+  { id: "ivpn", label: "IVPN", protocols: ["wireguard", "openvpn"], guidance: "Use your IVPN account ID; a password is required only for non-account-ID OpenVPN usernames.", docsUrl: providerDocs("ivpn"), openvpnCredentials: "optional", openvpnCertificate: "none", wireguardAddresses: true, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["countries", "cities", "hostnames", "isps"], options: [openvpnProtocol, constrainedWireguardPort([53, 2049, 2050, 30587, 41893, 48574, 58237])] },
   { id: "mullvad", label: "Mullvad", protocols: ["wireguard"], guidance: "Current Gluetun latest accepts Mullvad only with WireGuard; OpenVPN was retired in January 2026.", docsUrl: providerDocs("mullvad"), openvpnCredentials: "none", openvpnCertificate: "none", wireguardAddresses: true, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["countries", "cities", "hostnames", "isps"], options: [wireguardPort, enabled("OWNED_ONLY", "Mullvad-owned servers only", "yes")] },
   { id: "nordvpn", label: "NordVPN", protocols: ["wireguard", "openvpn"], guidance: "Use NordVPN manual service credentials or the NordLynx private key, not the website password.", docsUrl: providerDocs("nordvpn"), openvpnCredentials: "required", openvpnCertificate: "none", wireguardAddresses: false, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["countries", "regions", "cities", "hostnames", "categories"], options: [openvpnProtocol] },
   { id: "privado", label: "PrivadoVPN", protocols: ["openvpn"], guidance: "Use the manual OpenVPN credentials from PrivadoVPN.", docsUrl: providerDocs("privado"), openvpnCredentials: "required", openvpnCertificate: "none", wireguardAddresses: false, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["countries", "regions", "cities", "hostnames"], options: [openvpnProtocol, openvpnPort] },
@@ -72,9 +75,11 @@ export const gluetunProviderProfiles: GluetunProviderProfile[] = [
   { id: "vpnsecure", label: "VPNSecure.me", protocols: ["openvpn"], guidance: "Export the VPNSecure certificate, encrypted private key, and key passphrase.", docsUrl: providerDocs("vpn-secure"), openvpnCredentials: "none", openvpnCertificate: "encrypted_key", wireguardAddresses: false, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["regions", "cities", "hostnames"], options: [openvpnProtocol, enabled("PREMIUM_ONLY", "Premium servers only", "yes")] },
   { id: "vpn unlimited", label: "VPN Unlimited", protocols: ["openvpn"], guidance: "Use the generated OpenVPN credentials and client certificate material from VPN Unlimited.", docsUrl: providerDocs("vpn-unlimited"), openvpnCredentials: "required", openvpnCertificate: "client_key", wireguardAddresses: false, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["countries", "regions", "cities", "hostnames"], options: [openvpnProtocol] },
   { id: "vyprvpn", label: "VyprVPN", protocols: ["openvpn"], guidance: "Use your VyprVPN OpenVPN credentials.", docsUrl: providerDocs("vyprvpn"), openvpnCredentials: "required", openvpnCertificate: "none", wireguardAddresses: false, wireguardPresharedKey: false, customConfiguration: false, serverFilters: ["regions", "hostnames"], options: [] },
-  { id: "windscribe", label: "Windscribe", protocols: ["wireguard", "openvpn"], guidance: "Use Windscribe configuration-generator credentials, not the account password.", docsUrl: providerDocs("windscribe"), openvpnCredentials: "required", openvpnCertificate: "none", wireguardAddresses: true, wireguardPresharedKey: true, customConfiguration: false, serverFilters: ["regions", "cities", "hostnames"], options: [openvpnProtocol, openvpnPort, wireguardPort] },
+  { id: "windscribe", label: "Windscribe", protocols: ["wireguard", "openvpn"], guidance: "Use Windscribe configuration-generator credentials, not the account password.", docsUrl: providerDocs("windscribe"), openvpnCredentials: "required", openvpnCertificate: "none", wireguardAddresses: true, wireguardPresharedKey: true, customConfiguration: false, serverFilters: ["regions", "cities", "hostnames"], options: [openvpnProtocol, openvpnPort, constrainedWireguardPort([53, 80, 123, 443, 1194, 65142])] },
   { id: "custom", label: "Custom provider", protocols: ["wireguard", "openvpn"], guidance: "Provide every value from your provider's exported OpenVPN or WireGuard configuration.", docsUrl: providerDocs("custom"), openvpnCredentials: "optional", openvpnCertificate: "none", wireguardAddresses: true, wireguardPresharedKey: false, customConfiguration: true, serverFilters: [], options: [] }
 ];
+
+for (const profile of gluetunProviderProfiles) profile.schemaReview = providerSchemaReview({ ...profile });
 
 export function getProviderProfile(id: string | undefined): GluetunProviderProfile | undefined {
   return gluetunProviderProfiles.find((provider) => provider.id === id);

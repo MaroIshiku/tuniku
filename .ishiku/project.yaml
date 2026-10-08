@@ -42,12 +42,12 @@
       },
       {
         "name": "compose",
-        "command": "docker compose -f docker-compose.yml config --quiet && docker compose -f docker-compose.example.yml config --quiet",
+        "command": "docker compose -f docker-compose.yml config --quiet && docker compose -f docker-compose.example.yml config --quiet && TUNIKU_IMAGE=tuniku:verify DOCKER_SOCKET_GID=1000 TUNIKU_MANAGER_PROJECTS=synthetic-vpn docker compose -f docker-compose.yml -f docker-compose.managed.yml config --quiet",
         "required_for_verified": true
       },
       {
         "name": "container",
-        "command": "docker build -t tuniku:verify .",
+        "command": "docker buildx build --load -t tuniku:verify .",
         "required_for_verified": true
       }
     ]

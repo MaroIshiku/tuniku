@@ -1,4 +1,7 @@
 node_modules/
+gluetun.optional.env
+docker-compose.generated.yml
+docker-compose.gluetun-addon.yml
 __pycache__/
 *.py[cod]
 dist/

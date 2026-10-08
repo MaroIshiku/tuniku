@@ -1,3 +1,6 @@
+# Installation template: set ISHIKU_SETUP_SECRET (32+ random characters),
+# review the data mount and UID1000 ownership before deploying.
+# This pinned release does not acquire Unreleased source changes by pulling latest.
 name: tuniku
 
 services:
@@ -85,12 +88,17 @@ services:
       - /tmp:size=8m,mode=1777
       - /data:size=1m,mode=0700
     healthcheck:
-      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:2375/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:2375/readyz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       start_period: 5s
       retries: 3
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-file: "3"
+        max-size: 5m
 
 networks:
   tuniku:

@@ -37,6 +37,8 @@ describe("runtime secret configuration", () => {
     expect(loadConfig({ TUNIKU_DATA_PATH: dataPath }).secureCookies).toBe(false);
     expect(loadConfig({ TUNIKU_DATA_PATH: dataPath, HTTPS_ONLY: "true" }).secureCookies).toBe(true);
     expect(loadConfig({ TUNIKU_DATA_PATH: dataPath, HTTPSONLY: "true" }).secureCookies).toBe(true);
+    expect(loadConfig({ TUNIKU_DATA_PATH: dataPath, HTTPSONLY: "TRUE" }).secureCookies).toBe(true);
+    expect(loadConfig({ TUNIKU_DATA_PATH: dataPath, HTTPS_ONLY: "FALSE", HTTPSONLY: "TRUE" }).secureCookies).toBe(false);
   });
 
   it("keeps legacy file-backed overrides compatible", () => {

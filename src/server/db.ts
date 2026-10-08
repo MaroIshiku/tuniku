@@ -1,3 +1,4 @@
+import { allocateTrafficDays, trafficDay } from "./traffic/daily.js";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -6,13 +7,6 @@ import type { CapabilityMap, InstanceRecord, LocalPortLabel, SessionUser, Traffi
 
 function now(): string {
   return new Date().toISOString();
-}
-
-function localDay(value = new Date()): string {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 function mapInstance(row: any): InstanceRecord {
@@ -47,15 +41,27 @@ function mapPort(row: any): LocalPortLabel {
   };
 }
 
+export const retentionPolicy = { auditDays: 90, auditEvents: 10_000, draftCount: 1_000, draftBytes: 25 * 1024 * 1024 } as const;
+
+export class DraftCapacityError extends Error {
+  constructor() { super("Draft storage is full (1,000 drafts or 25 MiB). Delete saved drafts before saving another. Existing drafts are preserved."); }
+}
+
 export class TunikuDatabase {
   readonly raw: Database.Database;
 
   constructor(databasePath: string) {
-    fs.mkdirSync(path.dirname(databasePath), { recursive: true });
+    fs.mkdirSync(path.dirname(databasePath), { recursive: true, mode: 0o700 });
+    try { fs.closeSync(fs.openSync(databasePath, "wx", 0o600)); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
     this.raw = new Database(databasePath);
-    this.raw.pragma("journal_mode = WAL");
-    this.raw.pragma("foreign_keys = ON");
-    this.migrate();
+    try {
+      const version = this.raw.pragma("user_version", { simple: true }) as number;
+      if (version > 4) throw new Error("This database schema is newer than this Tuniku version. Use a compatible version; the database has not been migrated.");
+      this.raw.pragma("journal_mode = WAL");
+      this.raw.pragma("foreign_keys = ON");
+      this.raw.transaction(() => this.migrate()).immediate();
+    } catch (error) { this.raw.close(); throw error; }
   }
 
   private migrate(): void {
@@ -330,7 +336,7 @@ export class TunikuDatabase {
     if (existing) {
       this.raw.prepare(`
         UPDATE gluetun_instances
-        SET display_name=?,base_url=?,auth_mode=?,tls_verify=?,request_timeout_seconds=?,updated_at=?
+        SET display_name=?,base_url=?,auth_mode=?,tls_verify=?,request_timeout_seconds=?,updated_at=?,capability_cache_json=NULL,last_connected_at=NULL
         WHERE id=?
       `).run(input.displayName, input.baseUrl, input.authMode, Number(input.tlsVerify), input.requestTimeoutSeconds, timestamp, input.id);
     } else {
@@ -370,15 +376,21 @@ export class TunikuDatabase {
     ).run(JSON.stringify(capabilities), now(), now(), id);
   }
 
+  private trafficQuality: NonNullable<TrafficSummary["sampleQuality"]> = "unknown";
+  private trafficInterval: number | null = null;
+
   recordTraffic(input: TrafficCounterSnapshot): TrafficSummary {
     if (
       !input.containerId ||
       !Number.isSafeInteger(input.receivedBytes) || input.receivedBytes < 0 ||
       !Number.isSafeInteger(input.sentBytes) || input.sentBytes < 0 ||
-      !Number.isFinite(Date.parse(input.observedAt))
+      !Number.isFinite(Date.parse(input.observedAt)) || Date.parse(input.observedAt) > Date.now() + 60_000
     ) throw new Error("Invalid Docker traffic counters.");
     const previous = this.raw.prepare("SELECT * FROM traffic_state WHERE singleton=1").get() as any;
     const elapsedSeconds = previous ? (Date.parse(input.observedAt) - Date.parse(previous.observed_at)) / 1000 : 0;
+    // Late or repeated samples must not move the baseline backwards and count
+    // the same bytes again on the next successful poll.
+    if (previous && elapsedSeconds <= 0) return this.trafficSummary();
     const comparable = previous && previous.container_id === input.containerId && elapsedSeconds > 0;
     const downloadedDelta = comparable && input.receivedBytes >= previous.received_bytes
       ? input.receivedBytes - previous.received_bytes
@@ -386,11 +398,13 @@ export class TunikuDatabase {
     const uploadedDelta = comparable && input.sentBytes >= previous.sent_bytes
       ? input.sentBytes - previous.sent_bytes
       : 0;
-    const downloadRate = elapsedSeconds > 0 ? downloadedDelta / elapsedSeconds : 0;
-    const uploadRate = elapsedSeconds > 0 ? uploadedDelta / elapsedSeconds : 0;
-    const day = localDay(new Date(input.observedAt));
+    const reset = comparable && (input.receivedBytes < previous.received_bytes || input.sentBytes < previous.sent_bytes);
+    const quality: NonNullable<TrafficSummary["sampleQuality"]> = !comparable ? "baseline" : reset ? "reset" : elapsedSeconds > 30 ? "gap" : "continuous";
+    const downloadRate = quality === "continuous" ? downloadedDelta / elapsedSeconds : 0;
+    const uploadRate = quality === "continuous" ? uploadedDelta / elapsedSeconds : 0;
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 90);
+    cutoff.setDate(cutoff.getDate() - 89);
+    const rows = comparable ? allocateTrafficDays(Date.parse(previous.observed_at), Date.parse(input.observedAt), downloadedDelta, uploadedDelta, cutoff) : [{ day: trafficDay(new Date(input.observedAt)), received: 0, sent: 0 }];
     this.raw.transaction(() => {
       this.raw.prepare(`
         INSERT INTO traffic_state
@@ -404,29 +418,37 @@ export class TunikuDatabase {
           download_bytes_per_second=excluded.download_bytes_per_second,
           upload_bytes_per_second=excluded.upload_bytes_per_second
       `).run(input.containerId, input.receivedBytes, input.sentBytes, input.observedAt, downloadRate, uploadRate);
-      this.raw.prepare(`
+      const insertDay = this.raw.prepare(`
         INSERT INTO traffic_daily (day,downloaded_bytes,uploaded_bytes) VALUES (?,?,?)
         ON CONFLICT(day) DO UPDATE SET
           downloaded_bytes=traffic_daily.downloaded_bytes+excluded.downloaded_bytes,
           uploaded_bytes=traffic_daily.uploaded_bytes+excluded.uploaded_bytes
-      `).run(day, downloadedDelta, uploadedDelta);
-      this.raw.prepare("DELETE FROM traffic_daily WHERE day<?").run(localDay(cutoff));
+      `);
+      for (const row of rows) insertDay.run(row.day, row.received, row.sent);
+      this.raw.prepare("DELETE FROM traffic_daily WHERE day<?").run(trafficDay(cutoff));
     })();
+    this.trafficQuality = quality; this.trafficInterval = previous ? elapsedSeconds : null;
     return this.trafficSummary();
   }
 
   trafficSummary(): TrafficSummary {
     const state = this.raw.prepare("SELECT * FROM traffic_state WHERE singleton=1").get() as any;
     const today = this.raw.prepare("SELECT downloaded_bytes,uploaded_bytes FROM traffic_daily WHERE day=?")
-      .get(localDay()) as any;
+      .get(trafficDay()) as any;
     const total = this.raw.prepare(`
       SELECT COALESCE(SUM(downloaded_bytes),0) AS downloaded_bytes,
              COALESCE(SUM(uploaded_bytes),0) AS uploaded_bytes
       FROM traffic_daily
     `).get() as any;
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 89);
+    const history = this.raw.prepare("SELECT day,downloaded_bytes,uploaded_bytes FROM traffic_daily WHERE day>=? AND day<=? ORDER BY day DESC LIMIT 90")
+      .all(trafficDay(cutoff), trafficDay()) as Array<{ day: string; downloaded_bytes: number; uploaded_bytes: number }>;
     return {
+      history: { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, days: history.map((row) => ({ day: row.day, downloadedBytes: row.downloaded_bytes, uploadedBytes: row.uploaded_bytes })) },
       available: Boolean(state),
       source: "docker_stats",
+      sampleQuality: this.trafficQuality,
+      sampleIntervalSeconds: this.trafficInterval,
       observedAt: state?.observed_at ?? null,
       downloadBytesPerSecond: Number(state?.download_bytes_per_second) || 0,
       uploadBytesPerSecond: Number(state?.upload_bytes_per_second) || 0,
@@ -477,6 +499,10 @@ export class TunikuDatabase {
     containsSecretValues: boolean;
   }): void {
     const timestamp = now();
+    const serialized = JSON.stringify(input.nonSecretInput);
+    this.raw.transaction(() => {
+      const usage = this.draftUsage();
+      if (usage.count >= retentionPolicy.draftCount || usage.bytes + Buffer.byteLength(serialized) + Buffer.byteLength(input.redactedOutput) > retentionPolicy.draftBytes) throw new DraftCapacityError();
     this.raw.prepare(`
       INSERT INTO compose_drafts
       (id,instance_id,title,task_type,non_secret_input_json,generated_output_redacted,contains_secret_values,created_at,updated_at)
@@ -486,12 +512,34 @@ export class TunikuDatabase {
       input.instanceId,
       input.title,
       input.taskType,
-      JSON.stringify(input.nonSecretInput),
+      serialized,
       input.redactedOutput,
       Number(input.containsSecretValues),
       timestamp,
       timestamp
     );
+    }).immediate();
+  }
+
+  draftUsage(): { count: number; bytes: number } {
+    return this.raw.prepare("SELECT COUNT(*) AS count,COALESCE(SUM(length(CAST(non_secret_input_json AS BLOB))+length(CAST(generated_output_redacted AS BLOB))),0) AS bytes FROM compose_drafts").get() as { count: number; bytes: number };
+  }
+
+  pruneAudit(): number {
+    return this.raw.transaction(() => {
+      const cutoff = new Date(Date.now() - retentionPolicy.auditDays * 86400000).toISOString();
+      const aged = this.raw.prepare("DELETE FROM audit_events WHERE created_at < ?").run(cutoff).changes;
+      const excess = this.raw.prepare("DELETE FROM audit_events WHERE id IN (SELECT id FROM audit_events ORDER BY created_at DESC,id DESC LIMIT -1 OFFSET ?)").run(retentionPolicy.auditEvents).changes;
+      return aged + excess;
+    }).immediate();
+  }
+
+  draftSummaries(offset = 0): Array<Record<string, unknown>> {
+    return this.raw.prepare("SELECT id,instance_id AS instanceId,title,task_type AS taskType,created_at AS createdAt,updated_at AS updatedAt FROM compose_drafts ORDER BY updated_at DESC,id DESC LIMIT 51 OFFSET ?").all(offset) as Array<Record<string, unknown>>;
+  }
+
+  getDraft(id: string): Record<string, unknown> | null {
+    return (this.raw.prepare("SELECT id,instance_id AS instanceId,title,task_type AS taskType,non_secret_input_json AS rawInput,created_at AS createdAt,updated_at AS updatedAt FROM compose_drafts WHERE id=?").get(id) as Record<string, unknown> | undefined) ?? null;
   }
 
   listDrafts(): unknown[] {
@@ -516,11 +564,14 @@ export class TunikuDatabase {
   }
 
   audit(input: { id: string; requestId: string; userId: string | null; instanceId: string | null; type: string; result: string; metadata: unknown }): void {
+    this.raw.transaction(() => {
     this.raw.prepare(`
       INSERT INTO audit_events
       (id,request_id,user_id,instance_id,event_type,result,redacted_metadata_json,created_at)
       VALUES (?,?,?,?,?,?,?,?)
     `).run(input.id, input.requestId, input.userId, input.instanceId, input.type, input.result, JSON.stringify(input.metadata), now());
+    this.pruneAudit();
+    }).immediate();
   }
 
   recentAudit(limit = 20): unknown[] {

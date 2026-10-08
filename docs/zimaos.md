@@ -1,5 +1,13 @@
 # ZimaOS deployment notes
 
+The primary Compose is an installation template: set its setup secret and
+review storage ownership before first start. The advanced example is also a
+template and requires a setup-secret file plus a complete provider-specific
+Gluetun environment; its minimal placeholder fields cannot establish a VPN.
+For an existing installation, follow [Upgrade and Compose migration](upgrade.md)
+before changing image pins, services or data mounts. Unreleased source changes
+are not delivered by pulling the currently pinned 0.3.6 image.
+
 ZimaOS wording and controls can differ between versions. The primary
 `docker-compose.yml` follows the ishiku ZimaOS installation profile:
 
@@ -94,3 +102,33 @@ deploy, recreate containers, or authenticate to the foreign application.
 For an application kept in a separate ZimaOS/Compose stack, use
 `network_mode: "container:gluetun"` instead of `service:gluetun`. Publish its
 required UI port on the Gluetun service in either arrangement.
+
+## Local access and storage prerequisites
+
+Open `http://<NAS-IP>:65001` for the primary local deployment; a certificate is not required. `HTTPS_ONLY=true` enables secure-cookie/proxy policy and requires a separately configured HTTPS reverse proxy; Tuniku does not terminate TLS. Settings shows the browser connection and configured transport policy separately.
+
+Use a persistent Linux volume with working UID1000 ownership, real file permissions, SQLite WAL and file locking. Tuniku creates new database files with mode0600 and new directories with mode0700. Existing files retain their modes; authenticated Settings diagnostics report private-file/directory and owner checks plus the actual SQLite journal mode. These checks do not prove filesystem durability or an NAS restore. With the service stopped and a matching backup retained, verify the data directory is0700 and database/existing WAL/SHM are0600, owned by the application user. Do not recursively change unrelated application/download directories. Filesystems that cannot enforce ownership or locking need a separately reviewed migration to a private Linux volume.
+
+## Isolated runtime verification
+
+From a standalone development clone, build and load a local test image, then run:
+
+```sh
+docker build --load -t tuniku:local-runtime-test .
+TUNIKU_TEST_IMAGE=tuniku:local-runtime-test npx tsx scripts/verify-container-lifecycle.ts
+TUNIKU_TEST_IMAGE=tuniku:local-runtime-test npx tsx scripts/verify-compose-artifacts.ts
+```
+
+The lifecycle test uses only randomly named disposable volumes and containers,
+without host data, a Docker socket mount, published ports or an external network.
+It tests local HTTP setup/login, non-root/read-only/capability restrictions,
+private SQLite/WAL/key files, replacement with the same volume, wrong-key
+diagnosis and recovery, and restoration to another volume with the writer
+stopped. Backup copies must preserve private directory permissions as well as
+file contents; copying bytes alone is insufficient. The artifact test checks
+special characters in synthetic credentials using actual Compose processes.
+
+These tests do not prove a NAS reboot, an upgrade from a published version, a
+second CPU architecture, actual VPN connectivity or DNS/IPv6 leak prevention.
+They print the tested image ID, architecture and engine/tool versions. They do
+not publish an image or modify an existing installation.

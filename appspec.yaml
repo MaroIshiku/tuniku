@@ -6,14 +6,14 @@
     "family": "ishiku",
     "locale": "en"
   },
-  "summary": "Provide a secure dashboard for Gluetun Control Server functions and a generation-only Compose assistant.",
+  "summary": "Provide a secure Gluetun dashboard, Compose assistant and optional confirmed management of explicitly adopted VPN application stacks.",
   "requirements": [
     {
       "id": "CORE-001",
       "title": "Core product behavior",
       "priority": "critical",
       "acceptance": [
-        "Provide a secure dashboard for Gluetun Control Server functions and a generation-only Compose assistant.",
+        "Provide a secure Gluetun dashboard, Compose assistant and optional confirmed management of explicitly adopted VPN application stacks.",
         "Existing documented and reachable behavior remains available unless an approved migration decision says otherwise."
       ],
       "security_critical": false
@@ -25,7 +25,9 @@
       "acceptance": [
         "Account authentication uses generic errors, rate limits, and a supported password hash.",
         "Sessions are server-side revocable, rotated, idle- and absolute-time-bounded, cookie-protected, and CSRF-protected.",
-        "Administrators can inspect their current session, confirm their password, and revoke other sessions; authentication and audit errors carry a request ID."
+        "Administrators can inspect their current session, confirm their password, and revoke other sessions; authentication and audit errors carry a request ID.",
+        "Only explicit visible-tab user interaction reports renew the 30-minute idle deadline; background polling does not, expired activity cannot renew a session, and the 24-hour absolute deadline remains enforced.",
+        "Offline local-data-owner recovery uses hidden interactive password input, an existing private schema-compatible database, explicit stopped-service/backup confirmation, and an atomic selected-admin password update, session revocation and secret-free audit without changing VPN settings or keys. TOTP remains deferred."
       ],
       "security_critical": true
     },
@@ -37,7 +39,11 @@
         "The primary ZimaOS Compose exposes exactly one operator-provided ISHIKU_SETUP_SECRET with a minimum length of 32 characters.",
         "The primary Compose sets HTTPS_ONLY=false so trusted-LAN HTTP works by default; HTTPS_ONLY=true enables Secure session cookies for reverse-proxy HTTPS.",
         "Tuniku generates and persists internal session and credential-encryption keys under /data without exposing them as additional new-install Compose fields.",
-        "Legacy file-backed and environment secret overrides remain compatible, and existing encrypted credentials have an explicit migration warning."
+        "Legacy file-backed and environment secret overrides remain compatible, and existing encrypted credentials have an explicit migration warning.",
+        "Direct HTTP on an ordinary local hostname supports authentication and browser-compatible copying without HSTS or forced resource upgrade; HTTPS mode keeps Secure cookies and transport policy as explicit opt-in.",
+        "Connection credential lifetime is explained at the storage control; isolated SQLite-backed restart tests verify transient loss, encrypted persistence, wrong-key non-destructive diagnosis and recovery with the matching key.",
+        "Settings distinguishes browser transport and configured cookie/proxy policy, reports actual SQLite WAL and private storage ownership, creates new databases privately and preserves existing permissions for explicit review.",
+        "Installation and advanced Compose files are explicitly marked templates with required setup-secret/storage/provider inputs. A source-version migration guide distinguishes pulling from pin changes, Compose recreation and data migration; documents matching Tuniku/observer bundles, schema3\u21924 review and backup-based rollback; and identifies Unreleased source behavior separately from the pinned published image."
       ],
       "security_critical": true
     },
@@ -49,7 +55,7 @@
         "The primary ZimaOS deployment contains the Tuniku application and a narrowly allow-listed internal Docker observer helper, but no Gluetun service, provider field, or VPN credential field.",
         "After administrator creation, the empty state offers both generation of a new Gluetun Compose proposal and connection to an existing Gluetun Control Server.",
         "The new-configuration proposal is a separate Gluetun-only add-on that joins the existing external tuniku network and cannot duplicate Tuniku or host port 65001.",
-        "Compose generation is authenticated and generation-only; the Tuniku application does not mount the Docker socket, modify host Compose files, or claim that runtime Control Server routes can apply startup provider settings.",
+        "Compose generation is authenticated and remains available independently of the optional manager; the Tuniku application does not mount the Docker socket or modify host Compose files. Startup settings use a separate confirmed recreation operation when the manager is explicitly enabled.",
         "Preconfigured deployments and existing Gluetun connections remain compatible, and Tuniku health never depends on Gluetun health."
       ],
       "security_critical": true
@@ -63,10 +69,35 @@
         "The assistant guides operators through provider- and protocol-specific required connection fields, supported provider options, server filters, and Control Server authentication, with server-side validation of the same constraints.",
         "Server filters use searchable values derived from the official qdm12/gluetun-servers data, retain a bundled offline snapshot, and can be refreshed without starting a production Gluetun container.",
         "Generated Gluetun services use qmcgaw/gluetun:latest, a Docker-managed /gluetun volume, no network_mode override, and syntactically validated Compose.",
-        "Generated Compose uses direct scalar values and has no dependency on an env file; an env artifact remains an optional convenience export.",
+        "Generated Compose uses direct scalar values by default; an explicitly selected new-setup env package references the emitted gluetun.optional.env file as its single environment source.",
+        "WireGuard keys and CIDRs, custom endpoint IPs, Compose port bounds and compatible server-filter combinations are validated before output, independently of secret redaction; syntax checks do not claim a working VPN handshake.",
+        "Changing generator inputs clears previous results and ignores responses for older inputs. Testing an unsaved Control Server configuration never overwrites the saved connection or credentials.",
         "Sensitive values are redacted by default and appear in generated output only after an explicit per-generation opt-in; drafts, logs, audits, and inspected input remain redacted, and the browser removes a secret-bearing result after 15 minutes.",
         "For an already running Tuniku installation, the primary generated artifact contains only Gluetun and joins the existing external Docker network named tuniku instead of duplicating Tuniku or host port 65001.",
-        "The assistant and generated result do not create page-level horizontal overflow at supported compact, medium, expanded, wide, or 200 percent zoom layouts; code can scroll inside its own region."
+        "The assistant and generated result do not create page-level horizontal overflow at supported compact, medium, expanded, wide, or 200 percent zoom layouts; code can scroll inside its own region.",
+        "OpenVPN client certificate syntax and its association with an unencrypted private key are checked before generating redacted or secret-bearing output; structural validation never claims provider trust or a successful VPN handshake.",
+        "Reviewed browser-local WireGuard import is bounded, rejects unsupported directives and partial routing, clears the pasted source after success, and never persists raw configuration; DNS handling is explicit.",
+        "IVPN and Windscribe WireGuard endpoint ports follow their documented supported choices, and IVPN account-ID OpenVPN authentication remains compatible.",
+        "Port conflict checks account for published ranges, bind addresses and TCP versus UDP; unresolved interpolation requires operator review.",
+        "Results distinguish complete add-on Compose, partial merge fragments and non-deployable review copies; port setup is reachable after new setup with retained Compose context and explicit TCP/UDP selection.",
+        "Authenticated saved-draft summaries are paged in groups of fifty without loading cached output; opening restores supported redacted settings and legacy scalar port representations, clears credentials/source/secret opt-in, requires review, and never changes the current connection or Docker.",
+        "Saving an edited draft creates a new redacted record with an operator-provided title; unsupported or unreadable legacy records remain intact and show a persistent actionable error.",
+        "Assistant inputs remain in tab memory across internal navigation, without browser storage persistence. Replacing edited inputs requires confirmation, browser-supported unload warns, and sign-out explains that unsaved inputs are discarded.",
+        "Generator and connection validation errors remain visible with corrective next steps; supported field errors expose aria-invalid and associated descriptions, and correcting one field preserves unrelated errors.",
+        "Manual and idle-expiry cleanup remove sensitive assistant input, source, output and consent while preserving non-secret settings; pending generation responses cannot restore cleared output.",
+        "Every generation distinguishes YAML, provider and bounded Compose structure checks from unexecuted Compose CLI and runtime checks. Existing env_file/environment/interpolation combinations remain unresolved until local deployment review; ambiguous duplicate environment entries and invalid structures/references are identified without host-file access or secret reflection.",
+        "A guided Set up VPN, Connect application and Verify flow retains tab progress, reopens safe draft tasks for review, preserves expert tasks and distinguishes prepared configuration from current observed deployment state. Verification excludes stale/old/failed or mismatched observations and never infers application routing or leak prevention.",
+        "Validated new-setup Control Server URL/authentication inputs transfer only after explicit review, without transferring VPN credentials or automatically testing/saving. Encrypted storage defaults off; transferred form secrets clear on Settings close or within15minutes, stale test responses are ignored, and previously saved server credentials remain intact.",
+        "Server suggestions preserve catalog relationships and cascade from geography to narrower server selections. A changed broader filter clears narrower selections and their errors with an announced notice, preserves credentials/category/ISP preferences, and retains unchanged values; contradictory combinations are still rejected server-side.",
+        "Application-port proposals check fresh associated Gluetun Docker port configuration by address/protocol/target when available, reject known conflicts, and explicitly distinguish unavailable/partial scope from host-listener availability. Local notes compare normalized addresses/protocols while remaining documentation only.",
+        "Port overview provides explicit refresh and reviewed publication handoff without generating, saving or applying automatically; TCP web URL previews support HTTP/HTTPS and IPv6, require operator host review and block same-hostname direct opening to prevent cross-port session-cookie disclosure.",
+        "Offer explicit supported location filters or any location, preserving credentials and orthogonal preferences; proposals clearly require review of existing modern/legacy Compose and env filters, and reported IP geolocation is not presented as proof of VPN server location.",
+        "Track provider-rule documentation review independently from server-catalog freshness using immutable official source revisions, document/rule hashes and scoped review dates; schema edits invalidate review claims and refreshing server data never advances those claims.",
+        "Server-data refresh binds provider bytes to an immutable official repository revision and retains retrieval time and SHA256 separately from the upstream data timestamp. Legacy cache provenance is explicitly unknown, failed refreshes preserve the previous cache, and the Assistant states that full running-Gluetun catalog comparison is unavailable through the documented Control Server API.",
+        "Optional new-stack service, container, project and physical external network names retain defaults and are used consistently in fragments, env packages and reviewed connection handoff. Existing Gluetun targets are detected from valid pasted context, ambiguous or mismatched explicit targets require field correction, exact existing application names remain intact and bounded management cannot be retargeted by manual names.",
+        "Manual routing distinguishes same-project service namespace references from explicitly selected separate-project container references. Separate-project output contains only the application, emits a separate VPN port fragment and requires coordinated startup/recreation review without applying migrations.",
+        "Volume target and env-file syntax checks detect invalid paths, duplicate targets and unsupported source mappings while explicitly leaving host existence, symlinks, permissions and interpolation for deployment review. A bounded complete-file migration review reports changed protected storage, identity, labels and network fields without exposing configuration values or applying changes.",
+        "Setup/export, existing Control Server connection and managed stacks have separate main choices; secondary tasks/drafts are collapsed and same/separate-project routing instructions match their artifacts."
       ],
       "security_critical": true
     },
@@ -81,7 +112,17 @@
         "Published Gluetun Docker ports are detected through the same helper, and a missing helper gives actionable full-Compose redeployment guidance instead of exposing a resolver error.",
         "VPN-provider port forwarding and Docker-published ports are labeled separately, port inspection falls back to configured Docker bindings for stopped containers, and detection refreshes without signing in again.",
         "The Ports page presents VPN-provider forwarding, read-only Docker-published mappings, and editable local documentation as separate sections; local notes explicitly state that they do not change runtime configuration.",
-        "The Tuniku application never mounts the Docker socket, the observer has no externally published port, and no Docker mutation route is exposed."
+        "The Tuniku application never mounts the Docker socket, and the observer has no externally published port or Docker mutation route. Optional mutations are isolated in the separately authenticated manager.",
+        "Observer liveness and Docker readiness are separate bounded endpoints; missing sockets and socket permission failures produce actionable messages without depending on VPN health.",
+        "Multiple equally eligible Gluetun containers produce an actionable ambiguity error before inspect, logs or stats; explicit observer-role labels select a unique target.",
+        "Every resolved direct Control API address and its port must match selected Docker metadata before attributing published ports or traffic; unsupported proxies and wildcard host mappings remain explicitly unverified.",
+        "Overview exposes Docker state, health, exit code, restart count and last error with a direct focused route to diagnostics; API reachability and VPN-process state remain separate.",
+        "Manual bounded log windows support past time ranges, local filtering and redacted export; failed refreshes retain marked stale data and disable export. Background Overview refreshes do not read logs.",
+        "Refresh failures retain visibly stale last-known data per source, show initial errors persistently and preserve independent successful results.",
+        "Authenticated metadata and port reads share a bounded ten-second server cache and in-flight observations; explicit refresh bypasses completed entries, connection/control/managed-change invalidation rejects old in-flight results, logs remain manual and uncached, and observed timestamps reflect collection rather than cache retrieval.",
+        "Read-only Docker diagnostics classify temporary, missing, partial and declared Gluetun data mounts without exposing host paths; unknown metadata remains unverified. Existing-data migration requires a concrete approved backup/diff plan and is not performed automatically.",
+        "Manual port notes validate raw IPv4/IPv6 addresses server-side, retain associated correction errors, and display/copy IPv6 host mappings with brackets for both TCP and UDP.",
+        "Keep the diagnostic helper on an internal network shared with independently starting Tuniku, without a host port or socket mount in the application; shell-free health commands and generated add-on network membership are regression-tested, and older Compose network migration preserves data with owner-reviewed incompatible changes."
       ],
       "security_critical": true
     },
@@ -94,7 +135,12 @@
         "Counters come from a fixed read-only Docker Stats operation and do not record destinations, URLs, DNS queries, packet contents, or credentials.",
         "Counter resets and Gluetun container replacements do not create false deltas, daily aggregates persist across Tuniku restarts, and traffic polling never affects Tuniku or Gluetun availability.",
         "When counters cannot be sampled, the Overview reports an actionable observer, container-state, or Docker-stats reason instead of silently showing an unavailable value.",
-        "The interface and documentation state that shared-network services are aggregated and cannot be reliably separated per application."
+        "The interface and documentation state that shared-network services are aggregated and cannot be reliably separated per application.",
+        "Traffic samples require a verified current API/Docker association and full container identity; endpoint changes prevent attribution of previous samples. Observer-wide totals remain hidden until a matching current sample.",
+        "Labels identify all-interface Docker network counters as container traffic, not VPN payload or provider usage; missing or invalid counters are rejected.",
+        "Live interval rates require two same-container samples within 30 seconds; baseline, reset, gap and restart quality are explicit and do not present averages as current speed.",
+        "Positive interval deltas use documented time-proportional estimates across local midnight, including actual DST day duration, and retain today plus 89 preceding local days without redistributing existing history.",
+        "The authenticated traffic response includes at most 90 recorded local-day aggregates with the server time zone. The Overview provides a keyboard-accessible daily history, omits unrecorded days rather than inventing zero usage, and explains estimates, retention and shared historical scope."
       ],
       "security_critical": true
     },
@@ -106,7 +152,10 @@
         "All user-facing interface text is English.",
         "The app uses ishiku semantic tokens, shared layout contracts, responsive behavior, and WCAG 2.2 AA interaction.",
         "The wide Overview gives long IP, port, and traffic values sufficient card width and displays optional country, region, and city metadata returned by Gluetun without calling another geolocation service.",
-        "Browser, PWA, launcher, catalog, and in-app consumers use the approved Tuniku icon family."
+        "Browser, PWA, launcher, catalog, and in-app consumers use the approved Tuniku icon family.",
+        "PWA caches only a bounded static shell in secure contexts, never API responses, and documents its online-only authentication and management limits; activation preserves other applications caches.",
+        "Background Overview refreshes API status and stored traffic every ten seconds but Docker metadata and ports no more often than thirty seconds; manual refresh requests fresh metadata.",
+        "Browser API requests have a 45-second end-to-end timeout, support caller abort, never automatically replay mutations, and discard superseded Overview/session/connection results. Server search keeps its 250ms debounce and aborts older suggestions."
       ],
       "security_critical": false
     },
@@ -117,7 +166,8 @@
       "acceptance": [
         "A fresh clone can build, test, and run without the outer workspace.",
         "Health checks, persistent data, runtime secrets, backup, restore, and upgrade procedures are verifiable.",
-        "The primary ZimaOS Compose uses direct scalar values, the standard application metadata, and persistent host paths while publishing assigned host port 65001 to container port 8080."
+        "The primary ZimaOS Compose uses direct scalar values, the standard application metadata, and persistent host paths while publishing assigned host port 65001 to container port 8080.",
+        "All schema DDL and version changes are atomic; failed construction closes SQLite and newer unknown schemas are refused before mutation."
       ],
       "security_critical": true
     },
@@ -128,7 +178,42 @@
       "acceptance": [
         "Pull requests and releases use clone-local verification scripts.",
         "Released images are immutable, scanned, SBOM-equipped, provenance-attested, and rollback-documented.",
-        "GHCR latest promotion is gated on full verification of the same commit."
+        "GHCR latest promotion is gated on full verification of the same commit.",
+        "Main and stable releases retain latest eligibility but share a registry writer lock, use distinct event candidates and promote the checked digest only after matching architecture source labels and ancestry; older sources do not replace newer latest and version tags remain immutable.",
+        "Publishing resolves the exact amd64 and arm64 child manifest digests, requires matching image architecture/source and successful bounded lifecycle tests for each, then scans each child digest for HIGH/CRITICAL vulnerabilities before promotion. Index, source and runtime identities remain in the release evidence."
+      ],
+      "security_critical": true
+    },
+    {
+      "id": "MGMT-001",
+      "title": "Optional confirmed VPN stack management",
+      "priority": "critical",
+      "acceptance": [
+        "The optional internal helper requires a persistent private key, explicit Compose project and data-root allowlists, and authenticated CSRF-protected application requests. Export-only operation remains available when it is disabled.",
+        "Adoption requires confirmation and includes every existing routed application in the same approved project. Cross-project migration, privileged workloads and static network addresses require separate review.",
+        "A secret-free expiring preview precedes confirmed provider, VPN credential, server-selection and published-port changes. Configuration or running-state drift and replay prevent mutations.",
+        "Recreation pins existing image identities, retains named and anonymous volumes, preserves Control Server settings, waits for VPN health before starting applications, and attaches them to the new VPN namespace.",
+        "Encrypted atomic journals retain recovery information. Failed rollback leaves applications stopped; interrupted operations lock the project and never replay automatically.",
+        "New deployments, moving existing applications between projects, image updates and automated recovery remain outside this initial profile and are not advertised as implemented.",
+        "Changed published ports are checked against other Docker bindings during preview and again before mutation; non-Docker listeners and concurrent allocation remain Docker runtime checks.",
+        "Read-only diagnostics inspect only adopted IDs in currently approved projects and isolate missing, changed-owner and outdated namespace states without Docker mutations or secret-bearing configuration output.",
+        "Read-only candidate inventory maps actual VPN namespace references only within allowed projects, marks unknown and other networks, excludes recovery copies from adoption, and preselects known related applications only for explicit ownership review. Cross-project dependencies remain visible and block same-project adoption; the server retains final scope and namespace validation.",
+        "Encrypted adoption and successful-apply references allow read-only comparison of actual configured Docker state, separately from process health and saved drafts. Missing legacy references, out-of-scope/missing containers and stale observations remain unverified; no environment values or baseline snapshots reach status or diagnostics responses. Successful operations refresh the selected stack inspection; incomplete operations block new previews and never replay automatically.",
+        "Managed patches preserve omitted provider settings, expose explicit removals and target individual port bindings. Server selection cannot change provider/protocol; the complete final configuration is validated.",
+        "Always-restart originals and ambiguous mounted WireGuard sources block unsafe managed edits. Missing dependency metadata fails closed within existing access bounds; explicit host/domain names and stable VPN roles survive recreation.",
+        "Expired unreferenced plans can be pruned; confirmed stopped-original cleanup protects volumes and active identities. Original-only manual recovery completion uses fresh checks and an opaque expiring review token without Docker writes or replay.",
+        "Observed non-secret settings prefill selected stacks. Complete Host Compose review exports preserve unrelated fields and never expose stored credentials or imply deployment readiness."
+      ],
+      "security_critical": true
+    },
+    {
+      "id": "RETENTION-001",
+      "title": "Bounded local history and confirmed draft deletion",
+      "priority": "high",
+      "acceptance": [
+        "Audit events are automatically limited to 90 days and the newest 10000 entries on startup, insertion and maintenance. Existing session deadlines and bounded fail-closed rate limiters remain enforced.",
+        "Drafts are never automatically deleted. New saves are atomically refused above 1000 records or 25 MiB of serialized input/output UTF-8 bytes; existing over-limit drafts remain accessible.",
+        "Single and bulk draft deletion require explicit UI confirmation, authenticated CSRF-protected requests, and atomic secret-free audit; cancellation and audit failures preserve records."
       ],
       "security_critical": true
     }

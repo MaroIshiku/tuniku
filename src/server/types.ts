@@ -69,6 +69,9 @@ export interface TrafficCounterSnapshot {
 export interface TrafficSummary {
   available: boolean;
   source: "docker_stats";
+  sampleQuality?: "unknown" | "baseline" | "continuous" | "gap" | "reset";
+  sampleIntervalSeconds?: number | null;
+  history?: { timeZone: string; days: Array<{ day: string; downloadedBytes: number; uploadedBytes: number }> };
   observedAt: string | null;
   downloadBytesPerSecond: number;
   uploadBytesPerSecond: number;

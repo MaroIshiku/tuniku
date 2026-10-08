@@ -1,0 +1,304 @@
+{
+  "schemaVersion": 1,
+  "providers": {
+    "airvpn": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/airvpn.md",
+      "sourceSha256": "0f9a8afc8dba48d805fce467876e56298699ef2773abc42381a0f25cd460f190",
+      "rulesSha256": "bf4903961d2de3e43a1372244dff42e049fc00f98a806efd9c30177690fbec12",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "cyberghost": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/cyberghost.md",
+      "sourceSha256": "9091009251fcfa61043bae9d310eeda58db889b58679308db67fc03ca7fe3795",
+      "rulesSha256": "0ca9b649b29454d2bd86fd93ae2ac437d46bdb1c61c33b34f7a9e99490e19ae5",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "expressvpn": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/expressvpn.md",
+      "sourceSha256": "cfc9d51bee26f227a672f0042360421a76568c91d7e358a754b78a4ef159a69b",
+      "rulesSha256": "d8348ff06e6b35f2005321f8523d2474e2446fbf0bfc7599cbe1e6d7a8a5330c",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "fastestvpn": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/fastestvpn.md",
+      "sourceSha256": "ddbc314928247d4c44f507189ddb2d3cffd266ab4f0a4e06c28920eebd2204ce",
+      "rulesSha256": "a79a39fe7f57218f85a8acfc5a669153e7da4883095744697085c0b908545951",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "giganews": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/giganews.md",
+      "sourceSha256": "60dfc2b681977c60e0ca43f7d50e953ab869b53983681eaeb42cab00b7a7f06a",
+      "rulesSha256": "2b6dc69fffac478e9851aa0a4a28303eb4a51dbfc9d98795b5b885517dae4710",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "hidemyass": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/hidemyass.md",
+      "sourceSha256": "efbd36e8b677215342958f48a0f113b62cc2a630f5aac4dee1862859b8eacb3c",
+      "rulesSha256": "7fd33e3bbe0d9219afa20f0b4926ee60132cafc5e02da6cd7d476320c59879c8",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "ipvanish": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/ipvanish.md",
+      "sourceSha256": "f3a1cb939bea30b57e0af87b376d7d722e9e4d587532b3ec2e0bc29625cc7047",
+      "rulesSha256": "704ade1af0e5caaf8022e969c8db376f2395e438be08f8582e2e765ef8ca02f1",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "ivpn": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/ivpn.md",
+      "sourceSha256": "6dc3fae8f40614d35a1963cc8fa6c083cdeabb5aa942285651ffa5a6d89f244d",
+      "rulesSha256": "c562072678fa9256671f9c84abc4763bedae55d3ba5c894966ccf3625c327dc8",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "mullvad": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/mullvad.md",
+      "sourceSha256": "ee18e4e31a1db99a788c21f9ceb63198dab982e61a4b0df27d2b33e5b0d9c974",
+      "rulesSha256": "2fb2da051f2792ff4c8b1338a33605e513f943f7f37bb94d278e69ed3944d786",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "nordvpn": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/nordvpn.md",
+      "sourceSha256": "36224f225b6c58165174d7c00af260af259d706e054f0d1886d94453b95b4ad5",
+      "rulesSha256": "3ac2107b4a92f65d391d005ee7256053b8542ca597df56c414e61faa86f22e7d",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "privado": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/privado.md",
+      "sourceSha256": "258f71fe3766321a71e160778c8efbc21e91e0eec75e45952fdaaf25faff71f4",
+      "rulesSha256": "5789abc5ffd146f5a246edded47e19074e8843a480a1768bed4c5a64b1b9fa7a",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "private internet access": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/private-internet-access.md",
+      "sourceSha256": "1576af0385c51ef52522b57f3eb0a58634fd11d22f0d60bb8c9148103c52af14",
+      "rulesSha256": "ba994fdd8092bfaf019ed4c3e20959dc5b164f6163aa38877576e5a50d8e7e37",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "privatevpn": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/privatevpn.md",
+      "sourceSha256": "0c10c0723b1421fc06fc6bb678a633fb278d6a6b50ce5f6619bd2859d05bfcb7",
+      "rulesSha256": "b0c3ef664d98bc9998ec6174b125b9b8391c5cbcc51af9bb84f6001723050068",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "protonvpn": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/protonvpn.md",
+      "sourceSha256": "4eb5630ff44501a9b652811b8092ef90066d375b3599b6672a21d3ed7251a06d",
+      "rulesSha256": "8c5c8b67ce67af2142cddc006a2100744f097f17481c51bdf98cd980ac305ada",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "purevpn": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/purevpn.md",
+      "sourceSha256": "2cf9d43da6d066fc5ca2828c87e0322598ec462c228ebf86c7b90a100dfefb2f",
+      "rulesSha256": "be7be66cbe4c40bed4212d513eb13bca4cb70ac627b47124436d156785fb1623",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "slickvpn": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/slickvpn.md",
+      "sourceSha256": "58b9580c44889981b127ef82a8594d1bb5acb2cd6f4eabaaecc3b41a8c6a1eed",
+      "rulesSha256": "056509689e37c8185b1dab653f35ace7e656c308900cccdc2ae7916d90461a45",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "surfshark": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/surfshark.md",
+      "sourceSha256": "f07e5a26b12ae24107c95af5c0d7c832557e2d1531dc5db40ba3fd3c746b5baf",
+      "rulesSha256": "b66efc55cb24f387b6ef3b037ef64784f554e9151bbeddc524e81b4c784e1d73",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "torguard": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/torguard.md",
+      "sourceSha256": "3879c4d21a0a802454c245cb8f2a114a448e9a531198e223e6e62d631f8f1e3c",
+      "rulesSha256": "89821b7115454ae1160d0772f4229a5cfc769e8a3571846c8835049fe4aa73f6",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "vpnsecure": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/vpn-secure.md",
+      "sourceSha256": "c981c832277ff853fe15fb0fbdd48637dbdfeb59f6d462e3d907582cf58f5a85",
+      "rulesSha256": "bf1814842b8d820aacf816f7dcc9f3b2963c7e568eab582e81b497af2573db23",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "vpn unlimited": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/vpn-unlimited.md",
+      "sourceSha256": "3d024e94808f6ee1e7044f81c1ea782f728f90bae6d3c75c306cae8373bebc1e",
+      "rulesSha256": "2528abee7c3614e785ca03d5a652484b178c11b4c4887da0f16318be46525522",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "vyprvpn": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/vyprvpn.md",
+      "sourceSha256": "21a1ed3a032d721572824efd3cbebddbfc9fbfd315513100edaaa7e99b0e9133",
+      "rulesSha256": "2210a8cf691795e59e39cd7ef216d50b9de46644fc7912188c51bf8e31bdda49",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "windscribe": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/windscribe.md",
+      "sourceSha256": "82f05926ffbdd3978cf53c7e55863359ec7efc71841584cfb2d13a1a648f951d",
+      "rulesSha256": "8bf9508ade39a19b93a02d6ed17584df6cad33b749a3d8baee4f590f693e9efc",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    },
+    "custom": {
+      "reviewedAt": "2026-10-07",
+      "sourceRevision": "888ab89a61433de6561bf60e5af52d99374f48b1",
+      "sourceUrl": "https://raw.githubusercontent.com/qdm12/gluetun-wiki/888ab89a61433de6561bf60e5af52d99374f48b1/setup/providers/custom.md",
+      "sourceSha256": "96b9a700e8634c3607cdd7ba7c22b25ca5590183056ee3c88335a4ea8ac5968f",
+      "rulesSha256": "351e132081701706ec7e04b7e1f41cf0436e6c1c6a387232b0d351e483610c07",
+      "scope": [
+        "documented_variables",
+        "advertised_protocols",
+        "credential_requirements"
+      ],
+      "runtimeValidated": false
+    }
+  }
+}

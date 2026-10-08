@@ -10,7 +10,8 @@ import type {
   UpstreamCredential,
   VpnStatus
 } from "../types.js";
-import { redactValue, validateUpstreamUrl } from "../security.js";
+import { redactValue, safeLookup, validateUpstreamUrl } from "../security.js";
+import { readBoundedBody } from "../http.js";
 
 const READ_ROUTES = {
   vpn: "/v1/vpn/status",
@@ -77,7 +78,7 @@ function publicIpPayload(value: unknown): PublicIpStatus {
 }
 
 function portForwardPayload(value: unknown): PortForwardStatus {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== "object" || Array.isArray(value) || (!("port" in value) && !("ports" in value))) {
     throw new GluetunError("invalid_schema", "Gluetun returned an unrecognized port-forwarding response.");
   }
   const single = (value as any).port;
@@ -119,7 +120,7 @@ export class GluetunAdapter {
     private readonly credential: UpstreamCredential | null,
     private readonly allowLoopback: boolean
   ) {
-    this.dispatcher = new Agent({ connect: { rejectUnauthorized: instance.tlsVerify } });
+    this.dispatcher = new Agent({ connect: { rejectUnauthorized: instance.tlsVerify, lookup: safeLookup(allowLoopback) } });
   }
 
   close(): void {
@@ -144,12 +145,13 @@ export class GluetunAdapter {
   }
 
   private async request(path: string, method: "GET" | "PUT" = "GET", body?: unknown): Promise<unknown> {
-    await this.validateOrigin();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.instance.requestTimeoutSeconds * 1000);
     try {
+      await this.validateOrigin();
       const response = await fetch(`${this.instance.baseUrl}${path}`, {
         method,
+        redirect: "error",
         headers: {
           ...this.headers(),
           ...(body === undefined ? {} : { "content-type": "application/json" })
@@ -158,14 +160,14 @@ export class GluetunAdapter {
         signal: controller.signal,
         dispatcher: this.dispatcher
       });
-      if (response.status === 401) throw new GluetunError("unauthorized", "Gluetun rejected the configured authentication.", 401);
-      if (response.status === 403) throw new GluetunError("forbidden", "The Gluetun role does not permit this route.", 403);
+      if (!response.ok) await response.body?.cancel();
+      if (response.status === 401) throw new GluetunError("unauthorized", "Gluetun rejected the configured authentication.");
+      if (response.status === 403) throw new GluetunError("forbidden", "The Gluetun role does not permit this route.");
       if (response.status === 404 || response.status === 405) {
         throw new GluetunError("unsupported", "This route is not supported by the connected Gluetun version.", 404);
       }
       if (!response.ok) throw new GluetunError("upstream_error", `Gluetun returned HTTP ${response.status}.`);
-      const text = await response.text();
-      if (text.length > 1_048_576) throw new GluetunError("invalid_schema", "Gluetun returned an unexpectedly large response.");
+      const text = (await readBoundedBody(response, 1_048_576)).toString("utf8");
       try {
         return text ? JSON.parse(text) : {};
       } catch {
@@ -174,7 +176,7 @@ export class GluetunAdapter {
     } catch (error: any) {
       if (error instanceof GluetunError) throw error;
       if (error?.name === "AbortError") throw new GluetunError("timeout", "The Gluetun request timed out.", 504);
-      const message = String(error?.message || error);
+      const message = `${String(error?.message || error)} ${String(error?.cause?.message || "")}`;
       if (/certificate|self[- ]signed|tls/i.test(message)) {
         throw new GluetunError("tls", "TLS certificate verification failed. Verify the certificate before considering a bypass.");
       }
@@ -219,54 +221,29 @@ export class GluetunAdapter {
 
   async overview(previous: OverviewSnapshot | null = null): Promise<OverviewSnapshot> {
     const timestamp = new Date().toISOString();
-    const capabilities = await this.probe();
-    const value = async <T>(name: CapabilityName): Promise<T | null> => {
-      if (capabilities[name].state !== "available") return null;
-      return await this.read(name) as T;
-    };
-    try {
-      const [vpn, publicIp, dns, updater, portForwarding, settings] = await Promise.all([
-        value<VpnStatus>("vpn"),
-        value<PublicIpStatus>("publicIp"),
-        value<VpnStatus>("dns"),
-        value<VpnStatus>("updater"),
-        value<PortForwardStatus>("portForwarding"),
-        value<Record<string, unknown>>("vpnSettings")
-      ]);
+    // Each endpoint is read once: a failed optional endpoint must not discard
+    // successful state or trigger a second round of requests.
+    const results = await Promise.all((Object.keys(READ_ROUTES) as CapabilityName[]).map(async (name) => {
+      try { return { name, value: await this.read(name), capability: { state: "available" } as CapabilityResult }; }
+      catch (error) { return { name, value: null, capability: capabilityFromError(error) }; }
+    }));
+    const capabilities = Object.fromEntries(results.map((result) => [result.name, result.capability])) as CapabilityMap;
+    const values = Object.fromEntries(results.map((result) => [result.name, result.value]));
       const connected = Object.values(capabilities).some((state) => state.state === "available");
       return {
         instanceId: this.instance.id,
         connected,
-        stale: false,
-        lastUpdatedAt: timestamp,
+        stale: !connected,
+        lastUpdatedAt: !connected && previous ? previous.lastUpdatedAt : timestamp,
         error: connected ? null : { code: "gluetun_unreachable", message: "No supported Gluetun route was reachable." },
-        vpn,
-        publicIp,
-        dns,
-        updater,
-        portForwarding,
-        settings,
+        vpn: values.vpn as VpnStatus | null,
+        publicIp: values.publicIp as PublicIpStatus | null,
+        dns: values.dns as VpnStatus | null,
+        updater: values.updater as VpnStatus | null,
+        portForwarding: values.portForwarding as PortForwardStatus | null,
+        settings: values.vpnSettings as Record<string, unknown> | null,
         capabilities
       };
-    } catch (error) {
-      const known = error instanceof GluetunError ? error : new GluetunError("unreachable", "Unexpected upstream error.");
-      return {
-        ...(previous ?? {
-          instanceId: this.instance.id,
-          vpn: null,
-          publicIp: null,
-          dns: null,
-          updater: null,
-          portForwarding: null,
-          settings: null
-        }),
-        connected: false,
-        stale: true,
-        lastUpdatedAt: previous?.lastUpdatedAt ?? timestamp,
-        error: { code: known.code, message: known.message },
-        capabilities
-      };
-    }
   }
 
   async mutate(operation: MutationName, payload: unknown): Promise<unknown> {

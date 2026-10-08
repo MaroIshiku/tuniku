@@ -1,0 +1,16 @@
+{
+  "id": "DEC-MANAGED-REVIEW-002",
+  "date": "2026-10-08",
+  "authorization": "Owner requested every newly recorded REV-001\u2026014 item to be implemented without follow-up questions, and separately requested subsequent GitHub/latest publication subject to existing gates.",
+  "decision": "Add only owner-confirmed original-container manual recovery completion and narrow stopped-original cleanup; automatic crash recovery remains excluded.",
+  "risk_class": "D",
+  "constraints": [
+    "No live test installation mutation is authorized; NAS/VPN tests remain with the owner.",
+    "No new authentication profile, security waiver, arbitrary Docker operation, host file edit, cross-project migration, image update, new stack or application adoption path.",
+    "Manual recovery completion rechecks exact original snapshots and missing replacements, uses expiring opaque review tokens, confirmation, CSRF and audit; no Docker writes.",
+    "Cleanup is offered only after successful managed changes, rechecks stopped retained originals, removes clients first with force=false and v=false, and protects active IDs, volumes and journals. Interrupted cleanup locks changes.",
+    "Compose reconciliation exports a complete preserved review document with no stored credential values and deploymentReady=false; the owner maintains Host Compose/Env.",
+    "Publication authorization does not waive existing failed upstream or traceability gates."
+  ],
+  "rollback": "Disable optional manager; retain encrypted state and keys. Revert new code without deleting original records, volumes or unrelated user changes."
+}

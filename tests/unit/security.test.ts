@@ -1,11 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   decryptCredential,
   encryptCredential,
   redactText,
   redactValue,
+  SlidingWindowRateLimiter,
   validateAdminInput
 } from "../../src/server/security.js";
+
+it("bounds rate-limit keys without resetting blocked budgets and reclaims expired keys", () => {
+  vi.useFakeTimers();
+  try {
+    const limiter = new SlidingWindowRateLimiter(1, 1000, 2);
+    expect(limiter.consume("first")).toBe(true);
+    expect(limiter.consume("second")).toBe(true);
+    expect(limiter.consume("third")).toBe(false);
+    expect(limiter.consume("first")).toBe(false);
+    vi.advanceTimersByTime(1000);
+    expect(limiter.consume("third")).toBe(true);
+    expect(limiter.consume("first")).toBe(true);
+  } finally { vi.useRealTimers(); }
+});
 
 describe("secret handling", () => {
   it("redacts sensitive object keys and environment text", () => {

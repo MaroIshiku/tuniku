@@ -68,6 +68,9 @@ describe("authenticated Gluetun flow", () => {
       }
     });
     expect(registration.statusCode).toBe(200);
+    expect(registration.headers["cache-control"]).toBe("no-store");
+    expect(registration.headers["content-security-policy"]).not.toContain("upgrade-insecure-requests");
+    expect(registration.headers["strict-transport-security"]).toBeUndefined();
     const cookie = registration.headers["set-cookie"] as string;
     const csrf = registration.json().csrfToken as string;
     const instanceId = "11111111-1111-4111-8111-111111111111";
@@ -88,6 +91,11 @@ describe("authenticated Gluetun flow", () => {
       }
     });
     expect(saved.statusCode).toBe(200);
+    const malformedRegistration = await app.inject({ method: "POST", url: "/api/v1/auth/login", payload: { username: [] } });
+    expect(malformedRegistration.statusCode).toBe(400);
+    const malformedJson = await app.inject({ method: "POST", url: "/api/v1/auth/login", headers: { "content-type": "application/json" }, payload: '{"password":"synthetic-parser-secret",broken' });
+    expect(malformedJson.statusCode).toBe(400);
+    expect(malformedJson.body).not.toContain("synthetic-parser-secret");
 
     const tested = await app.inject({
       method: "POST",
