@@ -112,7 +112,7 @@
     },
     {
       "path": ".github/workflows/ishiku-pull-request-verify.yml",
-      "sha256": "87e0ea5002f38cc379e04e941dcdeb4a5e041f0d5eaddc906368ad40eb7c7912"
+      "sha256": "f7ab975cc36677783bc9411e897b1b228aa9e7f139ead7c429e16cf87f00ff1d"
     },
     {
       "path": ".github/workflows/ishiku-release-release.yml",
@@ -267,6 +267,13 @@
       "installed_sha256": "adf129cb4d5cb6dd2af2a08af76e9b642c90ce4e8e51c3825f35f4a4269cbe40",
       "reason": "Tuniku-specific adaptation for approved DEC-RELEASE-CHANNEL-001 and mandatory Gluetun HIGH/CRITICAL security gates; preserve full verification, immutable action pins, scanning, SBOM and provenance.",
       "decision": ".ishiku/decisions/main-latest-channel.json"
+    },
+    {
+      "path": ".github/workflows/ishiku-pull-request-verify.yml",
+      "upstream_sha256": "87e0ea5002f38cc379e04e941dcdeb4a5e041f0d5eaddc906368ad40eb7c7912",
+      "installed_sha256": "f7ab975cc36677783bc9411e897b1b228aa9e7f139ead7c429e16cf87f00ff1d",
+      "decision": ".ishiku/decisions/reusable-verification-gate.json",
+      "reason": "Correct reusable workflow input handling: the github context retains the caller event, so event_name=workflow_call must not disable mandatory trace verification."
     }
   ]
 }

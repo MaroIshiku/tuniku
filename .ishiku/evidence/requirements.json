@@ -6,13 +6,13 @@
     {
       "id": "application",
       "command": "npm ci && npm run check",
-      "completedAt": "2026-10-08T08:18:47.789413+00:00",
+      "completedAt": "2026-10-08T09:57:49.471414+00:00",
       "outcome": "PASS",
       "exitCode": 0,
-      "scope": "Independent clone; fresh locked install, lint, typecheck, unit/integration and build",
-      "artifactSha256": "3069b5f861c4ffdbf49007e7c46772b94f15348d6999ab16757fbeaf49b966be",
+      "scope": "Independent clone; fresh locked npm ci, lint, typecheck, 169 unit/integration tests in 49 files and build, including strict reusable release-input regression.",
+      "artifactSha256": "bd33c6a2097d0674883a238b6cf261e2209443cf48f9947c36be93fd5d489786",
       "metrics": {
-        "testsPassed": 168,
+        "testsPassed": 169,
         "testFiles": 49
       }
     },
@@ -280,7 +280,7 @@
         "tests/unit/storage.test.ts": "556ec28285d849ba4809f92e5e5c3d09875e571cfd709b6ea63fde0acc2b4b66",
         "tests/unit/traffic-quality.test.ts": "d99628f1ac624375e144da6297cb3b364593094245d893cc6b1866c9bf3931e5",
         "tests/unit/upstream-discovery.test.ts": "5e8a6440994d82b4b8fd8981e6afe7f2d0111e04bb1cd0f9a57ccbdb283f6f58",
-        "tests/unit/upstream-release-gate.test.ts": "ccb5fc355de72dd4364b5fa0b1482b6ef058cdbdb13f57c345594ff41a325fa5",
+        "tests/unit/upstream-release-gate.test.ts": "e9fe5f609fe92ee5c4ec6f8058d3d87fabff8241e14520bc4f7906800dbe3907",
         "tests/unit/wireguard-import.test.ts": "580102da9de9f02a9fa43dbc4ec0b1f73cf8454715596fcb40bc8a170e53fe92"
       },
       "limitations": [

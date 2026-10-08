@@ -28,3 +28,7 @@ The official `latest` index remains `sha256:2733bb22b27e3efa7a9f2cef9057ec12791b
 A locally built patch candidate updates pcre2 to 10.49-r0 and the Go dependency graph to crypto v0.55.0, net v0.57.0 and text v0.41.0, retaining the upstream source revision and runtime defaults. Both candidate architectures scan with zero HIGH/CRITICAL findings. This is a derivative, not an official upstream release; it has not been integrated or published. Six kernel-dependent upstream tests fail for insufficient network privileges on both the original and patched trees, so this candidate is not claimed fully verified.
 
 Official-image compatibility and future upstream updates remain the recorded deployment choice. An external HIGH finding cannot be fixed by changing Tuniku code or marking evidence verified. The original release gates remain enforced; latest remains unchanged until a clean official image or a separately approved remedy permits the release.
+
+## Reusable verification flag
+
+The GitHub context of a reused workflow belongs to its caller. Checking for `github.event_name == workflow_call` therefore disabled the strict flag for real push/tag/manual callers. An actual disposable GitHub run exposed this. Tuniku now reads `inputs.require_all_verified` directly; release callers still pass true. The regression is tested, and both managed workflow checksums retain the upstream version and the narrow installed correction under DEC-VERIFY-003. This strengthens the existing gate and does not waive requirement or vulnerability evidence.

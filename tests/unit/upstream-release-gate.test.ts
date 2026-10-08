@@ -34,3 +34,14 @@ it("scans both discovered immutable architectures independently and fails on hig
   }
   expect(gate.jobs.discover["continue-on-error"]).toBeUndefined();
 });
+
+
+it("honors the reusable strict flag independently of the caller event", () => {
+  const verify = workflow("ishiku-pull-request-verify");
+  const step = verify.jobs.verify.steps.find((entry: { name?: string }) => entry.name === "Verify independently cloned app");
+  expect(verify.on.workflow_call.inputs.require_all_verified.default).toBe(true);
+  expect(step.env.REQUIRE_ALL_VERIFIED).toBe("${{ inputs.require_all_verified }}");
+  expect(step.env.REQUIRE_ALL_VERIFIED).not.toContain("github.event_name");
+  expect(step.run).toContain('if [ "$REQUIRE_ALL_VERIFIED" = "true" ]');
+  expect(step.run).toContain("node .ishiku/kit/scripts/verify-app . --full\n");
+});
